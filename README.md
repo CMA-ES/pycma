@@ -1,5 +1,5 @@
 # pycma
-A Python implementation of CMA-ES and a few related optimization tools. 
+A Python implementation of CMA-ES and a few related numerical optimization tools. 
 
 ## Installation of the [latest stable version](https://pypi.python.org/pypi/cma)
 Typing
