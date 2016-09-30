@@ -1,6 +1,6 @@
 # pycma
 A Python implementation of CMA-ES and a few related numerical optimization tools. 
-The code will be released soon. 
+The code (v2.0) will be released soon. 
 The API Documentation is available [here](https://www.lri.fr/~hansen/apidocs-cma/). 
 
 ## Installation of the [latest stable version](https://pypi.python.org/pypi/cma)
