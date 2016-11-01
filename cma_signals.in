@@ -1,0 +1,43 @@
+# This file can change versatile options while running CMA-ES. 
+# To take effect, the option 'signals_filename' of cma.CMAOptions must be set
+# to 'cma_signals.in', i.e. the name of this file (by default signals_filename 
+# is `None`). 
+# 
+# To be effective, this file must contain valid Python code, namely 
+# a single Python expression, namely a `dict`. The opening brace
+# must be in the first column. 
+#
+# The below given options list could be outdated.
+# 
+{  # 'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
+   # 'CMA_sample_on_sphere_surface': 'False  #v all mutation vectors have the same length, currently (with new_sampling) not in effect',
+   # 'CSA_dampfac': '1  #v positive multiplier for step-size damping, 0.3 is close to optimal on the sphere',
+   # 'CSA_disregard_length': 'False  #v True is untested',
+   # 'CSA_clip_length_value': 'None  #v untested, [0, 0] means disregarding length completely',
+   # 'CSA_squared': 'False  #v use squared length for sigma-adaptation ',
+   # 'ftarget': '-inf  #v target function value, minimization',
+   # 'is_feasible': 'is_feasible  #v a function that computes feasibility, by default lambda x, f: f not in (None, np.NaN)',
+   # 'maxfevals': 'inf  #v maximum number of function evaluations',
+   # 'maxiter': '100 + 50 * (N+3)**2 // popsize**0.5  #v maximum number of iterations',
+   # 'mean_shift_line_samples': 'False #v sample two new solutions colinear to previous mean shift',
+   # 'mindx': '0  #v minimal std in any arbitrary direction, cave interference with tol*',
+   # 'minstd': '0  #v minimal std (scalar or vector) in any coordinate direction, cave interference with tol*',
+   # 'maxstd': 'inf  #v maximal std in any coordinate direction',
+   # 'pc_line_samples': 'False #v one line sample along the evolution path pc',
+   # 'randn': 'np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N)',
+   # 'termination_callback': 'None  #v a function returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
+ ### 'timeout': '0  #v stop if timeout seconds are exceeded (from start), 0 means STOP NOW',
+   # 'tolfacupx': '1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial step-size was chosen far too small and better solutions were found far away from the initial solution x0',
+   # 'tolupsigma': '1e20  #v sigma/sigma0 > tolupsigma * max(eivenvals(C)**0.5) indicates "creeping behavior" with usually minor improvements',
+   # 'tolfun': '1e-11  #v termination criterion: tolerance in function value, quite useful',
+   # 'tolfunhist': '1e-12  #v termination criterion: tolerance in function value history',
+   # 'tolstagnation': 'int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
+   # 'tolx': '1e-11  #v termination criterion: tolerance in x-changes',
+   # 'updatecovwait': 'None  #v number of iterations without distribution update, name is subject to future changes',  # TODO: rename: iterwaitupdatedistribution?
+   # 'verbose': '3  #v verbosity e.v. of initial/final message, -1 is very quiet, -9 maximally quiet, not yet fully implemented',
+ ### 'verb_disp': '100  #v verbosity: display console output every verb_disp iteration',
+   # 'verb_log': '1  #v verbosity: write data to files every verb_log iteration, writing can be time critical on fast to evaluate functions',
+   # 'verb_plot': '0  #v in fmin(): plot() is called every verb_plot iteration',
+   # 'verb_time': 'True  #v output timings on console',
+}
+
