@@ -10,7 +10,7 @@ visible,
 
     pip install -e cma
 
-will install the package. Moving the folder away from this location would 
+will install the package. Moving the ``cma`` folder away from this location would 
 invalidate the installation.
 
 When the "root" folder is in the visible path of Python (e.g. the current 
@@ -21,6 +21,6 @@ Typing
 ```
   pip install cma
 ```
-in a system shell installs the [most recent release](https://pypi.python.org/pypi/cma)
+in a system shell installs the [most recent _release_](https://pypi.python.org/pypi/cma)
 from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The release link
 also provides a quick start guide.
