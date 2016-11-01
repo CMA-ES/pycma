@@ -3,7 +3,7 @@ A Python implementation of CMA-ES and a few related numerical optimization tools
 
 The API Documentation is available [here](http://cma.gforge.inria.fr/apidocs-pycma).
 
-## Installation of the [latest stable version](https://pypi.python.org/pypi/cma)
+## Installation of the [latest release](https://pypi.python.org/pypi/cma)
 Typing
 ```
   pip install cma
