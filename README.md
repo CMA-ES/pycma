@@ -10,4 +10,4 @@ Typing
 ```
 in a system shell installs the [most recent release](https://pypi.python.org/pypi/cma)
 from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The release link
-also provides a little more comprehensive quick start guide.
+also provides a quick start guide.
