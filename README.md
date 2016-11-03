@@ -13,8 +13,8 @@ folder, where the ``cma`` folder is visible,
 to install the package. Moving the ``cma`` folder away from this location would 
 invalidate the installation.
 
-When the "root" folder is in the visible path of Python (e.g. the current 
-folder) ``import cma`` works without installation. 
+Alternatively, when the ``cma`` folder is moved into a folder visible to Python 
+(e.g. the current folder), ``import cma`` works without any installation. 
 
 ## Installation of the [latest release](https://pypi.python.org/pypi/cma)
 Typing
