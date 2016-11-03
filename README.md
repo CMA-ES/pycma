@@ -5,12 +5,12 @@ The API Documentation is available [here](http://cma.gforge.inria.fr/apidocs-pyc
 
 ## Installation
 
-After downloading the code, typing in the "root" folder, where folder ``cma`` is 
-visible,
+Download and unzip the code (see green button above). Then type in the "root"
+folder, where the ``cma`` folder is visible,
 
     pip install -e cma
 
-will install the package. Moving the ``cma`` folder away from this location would 
+to install the package. Moving the ``cma`` folder away from this location would 
 invalidate the installation.
 
 When the "root" folder is in the visible path of Python (e.g. the current 
