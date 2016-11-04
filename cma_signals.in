@@ -1,13 +1,14 @@
-# This file can change versatile options while running CMA-ES. 
-# To take effect, the option 'signals_filename' of cma.CMAOptions must be set
-# to 'cma_signals.in', i.e. the name of this file (by default signals_filename 
-# is `None`). 
+# This file can change versatile options while running CMA-ES.
+#
+# To take effect, the option 'signals_filename' of the `cma.CMAOptions` 
+# argument to `cma.fmin` or `cma.CMAEvolutionStrategy` must be set to 
+# 'cma_signals.in', i.e. the name of this file (by default it is `None`). 
 # 
 # To be effective, this file must contain valid Python code, namely 
 # a single Python expression, namely a `dict`. The opening brace
 # must be in the first column. 
 #
-# The below given options list could be outdated.
+# Outcomment the desired option to change (the options list could be outdated):
 # 
 {  # 'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
    # 'CMA_sample_on_sphere_surface': 'False  #v all mutation vectors have the same length, currently (with new_sampling) not in effect',
