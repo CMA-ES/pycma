@@ -25,5 +25,5 @@ Typing
   pip install cma
 ```
 in a system shell installs the [most recent _release_](https://pypi.python.org/pypi/cma)
-from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The release link
+from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The [release link](https://pypi.python.org/pypi/cma)
 also provides more installation hints and a quick start guide.
