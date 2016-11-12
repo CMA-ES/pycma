@@ -186,11 +186,11 @@ from numpy import inf, array, sum
 # removes the imported sum and recovers the shadowed build-in
 try:
     from matplotlib import pyplot
-    pyplot.ion()  # prevents that execution stops after plotting
-except:
-    pyplot = None
+except ImportError:
     print('Could not import matplotlib.pyplot, therefore ``cma.plot()``" +'
           ' etc. is not available')
+else:
+    pyplot.ion()  # prevents that the execution stops after plotting
 
 from . import interfaces
 from . import transformations
@@ -490,15 +490,20 @@ class RecombinationWeights(list):
 
         :param `len_`: AKA ``lambda`` is the number of weights, see
             attribute `lambda_` which is an alias for ``len(self)``.
+            Alternatively, a list of "raw" weights can be provided.
 
         """
+        try:
+            weights = len_
+            len_ = len(len_)
+        except TypeError:
+            weights = [math.log((len_ + 1) / 2.) - math.log(i)
+                       for i in range(1, len_ + 1)]  # raw shape
         if len_ < 2:
             raise ValueError("number of weights must be >=2, was %d"
                              % (len_))
         self.debug = False
 
-        weights = [math.log((len_ + 1) / 2.) - math.log(i)
-                   for i in range(1, len_ + 1)]  # raw shape
         # self[:] = weights  # should do, or
         # super(RecombinationWeights, self).__init__(weights)
         list.__init__(self, weights)
@@ -1955,6 +1960,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         for i in rglen((pop_geno)):
             self.sent_solutions.insert(pop_pheno[i], geno=pop_geno[i],
                                        iteration=self.countiter)
+        ### iiinteger handling could come here
         return pop_pheno
 
     # ____________________________________________________________

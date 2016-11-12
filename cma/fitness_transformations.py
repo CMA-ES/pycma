@@ -106,8 +106,8 @@ class ComposedFunction(Function, list):
     A class instance is a list of functions. Calling the instance executes
     the composition of these functions (evaluating from right to left as
     in math notation). Functions can be added to or removed from the list
-    at any time with the obvious effect. In case, the ``list_of_inverses``
-    attribute must be updated respectively.
+    at any time with the obvious effect. To remain consistent (if needed),
+    the ``list_of_inverses`` attribute must be updated respectively.
 
     >>> import numpy as np
     >>> from cma.fitness_transformations import ComposedFunction
@@ -131,9 +131,17 @@ class ComposedFunction(Function, list):
     ...                       BoundTransform([[0], [1]]).transform])
     >>> assert max(f([2, 3]), f([1, 1])) <= ff.elli([1, 1])
 
-    Details: This class can serve as a more transparent alternative to a
-    ``scaling_of_variables`` CMA option or any necessary transformation of
-    the fitness/objective function (genotype-phenotype transformation).
+    Details:
+
+    - This class can serve as basis for a more transparent
+      alternative to a ``scaling_of_variables`` CMA option or for any
+      necessary transformation of the fitness/objective function
+      (genotype-phenotype transformation).
+
+    - The parallelizing call with a list of solutions of the `Function`
+      class is not inherited. The inheritence from `Function` is rather
+      declarative than funtional and could be omitted. 
+
     """
     def __init__(self, list_of_functions, list_of_inverses=None):
         """Caveat: to remain consistent, the ``list_of_inverses`` must be
@@ -143,12 +151,13 @@ class ComposedFunction(Function, list):
         list.__init__(self, list_of_functions)
         Function.__init__(self)
         self.list_of_inverses = list_of_inverses
-    def __call__(self, *args, **kwargs):
-        Function.__call__(self, *args, **kwargs)
-        res = self[-1](*args, **kwargs)
-        for i in range(-2, -len(self) - 1, -1):
-            res = self[i](res)
-        return res
+
+    def __call__(self, x, *args, **kwargs):
+        Function.__call__(self, x, *args, **kwargs)  # for the possible side effects only
+        for i in range(-1, -len(self) - 1, -1):
+            x = self[i](x)
+        return x
+
     def inverse(self, x, *args, **kwargs):
         """evaluate the composition of inverses on ``x``.
 
@@ -157,10 +166,9 @@ class ComposedFunction(Function, list):
         if self.list_of_inverses is None:
             utils.print_warning("inverses were not given")
             return
-        res = self.list_of_inverses[0](x)
-        for i in range(1, len(self.list_of_inverses)):
-            res = self.list_of_inverses[i](res)
-        return res
+        for i in range(len(self.list_of_inverses)):
+            x = self.list_of_inverses[i](x, *args, **kwargs)
+        return x
 
 class GlueArguments(Function):
     """from a `callable` return a `callable` with arguments attached.

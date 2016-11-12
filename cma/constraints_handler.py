@@ -242,10 +242,11 @@ class BoundPenalty(BoundaryHandlerBase):
     An instance must be updated each iteration using the `update` method.
 
     Details:
-    The penalty computes like ``sum(w[i] * (x[i]-xfeas[i])**2)``,
-    where `xfeas` is the closest feasible (in-bounds) solution from `x`.
-    The weight `w[i]` should be updated during each iteration using
-    the update method.
+
+    - The penalty computes like ``sum(w[i] * (x[i]-xfeas[i])**2)``,
+      where ``xfeas`` is the closest feasible (in-bounds) solution from
+      ``x``. The weight ``w[i]`` should be updated during each iteration
+      using the update method.
 
     Example how this boundary handler is used with `cma.fmin` via the
     options (`CMAOptions`) of the class `cma.CMAEvolutionStrategy`:
@@ -274,7 +275,7 @@ class BoundPenalty(BoundaryHandlerBase):
     `tell`, namely an `CMAEvolutionStrategy` instance, an array of the
     current solutions and their respective f-values. Such change is
     relatively involved. Consider also that bounds are related with the
-    gp transformation.
+    geno- to phenotype transformation.
     """
     def __init__(self, bounds=None):
         """Argument bounds can be `None` or ``bounds[0]`` and ``bounds[1]``
@@ -364,16 +365,8 @@ class BoundPenalty(BoundaryHandlerBase):
         """counts for each coordinate the number of feasible values in
         ``solutions`` and returns an `np.array` of length
         ``len(solutions[0])`` with the ratios.
-
-        `solutions` is a list or np.array of repaired ``Solution``
-        instances,
-
         """
-        raise NotImplementedError('Solution class disappeared')
-        count = np.zeros(len(solutions[0]))
-        for x in solutions:
-            count += x.unrepaired == x
-        return count / float(len(solutions))
+        raise NotImplementedError
 
     # ____________________________________________________________
     #
@@ -382,9 +375,9 @@ class BoundPenalty(BoundaryHandlerBase):
 
         Arguments
         =========
-        `function_values`:
+        ``function_values``:
             all function values of recent population of solutions
-        `es`:
+        ``es``:
             `CMAEvolutionStrategy` object instance, in particular
             mean and variances and the methods from the attribute
             `gp` of type `GenoPheno` are used.
