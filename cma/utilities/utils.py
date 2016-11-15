@@ -403,7 +403,12 @@ class ElapsedWCTime(object):
         """
         return_ = self.toc
         if self.paused:
-            assert self.paused >= self.last_tic
+            if self.paused < self.last_tic:
+                print_warning("""paused time=%f < last_tic=%f, which
+                should never happen, but has been observed at least once.
+                """ % (self.paused, self.last_tic),
+                              "tic", "ElapsedWCTime")
+                self.paused = self.last_tic
             self.cum_time += self.paused - self.last_tic
         else:
             self.cum_time += time.time() - self.last_tic
