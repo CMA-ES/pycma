@@ -11,6 +11,7 @@ del absolute_import, division, print_function  #, unicode_literals
 try:
     from matplotlib import pyplot
 except:
+    pyplot = None
     print('Could not import matplotlib.pyplot, therefore ' +
           '"``cma.utils.sections()``' +
           ' etc. is not available')
