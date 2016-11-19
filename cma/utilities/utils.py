@@ -170,6 +170,8 @@ def print_warning(msg, method_name=None, class_name=None, iteration=None,
     """Poor man's maxwarns: warn only if ``iteration<=maxwarns``"""
     if verbose is None:
         verbose = global_verbosity
+    if maxwarns is not None and iteration is None:
+        raise ValueError('iteration must be given to activate maxwarns')
     if verbose > 0 and (iteration is None or maxwarns is None or
                             iteration <= maxwarns):
         print('WARNING (module=' + __name__ +

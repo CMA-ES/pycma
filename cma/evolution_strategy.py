@@ -181,7 +181,7 @@ import math
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
 # sort, argsort, random, ones,...
-from numpy import inf, array, sum
+from numpy import inf, array
 # to access the built-in sum fct:  ``__builtins__.sum`` or ``del sum``
 # removes the imported sum and recovers the shadowed build-in
 try:
@@ -203,6 +203,7 @@ from .utilities.utils import pprint
 # from .utilities.math import Mh
 from .sigma_adaptation import *
 
+_where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
 
 use_archives = True  # on False some unit tests fail
@@ -690,6 +691,10 @@ class RecombinationWeights(list):
             return np.asarray(self[:self.mu])
         except NameError:
             return self[:self.mu]
+    @property
+    def asarray(self):
+        """return weights as numpy array"""
+        return np.asarray(self)
 
 cma_default_options = {
     # the follow string arguments are evaluated if they do not contain "filename"
@@ -2427,13 +2432,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         -------
         ::
 
-            import numpy as np, cma
-            func = cma.ff.elli  # choose objective function
-            es = cma.CMAEvolutionStrategy(np.random.rand(10), 1)
-            while not es.stop():
-               X = es.ask()
-               es.tell(X, [func(x) for x in X])
-            es.result  # where the result can be found
+            >>> import numpy as np, cma
+            >>> func = cma.ff.elli  # choose objective function
+            >>> es = cma.CMAEvolutionStrategy(np.random.rand(2), 1)
+            ... # doctest:+ELLIPSIS
+            (3_...
+            >>> while not es.stop():
+            ...    X = es.ask()
+            ...    es.tell(X, [func(x) for x in X])
+            >>> # es.result  # where the result can be found
 
         :See: class `CMAEvolutionStrategy`, `ask`, `ask_and_eval`, `fmin`
 
@@ -2601,7 +2608,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pop_sorted = pop
         # compute new mean
         self.mean = mold + self.sp.cmean * \
-                    (sum(np.asarray(sp.weights.positive_weights) * pop[0:sp.weights.mu].T, 1) - mold)
+                    (np.sum(np.asarray(sp.weights.positive_weights) * pop[0:sp.weights.mu].T, 1) - mold)
 
 
         # check Delta m (this is not default, but could become at some point)
@@ -2670,25 +2677,27 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self.pc = (1 - cc) * self.pc + hsig * (
                     (cc * (2 - cc) * self.sp.weights.mueff)**0.5 / self.sigma
-                        / cmean) * (self.mean - mold) / self.sigma_vec
+                        / cmean) * (self.mean - mold) / self.sigma_vec.scaling
 
         # covariance matrix adaptation/udpate
         pop_zero = pop - mold
         if c1a + cmu > 0:
             # TODO: make sure cc is 1 / N**0.5 rather than 1 / N
-            sampler_weights = np.hstack([[c1a],  # computes 1 - c1a
-                                         cmu * np.array(sp.weights[:sp.weights.mu]),
-                                         (len(pop_zero) - len(sp.weights)) * [0],
-                                         cmu * np.array(sp.weights[sp.weights.mu:])])
+            sampler_weights = [c1a] + [cmu * w for w in sp.weights]
+            if len(pop_zero) > len(sp.weights):
+                sampler_weights = (
+                        sampler_weights[:1+sp.weights.mu] +
+                        (len(pop_zero) - len(sp.weights)) * [0] +
+                        sampler_weights[1+sp.weights.mu:])
             if flg_diagonal:
                 self.sigma_vec.update(
                     [self.sm.transform_inverse(self.pc)] +
                     list(self.sm.transform_inverse(pop_zero /
-                                        (self.sigma * self.sigma_vec))),
+                                        (self.sigma * self.sigma_vec.scaling))),
                     array(sampler_weights) / 2)
             else:
                 self.sm.update([(c1 / (c1a + 1e-23))**0.5 * self.pc] +  # c1a * pc**2 gets c1 * pc**2
-                              list(pop_zero / (self.sigma * self.sigma_vec)),
+                              list(pop_zero / (self.sigma * self.sigma_vec.scaling)),
                               sampler_weights)
         self._updateBDfromSM(self.sm)
 
@@ -2702,13 +2711,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 print(self.opts['vv'])  # N=10,lam=10: 0.8 is optimal
             self.sigma = self.opts['vv'] * self.sp.weights.mueff * sum(self.mean**2)**0.5 / N
 
-        if any(self.sigma * self.sigma_vec * self.dC**0.5 <
+        if any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 <
                        np.asarray(self.opts['minstd'])):
             self.sigma = max(np.asarray(self.opts['minstd']) /
                                 (self.sigma_vec * self.dC**0.5))
             assert all(self.sigma * self.sigma_vec * self.dC**0.5 >=
                        (1-1e-9) * np.asarray(self.opts['minstd']))
-        elif any(self.sigma * self.sigma_vec * self.dC**0.5 >
+        elif any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 >
                        np.asarray(self.opts['maxstd'])):
             self.sigma = min(np.asarray(self.opts['maxstd']) /
                              self.sigma_vec * self.dC**0.5)
@@ -2804,7 +2813,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # TODO: how about xcurrent?
         return self.best.get() + (
             self.countevals, self.countiter, self.gp.pheno(self.mean),
-            self.gp.scales * self.sigma * self.sigma_vec * self.dC**0.5)
+            self.gp.scales * self.sigma * self.sigma_vec.scaling * self.dC**0.5)
     def result_pretty(self, number_of_runs=0, time_str=None,
                       fbestever=None):
         """pretty print result.
@@ -2824,10 +2833,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                                   fbestever))
         if self.N < 9:
             print('incumbent solution: ' + str(list(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair))))
-            print('std deviation: ' + str(list(self.sigma * self.sigma_vec * np.sqrt(self.dC) * self.gp.scales)))
+            print('std deviation: ' + str(list(self.sigma * self.sigma_vec.scaling * np.sqrt(self.dC) * self.gp.scales)))
         else:
             print('incumbent solution: %s ...]' % (str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
-            print('std deviations: %s ...]' % (str((self.sigma * self.sigma_vec * np.sqrt(self.dC) * self.gp.scales)[:8])[:-1]))
+            print('std deviations: %s ...]' % (str((self.sigma * self.sigma_vec.scaling * np.sqrt(self.dC) * self.gp.scales)[:8])[:-1]))
         return self.result
 
     def repair_genotype(self, x, copy_if_changed=False):
@@ -3094,7 +3103,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         `d` is the Euclidean distance, because C = I and sigma = 1.
 
         """
-        return self.sm.norm(np.asarray(dx) / self.sigma_vec) / self.sigma
+        return self.sm.norm(np.asarray(dx) / self.sigma_vec.scaling) / self.sigma
 
     def disp_annotation(self):
         """print annotation line for `disp` ()"""
@@ -3275,7 +3284,7 @@ class _CMAStopDict(dict):
                       all([es.sigma * xi < opts['tolx'] for xi in es.sigma_vec * es.pc]) and
                       all([es.sigma * xi < opts['tolx'] for xi in es.sigma_vec * np.sqrt(es.dC)]))
         self._addstop('tolfacupx',
-                      any(es.sigma * es.sigma_vec * es.dC**0.5 >
+                      any(es.sigma * es.sigma_vec.scaling * es.dC**0.5 >
                           es.sigma0 * es.sigma_vec0 * opts['tolfacupx']))
         self._addstop('tolfun',
                       es.fit.fit[-1] - es.fit.fit[0] < opts['tolfun'] and
@@ -3324,7 +3333,7 @@ class _CMAStopDict(dict):
             # non-user defined, method specific
             # noeffectaxis (CEC: 0.1sigma), noeffectcoord (CEC:0.2sigma), conditioncov
             idx = np.nonzero(es.mean == es.mean + 0.2 * es.sigma *
-                             es.sigma_vec * es.dC**0.5)[0]
+                             es.sigma_vec.scaling * es.dC**0.5)[0]
             self._addstop('noeffectcoord', any(idx), idx)
 #                         any([es.mean[i] == es.mean[i] + 0.2 * es.sigma *
 #                                                         (es.sigma_vec if np.isscalar(es.sigma_vec) else es.sigma_vec[i]) *
@@ -3335,7 +3344,7 @@ class _CMAStopDict(dict):
                 i = es.countiter % N
                 self._addstop('noeffectaxis',
                              sum(es.mean == es.mean + 0.1 * es.sigma *
-                                 es.D[i] * es.sigma_vec * es.B[:, i]) == N)
+                                 es.D[i] * es.sigma_vec.scaling * es.B[:, i]) == N)
             self._addstop('conditioncov',
                          es.D[-1] > 1e7 * es.D[0], 1e14)  # TODO: parametrize as option (or depending on available precision)?
 
@@ -3402,18 +3411,18 @@ class _CMAParameters(object):
      'lam_mirr': 0,
      'mu': 6,
      'popsize': 12,
-     'weights': [0.40240294281871...,
-                 0.25338908403288...,
-                 0.16622156455542...,
-                 0.10437522524706...,
-                 0.056403477576325...,
-                 0.017207705769594...,
-                 -0.050187136362590...,
-                 -0.14061678941573...,
-                 -0.22038139637901...,
-                 -0.29173326869288...,
-                 -0.35627888843620...,
-                 -0.41520442256115...]}
+     'weights': [0.4024029428...,
+                 0.2533890840...,
+                 0.1662215645...,
+                 0.1043752252...,
+                 0.05640347757...,
+                 0.01720770576...,
+                 -0.05018713636...,
+                 -0.1406167894...,
+                 -0.2203813963...,
+                 -0.2917332686...,
+                 -0.3562788884...,
+                 -0.4152044225...]}
     >>>
 
     :See: `CMAOptions`, `CMAEvolutionStrategy`
@@ -3751,7 +3760,7 @@ def fmin(objective_function, x0, sigma0,
     >>>
     >>> res = cma.fmin(cma.ff.rosen, [0.1] * 10, 0.3, options)  #doctest: +ELLIPSIS
     (5_w,10)-aCMA-ES (mu_w=3.2,w_1=45%) in dimension 10 (seed=1234...)
-       Covariance matrix is diagonal for 100 iterations (1/ccov=26.0)
+       Covariance matrix is diagonal for 100 iterations (1/ccov=26...
     Iterat #Fevals   function value  axis ratio  sigma ...
         1     10 ...
     termination on tolfun=1e-11 ...
@@ -4369,7 +4378,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             xrecent = es.best.last.x
         except:
             xrecent = None
-        diagC = es.sigma * es.sigma_vec * es.dC**0.5
+        diagC = es.sigma * es.sigma_vec.scaling * es.dC**0.5
         if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
             maxD = es.D.max()
             minD = es.D.min()
@@ -4514,24 +4523,24 @@ class CMADataLogger(interfaces.BaseDataLogger):
         """keep only data of `iteration_indices`"""
         dat = self
         iteridx = iteration_indices
-        dat.f = dat.f[np.where([x in iteridx for x in dat.f[:, 0]])[0], :]
-        dat.D = dat.D[np.where([x in iteridx for x in dat.D[:, 0]])[0], :]
+        dat.f = dat.f[_where([x in iteridx for x in dat.f[:, 0]])[0], :]
+        dat.D = dat.D[_where([x in iteridx for x in dat.D[:, 0]])[0], :]
         try:
             iteridx = list(iteridx)
             iteridx.append(iteridx[-1])  # last entry is artificial
         except:
             pass
-        dat.std = dat.std[np.where([x in iteridx
+        dat.std = dat.std[_where([x in iteridx
                                     for x in dat.std[:, 0]])[0], :]
-        dat.xmean = dat.xmean[np.where([x in iteridx
+        dat.xmean = dat.xmean[_where([x in iteridx
                                         for x in dat.xmean[:, 0]])[0], :]
         try:
-            dat.xrecent = dat.x[np.where([x in iteridx for x in
+            dat.xrecent = dat.x[_where([x in iteridx for x in
                                           dat.xrecent[:, 0]])[0], :]
         except AttributeError:
             pass
         try:
-            dat.corrspec = dat.x[np.where([x in iteridx for x in
+            dat.corrspec = dat.x[_where([x in iteridx for x in
                                            dat.corrspec[:, 0]])[0], :]
         except AttributeError:
             pass
@@ -4922,11 +4931,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # (larger indices): additional fitness data, for example constraints values
         if dat.f.shape[1] > 8:
             # dd = abs(dat.f[:,7:]) + 10*foffset
-            # dd = np.where(dat.f[:,7:]==0, np.NaN, dd) # cannot be
+            # dd = _where(dat.f[:,7:]==0, np.NaN, dd) # cannot be
             semilogy(dat.f[:, iabscissa], np.abs(dat.f[:, 8:]) + 10 * foffset, 'y')
             hold(True)
 
-        idx = np.where(dat.f[:, 5] > 1e-98)[0]  # positive values
+        idx = _where(dat.f[:, 5] > 1e-98)[0]  # positive values
         semilogy(dat.f[idx, iabscissa], dat.f[idx, 5] + foffset, '.b')
         hold(True)
         grid(True)
@@ -4939,14 +4948,14 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # negative f-values, dots
         sgn = np.sign(dat.f[:, 5])
         sgn[np.abs(dat.f[:, 5]) < 1e-98] = 0
-        idx = np.where(sgn < 0)[0]
+        idx = _where(sgn < 0)[0]
         semilogy(dat.f[idx, iabscissa], abs(dat.f[idx, 5]) + foffset,
                  '.m')  # , markersize=5
 
         # lines between negative f-values
         dsgn = np.diff(sgn)
-        start_idx = 1 + np.where((dsgn < 0) * (sgn[1:] < 0))[0]
-        stop_idx = 1 + np.where(dsgn > 0)[0]
+        start_idx = 1 + _where((dsgn < 0) * (sgn[1:] < 0))[0]
+        stop_idx = 1 + _where(dsgn > 0)[0]
         if sgn[0] < 0:
             start_idx = np.concatenate(([0], start_idx))
         for istart in start_idx:
@@ -4986,7 +4995,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # delta-fitness in cyan
         idx = np.isfinite(dfit)
         if any(idx):
-            idx_nan = np.where(~idx)[0]  # gaps
+            idx_nan = _where(~idx)[0]  # gaps
             if not len(idx_nan):  # should never happen
                 semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
             else:
@@ -5242,8 +5251,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         def printdatarow(dat, iteration):
             """print data of iteration i"""
-            i = np.where(dat.f[:, 0] == iteration)[0][0]
-            j = np.where(dat.std[:, 0] == iteration)[0][0]
+            i = _where(dat.f[:, 0] == iteration)[0][0]
+            j = _where(dat.std[:, 0] == iteration)[0][0]
             print('%5d' % (int(dat.f[i, 0])) + ' %6d' % (int(dat.f[i, 1])) + ' %.14e' % (dat.f[i, 5]) +
                   ' %5.1e' % (dat.f[i, 3]) +
                   ' %6.2e' % (max(dat.std[j, 5:])) + ' %6.2e' % min(dat.std[j, 5:]))
@@ -5252,7 +5261,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ndata = dat.f.shape[0]
 
         # map index to iteration number, is difficult if not all iteration numbers exist
-        # idx = idx[np.where(map(lambda x: x in dat.f[:,0], idx))[0]] # TODO: takes pretty long
+        # idx = idx[_where(map(lambda x: x in dat.f[:,0], idx))[0]] # TODO: takes pretty long
         # otherwise:
         if idx is None:
             idx = 100

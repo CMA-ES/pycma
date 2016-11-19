@@ -102,7 +102,7 @@ def various_doctests():
         ...                {'CMA_diagonal':2, 'seed':1, 'verb_time':0})
         ...                # doctest: +ELLIPSIS
         (3_w,7)-aCMA-ES (mu_w=2.3,w_1=58%) in dimension 3 (seed=1,...)
-           Covariance matrix is diagonal for 2 iterations (1/ccov=6.0)
+           Covariance matrix is diagonal for 2 iterations (1/ccov=6...
         Iterat #Fevals   function value  axis ratio  sigma ...
         >>> assert res[1] < 1e-6
         >>> assert res[2] < 2000

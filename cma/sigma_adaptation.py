@@ -50,9 +50,9 @@ class CMAAdaptSigmaBase(object):
                               '_update_ps', 'CMAAdaptSigmaBase', verbose=es.opts['verbose'])
         except AttributeError:
             pass
-        z = es.sm.transform_inverse((es.mean - es.mean_old) / es.sigma_vec)
+        z = es.sm.transform_inverse((es.mean - es.mean_old) / es.sigma_vec.scaling)
         assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
-                np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec)))
+                np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec.scaling)))
         z *= es.sp.weights.mueff**0.5 / es.sigma / es.sp.cmean
         self.ps = (1 - self.cs) * self.ps + (self.cs * (2 - self.cs))**0.5 * z
         self._ps_updated_iteration = es.countiter
@@ -165,7 +165,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             self.initialize(es)
         if self._ps_updated_iteration == es.countiter:
             return
-        z = es.sm.transform_inverse((es.mean - es.mean_old) / es.sigma_vec)
+        z = es.sm.transform_inverse((es.mean - es.mean_old) / es.sigma_vec.scaling)
         # works unless a re-parametrisation has been done
         # assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
         #         np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec)))
@@ -379,7 +379,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
         elif 1 < 3:
             # use the ranking difference of the mirrors for adaptation
             # damp = 5 should be fine
-            z = np.where(es.fit.idx == 1)[0][0] - np.where(es.fit.idx == 0)[0][0]
+            z = np.nonzero(es.fit.idx == 1)[0][0] - np.nonzero(es.fit.idx == 0)[0][0]
             z /= es.popsize - 1  # z in [-1, 1]
         else:
             pass

@@ -366,7 +366,7 @@ class MathHelperFunctions(object):
     @staticmethod
     def vequals_approximately(a, b, eps=1e-12):
         a, b = array(a), array(b)
-        idx = np.where(a < 0)[0]
+        idx = np.nonzero(a < 0)[0]  # find
         if len(idx):
             a[idx], b[idx] = -1 * a[idx], -1 * b[idx]
         return (np.all(a - eps < b) and np.all(b < a + eps)

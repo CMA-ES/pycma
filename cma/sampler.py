@@ -265,7 +265,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
         self.C *= 1 + c1_times_delta_hsigma - sum(weights)
 
-        for k in np.where(weights < 0)[0]:
+        for k in np.nonzero(weights < 0)[0]:
             weights[k] *= len(vectors[k]) / self.norm(vectors[k])**2
 
         self.C += np.dot(weights * vectors.T, vectors)
@@ -635,7 +635,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
         self.C *= 1 + c1_times_delta_hsigma - sum(weights)
 
-        for k in np.where(weights < 0)[0]:
+        for k in np.nonzero(weights < 0)[0]:
             weights[k] *= len(vectors[k]) / self.norm(vectors[k])**2
 
         self.C += np.dot(weights, vectors**2)

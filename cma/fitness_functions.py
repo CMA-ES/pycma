@@ -18,7 +18,7 @@ import os, sys
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
 # sort, argsort, random, ones,...
-from numpy import array, dot, sum, isscalar
+from numpy import array, dot, isscalar, sum  # sum is not needed
 # from numpy import inf, exp, log, isfinite
 # to access the built-in sum fct:  ``__builtins__.sum`` or ``del sum``
 # removes the imported sum and recovers the shadowed build-in

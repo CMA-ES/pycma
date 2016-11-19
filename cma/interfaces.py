@@ -274,11 +274,11 @@ class StatisticalModelSamplerWithZeroMeanBaseClass(object):
         mueff = sum(w)**2 / sum(w**2)
         # todo: put here rather generic formula with degrees of freedom
         # todo: replace these base class computations with the appropriate
-        c1 = np.min((1, lam / 6)) * 2 / ((self.dimension + 1.3)**2.0 +
+        c1 = min((1, lam / 6)) * 2 / ((self.dimension + 1.3)**2.0 +
                                          mueff)
         self._parameters = dict(
             c1=c1,
-            cmu=np.min((1 - c1,
+            cmu=min((1 - c1,
                         2 * (mueff - 2 + 1 / mueff) /
                         ((self.dimension + 2)**2 + 2 * mueff / 2)))
         )
