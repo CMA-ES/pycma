@@ -610,6 +610,8 @@ class RecombinationWeights(list):
 
     def _negative_weights_set_sum(self, value):
         """set sum of negative weights to ``-abs(value)``
+
+        Precondition: last weight must be strictly smaller than zero.
         """
         weights = self  # simpler to change to data attribute and nicer to read
         assert weights[-1] < 0 and weights[self.mu] <= 0
@@ -627,6 +629,8 @@ class RecombinationWeights(list):
         """lower bound the sum of negative weights to ``-abs(value)``.
         """
         weights = self  # simpler to change to data attribute and nicer to read
+        if sum(weights[self.mu:]) >= -abs(value):  # nothing to limit
+            return  # needed when sum is zero
         assert weights[-1] < 0 and weights[self.mu] <= 0
         factor = abs(value / sum(weights[self.mu:]))
         if factor < 1:
