@@ -494,12 +494,16 @@ class RecombinationWeights(list):
             Alternatively, a list of "raw" weights can be provided.
 
         """
+        weights = len_
         try:
-            weights = len_
-            len_ = len(len_)
+            len_ = len(weights)
         except TypeError:
-            weights = [math.log((len_ + 1) / 2.) - math.log(i)
-                       for i in range(1, len_ + 1)]  # raw shape
+            try:
+                weights = list(weights)
+                len_ = len(weights)
+            except TypeError:
+                weights = [math.log((len_ + 1) / 2.) - math.log(i)
+                           for i in range(1, len_ + 1)]  # raw shape
         if len_ < 2:
             raise ValueError("number of weights must be >=2, was %d"
                              % (len_))
