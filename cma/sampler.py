@@ -29,6 +29,12 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
             self.dimension = dimension
         self.randn = randn
 
+    @property
+    def variances(self):
+        if not hasattr(self, 'standard_deviations'):
+            return np.ones(self.dimension)
+        return self.standard_deviations**2
+
     def sample(self, number, same_length=False):
         arz = self.randn(number, self.dimension)
         if same_length:
@@ -207,6 +213,10 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                       constant_trace=self.constant_trace,
                       randn=self.randn,
                       eigenmethod=self.eigenmethod)
+
+    @property
+    def variances(self):
+        return self.dC
 
     def sample(self, number, lazy_update_gap=None, same_length=False):
         self.update_now(lazy_update_gap)
@@ -579,6 +589,10 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.__init__(self.dimension,
                       constant_trace=self.constant_trace,
                       randn=self.randn)
+
+    @property
+    def variances(self):
+        return self.C
 
     def sample(self, number, same_length=False):
         arz = self.randn(number, self.dimension)

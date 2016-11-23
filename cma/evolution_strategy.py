@@ -2714,10 +2714,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.sigma = self.opts['mindx'] / min(self.D)
 
         if self.sigma > 1e9 * self.sigma0:
-            alpha = self.sigma / max(self.D)
-            self.sm *= alpha  # why not alpha**2?
-            self.sigma /= alpha**0.5
-            self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
+            alpha = self.sigma / max(self.sm.variances)**0.5
+            if alpha > 1:
+                self.sigma /= alpha**0.5  # adjust only half
+                self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
+                self.sm *= alpha
+                self._updateBDfromSM()
 
         # TODO increase sigma in case of a plateau?
 
@@ -2966,9 +2968,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             sm_ = self.sm
         if isinstance(sm_, sampler.GaussStandardConstant):
             self.B = array(1)
-            self.D = np.ones(self.N)
+            self.D = sm_.variances**0.5
             self.C = array(1)
-            self.dC = np.ones(self.N)
+            self.dC = self.D
         else:
             self.C = self.sm.covariance_matrix
             try:
