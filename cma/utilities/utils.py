@@ -58,7 +58,7 @@ def is_str(var):
 
     """
     if PY2:
-        types_ = (str, unicode)
+        types_ = (str, unicode)  # == types.StrTypes
     else:
         types_ = (str, bytes)
     return any(isinstance(var, type_) for type_ in types_)
