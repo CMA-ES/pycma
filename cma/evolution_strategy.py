@@ -1192,6 +1192,45 @@ class CMAOptions(dict):
                 print(l)
                 l = '        '  # tab for subsequent lines
 
+class CMAEvolutionStrategyResult(tuple):
+    """A results tuple from `CMAEvolutionStrategy` property ``result``.
+
+    This tuple contains
+
+    - best solution evaluated, ``xbest``
+    - objective function value of best solution, ``f(xbest)``
+    - evaluation count when ``xbest`` was evaluated
+    - evaluations overall done
+    - iterations
+    - distribution mean in "phenotype" space, to be considered as best
+      estimate of the optimum from this instance
+    - effective standard deviations, give a lower bound on the expected
+      coordinate-wise distance to the true optimum of (very) approximately
+      std_i * dimension**0.5 / min(mueff, dimension) / 1.2 / 5
+      ~ std_i * dimension**0.5 / min(popsize / 0.4, dimension) / 5, where
+      mueff = CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
+
+    This class is of purely declarative nature and for providing this
+    docstring.
+
+    """
+    # remark: a tuple is immutable, hence we cannot change it anymore
+    # in __init__. This would work if we inherited from a `list`.
+    @staticmethod
+    def _generate(self):
+        """return a results tuple of type `CMAEvolutionStrategyResult`.
+
+        `_generate` is a surrogate for the ``__init__`` method, which
+        cannot be used to initialize the immutable `tuple` super class.
+        """
+        return CMAEvolutionStrategyResult(
+            self.best.get() + (  # (x, f, evals) triple
+            self.countevals,
+            self.countiter,
+            self.gp.pheno(self.mean),
+            self.gp.scales * self.sigma * self.sigma_vec.scaling *
+                self.dC**0.5))
+
 class CMAEvolutionStrategy(interfaces.OOOptimizer):
     """CMA-ES stochastic optimizer class with ask-and-tell interface.
 
@@ -2808,23 +2847,22 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     @property
     def result(self):
-        """return a list.
+        """return a `CMAEvolutionStrategyResult` `tuple`.
 
-        Namely::
-
-             (xbest, f(xbest), evaluations_xbest, evaluations, iterations,
-                 pheno(xmean), effective_stds)
+        :See: `cma.evolution_strategy.CMAEvolutionStrategyResult`
+            or try ``help(...result)`` on the ``result`` property
+            of an `CMAEvolutionStrategy` instance or on the
+            `CMAEvolutionStrategyResults` instance itself.
 
         """
         # TODO: how about xcurrent?
-        return self.best.get() + (
-            self.countevals, self.countiter, self.gp.pheno(self.mean),
-            self.gp.scales * self.sigma * self.sigma_vec.scaling * self.dC**0.5)
+        return CMAEvolutionStrategyResult._generate(self)
+
     def result_pretty(self, number_of_runs=0, time_str=None,
                       fbestever=None):
         """pretty print result.
 
-        Returns ``self.result``
+        Returns `result` of ``self``.
 
         """
         if fbestever is None:
