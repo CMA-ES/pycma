@@ -1210,8 +1210,16 @@ class CMAEvolutionStrategyResult(tuple):
       ~ std_i * dimension**0.5 / min(popsize / 0.4, dimension) / 5, where
       mueff = CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
 
-    This class is of purely declarative nature and for providing this
-    docstring.
+    The best solution of the last completed iteration can be accessed via
+    attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy` and the
+    respective objective function value via ``fit.fit[0]``.
+
+    Details:
+
+    - This class is of purely declarative nature and for providing this
+      docstring. It does not provide any further functionality.
+    - ``list(fit.fit).find(0)`` is the index of the first sampled solution
+      of the last completed iteration in ``pop_sorted``.
 
     """
     # remark: a tuple is immutable, hence we cannot change it anymore
@@ -2801,7 +2809,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                      "(no more messages will be shown)" if
                                      self.countiter == 2 else ""))
             self.number_of_injections_delivered = 0
-        self.pop_sorted = []  # remove this in case pop is still needed
+        self.pop = []  # remove this in case pop is still needed
+        # self.pop_sorted = []
         self._flgtelldone = True
         try:  # shouldn't fail, but let's be nice to code abuse
             self.timer.pause()
