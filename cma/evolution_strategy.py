@@ -1195,16 +1195,16 @@ class CMAOptions(dict):
 class CMAEvolutionStrategyResult(tuple):
     """A results tuple from `CMAEvolutionStrategy` property ``result``.
 
-    This tuple contains
+    This tuple contains in the given position
 
-    - best solution evaluated, ``xbest``
-    - objective function value of best solution, ``f(xbest)``
-    - evaluation count when ``xbest`` was evaluated
-    - evaluations overall done
-    - iterations
-    - distribution mean in "phenotype" space, to be considered as best
-      estimate of the optimum from this instance
-    - effective standard deviations, give a lower bound on the expected
+    - 0 best solution evaluated, ``xbest``
+    - 1 objective function value of best solution, ``f(xbest)``
+    - 2 evaluation count when ``xbest`` was evaluated
+    - 3 evaluations overall done
+    - 4 iterations
+    - 5 distribution mean in "phenotype" space, to be considered as
+      current best estimate of the optimum
+    - 6 effective standard deviations, give a lower bound on the expected
       coordinate-wise distance to the true optimum of (very) approximately
       std_i * dimension**0.5 / min(mueff, dimension) / 1.2 / 5
       ~ std_i * dimension**0.5 / min(popsize / 0.4, dimension) / 5, where
