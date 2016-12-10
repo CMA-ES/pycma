@@ -62,17 +62,18 @@ class OOOptimizer(object):
     `result` provides more useful output.
 
     """
-    def __init__(self, xstart, **more_kwargs):
+    def __init__(self, xstart, *more_mandatory_args, **optional_kwargs):
         """``xstart`` is a mandatory argument"""
         self.xstart = xstart
-        self.more_kwargs = more_kwargs
+        self.more_mandatory_args = more_mandatory_args
+        self.optional_kwargs = optional_kwargs
         self.initialize()
     def initialize(self):
         """(re-)set to the initial state"""
         raise NotImplementedError('method initialize() must be implemented in derived class')
         self.countiter = 0
         self.xcurrent = np.array(self.xstart, copy=True)
-    def ask(self, gradf=None, **more_args):
+    def ask(self, **optional_kwargs):
         """abstract method, AKA "get" or "sample_distribution", deliver
         new candidate solution(s), a list of "vectors"
         """
@@ -122,22 +123,22 @@ class OOOptimizer(object):
         Arguments
         ---------
 
-        ``objective_fct``
+        ``objective_fct``: f(x: array_like) -> float
             function be to minimized
-        ``maxfun``
+        ``maxfun``: number
             maximal number of function evaluations
-        ``iterations``
+        ``iterations``: number
             number of (maximal) iterations, while ``not self.stop()``,
             it can be useful to conduct only one iteration at a time.
-        ``min_iterations``
+        ``min_iterations``: number
             minimal number of iterations, even if ``not self.stop()``
-        ``args``
+        ``args``: sequence_like
             arguments passed to ``objective_fct``
-        ``verb_disp``
+        ``verb_disp``: number
             print to screen every ``verb_disp`` iteration, if `None`
             the value from ``self.logger`` is "inherited", if
             available.
-        ``callback``
+        ``callback``: callable or list of callables
             callback function called like ``callback(self)`` or
             a list of call back functions called in the same way. If
             available, ``self.logger.add`` is added to this list.
@@ -179,7 +180,7 @@ class OOOptimizer(object):
             self.tell(X, fitvals)  # all the work is done here
             self.disp(verb_disp)
             for f in callback:
-                f is None or f(self)
+                f(self)
 
         # final output
         self._force_final_logging()
@@ -213,8 +214,8 @@ class OOOptimizer(object):
                         callable""" % str(c))
         except TypeError:
             raise ValueError("""callback argument must be a `callable` or
-                iterable (e.g. a list of callables), after some processing
-                it was %s""" % str(callback))
+                an iterable (e.g. a list) of callables, after some
+                processing it was %s""" % str(callback))
         return callback
 
     def _force_final_logging(self):
