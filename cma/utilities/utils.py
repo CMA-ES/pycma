@@ -3,7 +3,10 @@
 from __future__ import (absolute_import, division, print_function,
                         )  #unicode_literals, with_statement)
 import os, sys, time
-from collections import MutableMapping
+try:
+    from collections import MutableMapping
+except ImportError:
+    MutableMapping = object  # should never be actually used
 from ast import literal_eval as eval_safely
 import numpy as np
 from .python3for2 import range

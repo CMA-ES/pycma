@@ -169,14 +169,15 @@ in particular `CMAOptions`, `CMAEvolutionStrategy`, and `fmin`
 
 from __future__ import (absolute_import, division, print_function,
                         )  # unicode_literals, with_statement)
-# from __future__ import collections.MutableMapping
-# does not exist in future, otherwise Python 2.5 would work, since 0.91.01
 # from builtins import ...
 from .utilities.python3for2 import range  # redefine range in Python 2
 
 import sys
 import time  # not really essential
-# import collections
+try:
+    import collections  # not available in Python 2.5
+except ImportError:
+    pass
 import math
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
@@ -206,7 +207,9 @@ from .sigma_adaptation import *
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
 
-use_archives = True  # on False some unit tests fail
+# use_archives uses collections
+use_archives = sys.version_info[0] >= 3 or sys.version_info[1] >= 6
+# use_archives = False  # on False some unit tests fail
 """speed up for very large population size. `use_archives` prevents the
 need for an inverse gp-transformation, relies on collections module,
 not sure what happens if set to ``False``. """
@@ -1191,8 +1194,54 @@ class CMAOptions(dict):
                     l += ' ' + a.pop(0)
                 print(l)
                 l = '        '  # tab for subsequent lines
+try:
+    collections.namedtuple
+except:
+    pass
+else:
+    class CMAEvolutionStrategyResult(collections.namedtuple(
+        'CMAEvolutionStrategyResult', [
+            'xbest',
+            'fbest',
+            'evals_best',
+            'evaluations',
+            'iterations',
+            'xfavorite',
+            'stds'
+        ])):
+        """A results tuple from `CMAEvolutionStrategy` property ``result``.
 
-class CMAEvolutionStrategyResult(tuple):
+        This tuple contains in the given position and as attribute
+
+        - 0 ``xbest`` best solution evaluated
+        - 1 ``fbest`` objective function value of best solution
+        - 2 ``evals_best`` evaluation count when ``xbest`` was evaluated
+        - 3 ``evaluations`` evaluations overall done
+        - 4 ``iterations``
+        - 5 ``xfavorite`` distribution mean in "phenotype" space, to be
+          considered as current best estimate of the optimum
+        - 6 ``stds`` effective standard deviations, can be used to
+          compute a lower bound on the expected coordinate-wise distance
+          to the true optimum, which is (very) approximately stds[i] *
+          dimension**0.5 / min(mueff, dimension) / 1.5 / 5 ~ std_i *
+          dimension**0.5 / min(popsize / 2, dimension) / 5, where
+          dimension = CMAEvolutionStrategy.N and mueff =
+          CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
+
+        The best solution of the last completed iteration can be accessed via
+        attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy` and the
+        respective objective function value via ``fit.fit[0]``.
+
+        Details:
+
+        - This class is of purely declarative nature and for providing
+          this docstring. It does not provide any further functionality.
+        - ``list(fit.fit).find(0)`` is the index of the first sampled
+          solution of the last completed iteration in ``pop_sorted``.
+
+        """
+
+class _CMAEvolutionStrategyResult(tuple):
     """A results tuple from `CMAEvolutionStrategy` property ``result``.
 
     This tuple contains in the given position
@@ -1231,7 +1280,7 @@ class CMAEvolutionStrategyResult(tuple):
         `_generate` is a surrogate for the ``__init__`` method, which
         cannot be used to initialize the immutable `tuple` super class.
         """
-        return CMAEvolutionStrategyResult(
+        return _CMAEvolutionStrategyResult(
             self.best.get() + (  # (x, f, evals) triple
             self.countevals,
             self.countiter,
@@ -1351,8 +1400,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]
         1      8 2.09...
     >>>
-    >>> cma.s.pprint(es.result)  # doctest: +ELLIPSIS
-    (array([...
+    >>> assert len(es.result) == 7
     >>> assert es.result[1] < 1e-9
 
     The optimization loop can also be written explicitly:
@@ -1506,8 +1554,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
       200 ...
     >>> assert es.result[2] < 15000
     >>> assert cma.s.Mh.vequals_approximately(es.result[0], 12 * [1], 1e-5)
-    >>> cma.s.pprint(es.result)  #doctest: +ELLIPSIS
-    (array([...
+    >>> assert len(es.result) == 7
 
     Details
     =======
@@ -2856,16 +2903,26 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     @property
     def result(self):
-        """return a `CMAEvolutionStrategyResult` `tuple`.
+        """return a `CMAEvolutionStrategyResult` `namedtuple`.
 
         :See: `cma.evolution_strategy.CMAEvolutionStrategyResult`
             or try ``help(...result)`` on the ``result`` property
             of an `CMAEvolutionStrategy` instance or on the
-            `CMAEvolutionStrategyResults` instance itself.
+            `CMAEvolutionStrategyResult` instance itself.
 
         """
         # TODO: how about xcurrent?
-        return CMAEvolutionStrategyResult._generate(self)
+        # return CMAEvolutionStrategyResult._generate(self)
+        res = self.best.get() + (  # (x, f, evals) triple
+            self.countevals,
+            self.countiter,
+            self.gp.pheno(self.mean),
+            self.gp.scales * self.sigma * self.sigma_vec.scaling *
+                self.dC**0.5)
+        try:
+            return CMAEvolutionStrategyResult(*res)
+        except NameError:
+            return res
 
     def result_pretty(self, number_of_runs=0, time_str=None,
                       fbestever=None):
