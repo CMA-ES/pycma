@@ -259,6 +259,17 @@ def doctest_files(file_list=files_for_doctest, **kwargs):
         if verbosity_here >= 0:
             print(report)
 
+def get_version():
+    try:
+        with open(__file__[:-7] + '__init__.py', 'r') as f:
+            for line in f.readlines():
+                if line.startswith('__version__'):
+                    return line[15:].split()[0]
+    except:
+        return ""
+        print(__file__)
+        raise
+
 def main(*args, **kwargs):
     """test the `cma` package.
 
@@ -280,7 +291,9 @@ def main(*args, **kwargs):
                 print(file_)
             exit(0)
     else:
-        print("doctesting `cma` package by calling `doctest_files`:")
+        v = get_version()
+        print("doctesting `cma` package%s by calling `doctest_files`:"
+              % ((" (v%s)" % v) if v else ""))
     doctest_files(args if args else files_for_doctest, **kwargs)
 
 if __name__ == "__main__":
