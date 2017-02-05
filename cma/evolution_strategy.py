@@ -752,6 +752,7 @@ cma_default_options = {
     'signals_filename': 'None  # cma_signals.in  # read versatile options from this file, e.g. "timeout" to stop, string-values are evaluated, e.g. "np.inf" is valid',
     'termination_callback': 'None  #v a function returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
     'timeout': 'inf  #v stop if timeout seconds are exceeded, use "h * 60**2" to express in hours',
+    'tolconditioncov': '1e14  #v stop if the condition of the covariance matrix is above `tolconditioncov`',
     'tolfacupx': '1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial step-size was chosen far too small and better solutions were found far away from the initial solution x0',
     'tolupsigma': '1e20  #v sigma/sigma0 > tolupsigma * max(eivenvals(C)**0.5) indicates "creeping behavior" with usually minor improvements',
     'tolfun': '1e-11  #v termination criterion: tolerance in function value, quite useful',
@@ -2008,8 +2009,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
             # update distribution, might change self.mean
 
-        self.alleviate_conditioning_in_coordinates(1e8)
-        self.alleviate_conditioning(1e12)
+        if not self.opts['tolconditioncov'] or not np.isfinite(self.opts['tolconditioncov']):
+            self.alleviate_conditioning_in_coordinates(1e8)
+            self.alleviate_conditioning(1e12)
 
         xmean_arg = xmean
         if xmean is None:
@@ -3349,8 +3351,9 @@ class _CMAStopDict(dict):
                 self._addstop('noeffectaxis',
                              sum(es.mean == es.mean + 0.1 * es.sigma *
                                  es.D[i] * es.sigma_vec.scaling * es.B[:, i]) == N)
-            self._addstop('conditioncov',
-                         es.D[-1] > 1e7 * es.D[0], 1e14)  # TODO: parametrize as option (or depending on available precision)?
+            self._addstop('tolconditioncov',
+                          opts['tolconditioncov'] and
+                          es.D[-1] > opts['tolconditioncov']**0.5 * es.D[0], opts['tolconditioncov'])
 
             self._addstop('callback', es.callbackstop)  # termination_callback
 
