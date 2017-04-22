@@ -4692,7 +4692,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         """
         try:
             # pyplot: prodedural interface for matplotlib
-            from matplotlib.pyplot import figure, subplot, hold, gcf
+            from matplotlib.pyplot import figure, subplot, gcf
         except ImportError:
             ImportError('could not find matplotlib.pyplot module, function plot() is not available')
             return
@@ -4736,6 +4736,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._finalize_plotting = lambda : None
         self._enter_plotting(fontsize)
         self.fighandle = gcf()  # fighandle.number
+        self.fighandle.clear()
 
         subplot(2, 2, 1)
         self.plot_divers(iabscissa, foffset)
@@ -4748,7 +4749,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # spectrum of correlation matrix
         if 11 < 3 and hasattr(dat, 'corrspec'):
             figure(fig+10000)
-            hold(False)
+            pyplot.gcf().clear()  # hold(False)
             self.plot_correlations(iabscissa)
         figure(fig)
 
@@ -4835,6 +4836,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         figure(fig)
         self._enter_plotting(fontsize)
         self.fighandle = gcf()  # fighandle.number
+        self.fighandle.clear()
 
         if 11 < 3:
             subplot(3, 2, 1)
@@ -4895,7 +4897,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         dat = self
         self._enter_plotting()
         pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, 5:], '-b')
-        pyplot.hold(True)
+        # pyplot.hold(True)
         pyplot.grid(True)
         ax = array(pyplot.axis())
         # ax[1] = max(minxend, ax[1])
@@ -4927,7 +4929,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
             dat.std[-1, iabscissa] = minxend  # TODO: should be ax[1]
             pyplot.semilogy(dat.std[:, iabscissa], dat.std[:, 5:], '-')
-            pyplot.hold(True)
+            # pyplot.hold(True)
             ax = array(pyplot.axis())
 
             # yy = np.logspace(np.log10(ax[2]), np.log10(ax[3]), dat.std.shape[1] - 5)
@@ -4940,7 +4942,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         array([ax[2] * (1 + 1e-6), ax[3] / (1 + 1e-6)]),
                         # array([np.min(dat.std[:, 5:]), np.max(dat.std[:, 5:])]),
                         'k-')
-            pyplot.hold(True)
+            # pyplot.hold(True)
             # plot([dat.std[-1, iabscissa], ax[1]], [dat.std[-1,5:], yy[idx2]], 'k-') # line from last data point
             annotations = self.persistent_communication_dict.get('variable_annotations')
             if annotations is None:
@@ -4951,7 +4953,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             ' ' + str(s))
         else:
             pyplot.semilogy(dat.std[:, iabscissa], dat.std[:, 5:], '-')
-        pyplot.hold(True)
+        # pyplot.hold(True)
         pyplot.grid(True)
         pyplot.title(r'Standard Deviations $\times$ $\sigma^{-1}$ in All Coordinates')
         # pyplot.xticks(xticklocs)
@@ -4982,10 +4984,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         y = self.corrspec[:, 6:]  # principle axes
         ys = self.corrspec[:, :6]  # "special" values
 
-        from matplotlib.pyplot import semilogy, hold, text, grid, axis, title
+        from matplotlib.pyplot import semilogy, text, grid, axis, title
         self._enter_plotting()
         semilogy(x, y, '-c')
-        hold(True)
+        # hold(True)
         semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
         text(x[-1], np.max(y[-1, :]) / np.min(y[-1, :]), 'axis ratio')
         if ys is not None:
@@ -5015,7 +5017,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         :See: `plot`
 
         """
-        from matplotlib.pyplot import semilogy, hold, grid, \
+        from matplotlib.pyplot import semilogy, grid, \
             axis, title, text
         fontsize = pyplot.rcParams['font.size']
 
@@ -5037,18 +5039,18 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if dat.f.shape[1] > 7:
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(dat.f[:, iabscissa], abs(dat.f[:, [6, 7]]) + foffset, '-k')
-            hold(True)
+            # hold(True)
 
         # (larger indices): additional fitness data, for example constraints values
         if dat.f.shape[1] > 8:
             # dd = abs(dat.f[:,7:]) + 10*foffset
             # dd = _where(dat.f[:,7:]==0, np.NaN, dd) # cannot be
             semilogy(dat.f[:, iabscissa], np.abs(dat.f[:, 8:]) + 10 * foffset, 'y')
-            hold(True)
+            # hold(True)
 
         idx = _where(dat.f[:, 5] > 1e-98)[0]  # positive values
         semilogy(dat.f[idx, iabscissa], dat.f[idx, 5] + foffset, '.b')
-        hold(True)
+        # hold(True)
         grid(True)
 
 
@@ -5173,7 +5175,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # interactive_status = matplotlib.is_interactive()
         self.original_fontsize = pyplot.rcParams['font.size']
         pyplot.rcParams['font.size'] = fontsize
-        pyplot.hold(False)  # opens a figure window, if non exists
+        # was: pyplot.hold(False)
+        # pyplot.gcf().clear()  # opens a figure window, if non exists
         pyplot.ioff()
     def _finalize_plotting(self):
         pyplot.draw()  # update "screen"
@@ -5196,7 +5199,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             return
         if annotations is None:
             annotations = self.persistent_communication_dict.get('variable_annotations')
-        from matplotlib.pyplot import plot, semilogy, hold, text, grid, axis, title
+        from matplotlib.pyplot import plot, semilogy, text, grid, axis, title
         dat = self  # for convenience and historical reasons
         # modify fake last entry in x for line extension-annotation
         if dat.x.shape[1] < 100:
@@ -5222,7 +5225,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             semilogy(dat.x[:, iabscissa], abs(xdat), '-')
         else:
             plot(dat.x[:, iabscissa], dat.x[:, 5:], '-')
-        hold(True)
+        # hold(True)
         grid(True)
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
