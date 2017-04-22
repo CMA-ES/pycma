@@ -62,11 +62,11 @@ From the system shell::
 
     python -m cma.test -h
     python -m cma.test
-    python -c "import cma; cma.test.main()"  # the same
+    python -c "import cma.test; cma.test.main()"  # the same
 
 or from any (i)python shell::
 
-    import cma
+    import cma.test
     cma.test.main()
 
 should run without complaints in about between 20 and 100 seconds.
@@ -121,7 +121,9 @@ from __future__ import with_statement
 from . import (constraints_handler, evolution_strategy, fitness_functions,
                fitness_transformations, interfaces, optimization_tools,
                sampler, sigma_adaptation, transformations, utilities)
-from . import s, test  # strangely these are not imported "by default"
+# from . import test  # gives a warning with python -m cma.test (since Python 3.5.3?)
+test = "type 'import cma.test' "
+from . import s
 from .fitness_functions import ff
 from .fitness_transformations import GlueArguments, ScaleCoordinates
 from .evolution_strategy import fmin, CMAEvolutionStrategy, CMAOptions, CMADataLogger

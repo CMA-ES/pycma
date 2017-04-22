@@ -15,10 +15,10 @@ or possibly by executing this file as a script::
 
 or equivalently by passing Python code::
 
-    python -c "import cma; cma.test.main()"  # doctest all (listed) files
-    python -c "import cma; cma.test.main('list')"  # show files in doctest list
-    python -c "import cma; cma.test.main('interfaces.py [file2 [file3 [...]]]')"
-    python -c "import cma; help(cma.test)"  # print this docstring
+    python -c "import cma.test; cma.test.main()"  # doctest all (listed) files
+    python -c "import cma.test; cma.test.main('list')"  # show files in doctest list
+    python -c "import cma.test; cma.test.main('interfaces.py [file2 [file3 [...]]]')"
+    python -c "import cma.test; help(cma.test)"  # print this docstring
 
 File(name)s are interpreted within the package. Without a filename
 argument, all files from attribute `files_for_doc_test` are tested.
@@ -280,7 +280,7 @@ def main(*args, **kwargs):
 
     By default all files are tested.
 
-    :See also: ``python -c "import cma; help(cma.test)"``
+    :See also: ``python -c "import cma.test; help(cma.test)"``
     """
     if len(args) > 0:
         if args[0].startswith(('-h', '--h')):
