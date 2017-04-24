@@ -752,9 +752,9 @@ cma_default_options = {
     'scaling_of_variables': '''None  # depreciated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
             Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`''',
     'seed': 'None  # random number seed',
-    'signals_filename': 'None  # cma_signals.in  # read versatile options from this file, e.g. "timeout" to stop, string-values are evaluated, e.g. "np.inf" is valid',
+    'signals_filename': 'None  # cma_signals.in  # read versatile options from this file which contains a single options dict, e.g. ``{"timeout": 0}`` to stop, string-values are evaluated, e.g. "np.inf" is valid',
     'termination_callback': 'None  #v a function returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
-    'timeout': 'inf  #v stop if timeout seconds are exceeded, use "h * 60**2" to express in hours',
+    'timeout': 'inf  #v stop if timeout seconds are exceeded, the string "2.5 * 60**2" evaluates to 2 hours and 30 minutes',
     'tolconditioncov': '1e14  #v stop if the condition of the covariance matrix is above `tolconditioncov`',
     'tolfacupx': '1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial step-size was chosen far too small and better solutions were found far away from the initial solution x0',
     'tolupsigma': '1e20  #v sigma/sigma0 > tolupsigma * max(eivenvals(C)**0.5) indicates "creeping behavior" with usually minor improvements',
