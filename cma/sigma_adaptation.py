@@ -283,7 +283,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
 
     >>> import cma
     >>> cma.CMAOptions('adapt').pprint()  # doctest: +ELLIPSIS
-     AdaptSigma='CMAAdaptSigmaCSA...
+     AdaptSigma='True...
     >>> es = cma.CMAEvolutionStrategy(10 * [0.2], 0.1,
     ...     {'AdaptSigma': cma.sigma_adaptation.CMAAdaptSigmaTPA,
     ...      'ftarget': 1e-8})  # doctest: +ELLIPSIS

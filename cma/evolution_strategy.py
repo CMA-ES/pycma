@@ -705,7 +705,7 @@ class RecombinationWeights(list):
 
 cma_default_options = {
     # the follow string arguments are evaluated if they do not contain "filename"
-    'AdaptSigma': 'CMAAdaptSigmaCSA  # or any other CMAAdaptSigmaBase class e.g. CMAAdaptSigmaTPA',
+    'AdaptSigma': 'True  # or False or any CMAAdaptSigmaBase class e.g. CMAAdaptSigmaTPA, CMAAdaptSigmaCSA',
     'CMA_active': 'True  # negative update, conducted after the original update',
 #    'CMA_activefac': '1  # learning rate multiplier for active update',
     'CMA_cmean': '1  # learning rate for the mean value',
@@ -1711,9 +1711,20 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.sp0 = self.sp  # looks useless, as it is not a copy
 
         self.adapt_sigma = opts['AdaptSigma']
-        if self.adapt_sigma in (None, False):
+        if self.adapt_sigma is None:
+            utils.print_warning("""Value `None` for option 'AdaptSigma' is
+    ambiguous and hence depreciated. AdaptSigma can be set to `True` or
+    `False` or a class or class instance which inherited from
+    cma.sigma_adaptation.CMAAdaptSigmaBase""")
+            self.adapt_sigma = CMAAdaptSigmaCSA
+        elif self.adapt_sigma is True:
+            if opts['CMA_diagonal'] is True and N > 299:
+                self.adapt_sigma = CMAAdaptSigmaTPA
+            else:
+                self.adapt_sigma = CMAAdaptSigmaCSA
+        elif self.adapt_sigma is False:
             self.adapt_sigma = CMAAdaptSigmaNone()
-        elif isinstance(self.adapt_sigma, type):  # Is a class? 
+        if isinstance(self.adapt_sigma, type):  # Is a class?
             # Then we want the instance.
             self.adapt_sigma = self.adapt_sigma(dimension=N, popsize=self.sp.popsize)
         self.mean_shift_samples = True if (isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) or
@@ -1767,6 +1778,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.sigma_vec = transformations.DiagonalDecoding(stds * np.ones(N))
             self.sm = sampler.GaussStandardConstant(N)
             self._updateBDfromSM(self.sm)
+            if self.opts['CMA_diagonal'] == 1:
+                utils.print_warning("""Option 'CMA_diagonal' set to 1
+                which is (very) different from setting to `True`""")
         else:
             if 11 < 3:
                 if hasattr(self.opts['vv'], '__getitem__') and \
@@ -4749,7 +4763,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # spectrum of correlation matrix
         if 11 < 3 and hasattr(dat, 'corrspec'):
             figure(fig+10000)
-            pyplot.gcf().clear()  # hold(False)
+            pyplot.gcf().clear()  # == clf(), replaces hold(False)
             self.plot_correlations(iabscissa)
         figure(fig)
 
