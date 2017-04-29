@@ -174,6 +174,7 @@ from .utilities.python3for2 import range  # redefine range in Python 2
 
 import sys
 import time  # not really essential
+import ast  # for literal_eval
 try:
     import collections  # not available in Python 2.5
 except ImportError:
@@ -1649,7 +1650,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # extract/expand options
         N = self.N_pheno
         if utils.is_str(opts['fixed_variables']):
-            opts['fixed_variables'] = utils.eval_safely(
+            opts['fixed_variables'] = ast.literal_eval(
                     opts['fixed_variables'])
         assert (isinstance(opts['fixed_variables'], dict)
             or opts['fixed_variables'] is None)
@@ -3379,7 +3380,7 @@ class _CMAStopDict(dict):
             if 1 < 3 and self.opts['signals_filename']:
                 with open(self.opts['signals_filename'], 'r') as f:
                     s = f.read()
-                d = dict(utils.eval_safely(s.strip()))
+                d = dict(ast.literal_eval(s.strip()))
                 for key in list(d):
                     if key not in opts.versatile_options():
                         utils.print_warning(

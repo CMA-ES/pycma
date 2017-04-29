@@ -7,7 +7,7 @@ try:
     from collections import MutableMapping
 except ImportError:
     MutableMapping = object  # should never be actually used
-from ast import literal_eval as eval_safely
+import ast  # ast.literal_eval is safe eval
 import numpy as np
 from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals, with_statement
@@ -454,11 +454,10 @@ class DictFromTagsInString(dict):
     """read from a string or file all key-value pairs within all
     ``<python>...</python>`` tags and return a `dict`.
 
-    Within the tags either a list of key-value pairs
-    ``[[key1, value1], [key2, value2], ...]`` or a dictionary
-    ``{ key1: value1, key2: value2, ...}`` is expected. Both are
-    valid Python code. A key can be any immutable object, while it is
-    often a string or a number.
+    Within the tags valid Python code is expected: either a list of
+    key-value pairs ``[[key1, value1], [key2, value2], ...]`` or a
+    dictionary ``{ key1: value1, key2: value2, ...}``. A key can be any
+    immutable object, while it is often a string or a number.
 
     The `as_python_tag` attribute provides the respective (tagged) string.
     The ``tag_string`` attribute defines the tag identifier, 'python' by
@@ -481,12 +480,17 @@ class DictFromTagsInString(dict):
         """for input args see `update` method."""
         super(DictFromTagsInString, self).__init__()  # not necessary!?
         self.tag_string = "python"
-        if is_any([args, kwargs]):
+        if is_(args) or is_(kwargs):
             self.update(*args, **kwargs)
-    def update(self, string_=None, filename=None, file_=None, dict_=None):
-        """only one argument can be passed at a time, return ``self``.
+    def update(self, string_=None, filename=None, file_=None, dict_=None,
+               tag_string=None):
+        """only one of the first four arguments is accepted at a time,
+        return ``self``.
 
+        If the first argument has no keyword, it is assumed to be a string
+        to be parsed for tags.
         """
+
         args = 4 - ((string_ is None) + (filename is None) +
                (file_ is None) + (dict_ is None))
         if not args:
@@ -495,6 +499,8 @@ class DictFromTagsInString(dict):
             raise ValueError('''
                 use either string_ or filename or file_ or dict_ as
                 input, but not several of them''')
+        if tag_string is not None:
+            self.tag_string = tag_string
         if filename is not None:
             string_ = open(filename, 'r').read()
         elif file_ is not None:
@@ -542,6 +548,6 @@ class DictFromTagsInString(dict):
         while start >= 0:
             start += len(self._start)  # move behind begin tag
             end = str_lower.find(self._end, start)
-            values.update(eval_safely(str_[start:end].strip()))
+            values.update(ast.literal_eval(str_[start:end].strip()))
             start = str_lower.find(self._start, start + 1)
         return values
