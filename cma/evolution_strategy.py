@@ -4447,7 +4447,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                'CMADataLogger')
         # convert single line to matrix of shape (1, len)
         for key in self.key_names:
-            d = getattr(self, key)
+            try:
+                d = getattr(self, key)
+            except AttributeError:
+                utils.print_warning("attribute %s missing" % key, 'load',
+                                    'CMADataLogger')
+                continue
             if len(d.shape) == 1:  # one line has shape (8, )
                 setattr(self, key, d.reshape((1, len(d))))
 
