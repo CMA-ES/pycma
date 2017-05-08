@@ -51,8 +51,8 @@ class CMAAdaptSigmaBase(object):
         except AttributeError:
             pass
         z = es.sm.transform_inverse((es.mean - es.mean_old) / es.sigma_vec.scaling)
-        assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
-                np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec.scaling)))
+        # assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
+        #         np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec.scaling)))
         z *= es.sp.weights.mueff**0.5 / es.sigma / es.sp.cmean
         self.ps = (1 - self.cs) * self.ps + (self.cs * (2 - self.cs))**0.5 * z
         self._ps_updated_iteration = es.countiter
