@@ -3,7 +3,11 @@
 TODO: correct the interface of __init__, remove unnecessaries
 
 MEMO: 
+2017/05/08: line 2958 of evolution_strategy.py: cc is assigned from sp.cc
+2017/05/08: line 3021 of evolution_strategy.py: `weights` are multiplied by c1 and cmu
+2017/05/08: line 3021 of evolution_strategy.py: first element of `vectors` is pc
 2017/05/07: hsig interface
+
 (Done on 2017/05/07) 
 2017/05/07: `CMAAdaptSigmaNone` not working
 2017/05/07: `dimension` passed to __init__ in not int.
@@ -40,6 +44,8 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         except TypeError:
             self.N = dimension
             std_vec = np.ones(self.N)
+        if self.N < 10:
+            print('Warning: Not advised to use VD-CMA for dimension < 10.')
         self.randn = randn
         self.dvec = std_vec
         self.vvec = self.randn(self.N) / math.sqrt(self.N)
@@ -63,14 +69,16 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """``vectors`` is a list of samples, ``weights`` a corrsponding
         list of learning rates
         """
-        # Cumulation
-        ww = np.array(weights)
-        mueff = np.sum(ww[ww > 0])**2 / np.dot(ww[ww > 0], ww[ww > 0])
-        idx = np.argsort(ww)[::-1]
+
+        ww = np.array(weights, copy=True)
+        assert np.all(ww >= 0.0)
+        ww = ww[1:] / np.sum(np.abs(ww[1:]))  # w[0] is the weight for pc
+        cc, cone, cmu = self._get_params(ww)
         mu = np.sum(ww > 0, dtype=int)
-        w = ww[idx[:mu]] / np.sum(ww[idx[:mu]])
-        sary = np.asarray(vectors)[idx[:mu]]
-        cc, cone, cmu = self._get_params(weights)
+        mueff = 1.0 / np.dot(ww, ww)
+        idx = np.argsort(ww)[::-1]
+        sary = np.asarray(vectors)[idx[:mu] + 1]
+        w = ww[idx[:mu]]
 
         # Cumulation
         self.pc = (1. - cc) * self.pc + hsig * math.sqrt(cc * (
@@ -161,8 +169,8 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     def _get_params(self, weights, **kwargs):
         w = np.asarray(weights)
-        mueff = np.sum(w[w > 0.])**2 / np.dot(w[w > 0.], w[w > 0.])
-        cfactor = kwargs.get('cfactor', (self.N - 5.) / 6.0)
+        mueff = 1.0 / np.dot(w, w)
+        cfactor = kwargs.get('cfactor', max((self.N - 5.) / 6.0, 0.5))
         cc = kwargs.get('cc', (4. + mueff / self.N) /
                         (self.N + 4. + 2. * mueff / self.N))
         cone = kwargs.get('cone', cfactor * 2. / ((self.N + 1.3)**2 + mueff))
@@ -196,7 +204,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        return None  # Expensive
+        #return None  # Expensive
         C = np.diag(self.dvec**2)
         dv = self.dvec * self.vvec
         C += np.outer(dv, dv)
@@ -210,7 +218,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        return None  # Expensive
+        #return None  # Expensive
         C = self.covariance_matrix
         sqrtdC = np.sqrt(self.variances)
         return (C / sqrtdC).T / sqrtdC
@@ -337,14 +345,17 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
         ka = self.ka
         k = self.k
-        # Cumulation
-        ww = np.array(weights)
-        mueff = np.sum(ww[ww > 0])**2 / np.dot(ww[ww > 0], ww[ww > 0])
-        idx = np.argsort(ww)[::-1]
+        # Parameters
+        ww = np.array(weights, copy=True)
+        ww = ww[1:] / np.sum(np.abs(ww))  # w[0] is the weight for pc
+        cc, cone, cmu = self._get_params(ww)
         mu = np.sum(ww > 0, dtype=int)
-        w = ww[idx[:mu]] / np.sum(ww[idx[:mu]])
-        sary = np.asarray(vectors)[idx[:mu]]
-        cc, cone, cmu = self._get_params(weights)
+        mueff = 1.0 / np.dot(ww, ww)
+        idx = np.argsort(ww)[::-1]
+        sary = np.asarray(vectors)[idx[:mu] + 1]
+        w = ww[idx[:mu]]
+
+        # Cumulation
         self.pc = (1. - cc) * self.pc + hsig * math.sqrt(cc * (
             2. - cc) * mueff) * np.dot(w, sary)
 
