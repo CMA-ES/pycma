@@ -268,9 +268,15 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     Dimension. In Proc. of GECCO 2016, pp. 197--204 (2016)
     """
 
-    def __init__(self, dimension, randn=np.random.randn, **kwargs):
+    def __init__(self,
+                 dimension,
+                 randn=np.random.randn,
+                 kadapt=False,
+                 **kwargs):
         """pass dimension of the underlying sample space
         """
+
+        kwargs['k_init'] = 1
         try:
             self.N = len(dimension)
             std_vec = np.array(dimension, copy=True)
@@ -278,45 +284,31 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self.N = dimension
             std_vec = np.ones(self.N)
         self.randn = randn
+        self.sigma = 1.0
 
+        self.kadapt = kadapt
         # VkD Static Parameters
         self.k = kwargs.get('k_init', 0)  # alternatively, self.w.shape[0]
-        self.kmin = kwargs.get('kmin', 0)
-        self.kmax = kwargs.get('kmax', self.N - 1)
-        assert (0 <= self.kmin <= self.kmax < self.N)
-        self.k_inc_cond = kwargs.get('k_inc_cond', 30.0)
-        self.k_dec_cond = kwargs.get('k_dec_cond', self.k_inc_cond)
-        self.k_adapt_factor = kwargs.get('k_adapt_factor', 1.414)
-        self.factor_sigma_slope = kwargs.get('factor_sigma_slope', 0.1)
-        self.factor_diag_slope = kwargs.get(
-            'factor_diag_slope', 1.0)  # 0.3 in PPSN (due to cc change)
-        self.opt_conv = 0.5 * min(1, self.lam / self.N)
-        self.accepted_slowdown = max(1., self.k_inc_cond / 10.)
-        self.k_adapt_decay = 1.0 / self.N
-        self.k_adapt_wait = 2.0 / self.k_adapt_decay - 1
-
-        # VkD Dynamic Parameters
-        sigma = 1.
         self.k_active = 0
-        self.last_log_sigma = np.log(sigma)
-        self.last_log_d = 2.0 * np.log(self.D)
-        self.last_log_cond_corr = np.zeros(self.N)
-        self.ema_log_sigma = ExponentialMovingAverage(
-            decay=self.opt_conv / self.accepted_slowdown, dim=1)
-        self.ema_log_d = ExponentialMovingAverage(
-            decay=self.k_adapt_decay, dim=self.N)
-        self.ema_log_s = ExponentialMovingAverage(
-            decay=self.k_adapt_decay, dim=self.N)
-        self.itr_after_k_inc = 0
-
-        # CMA Learning Rates
-        (cone, cmu, cc) = self._get_learning_rate(self.k)
+        if self.kadapt:
+            self.kmin = kwargs.get('kmin', 0)
+            self.kmax = kwargs.get('kmax', self.N - 1)
+            assert (0 <= self.kmin <= self.kmax < self.N)
+            self.k_inc_cond = kwargs.get('k_inc_cond', 30.0)
+            self.k_dec_cond = kwargs.get('k_dec_cond', self.k_inc_cond)
+            self.k_adapt_factor = kwargs.get('k_adapt_factor', 1.414)
+            self.factor_sigma_slope = kwargs.get('factor_sigma_slope', 0.1)
+            self.factor_diag_slope = kwargs.get(
+                'factor_diag_slope', 1.0)  # 0.3 in PPSN (due to cc change)
+            self.accepted_slowdown = max(1., self.k_inc_cond / 10.)
+            self.k_adapt_decay = 1.0 / self.N
+            self.k_adapt_wait = 2.0 / self.k_adapt_decay - 1
 
         # TPA Parameters
-        # self.cs = kwargs.get('cs', 0.3)
-        # self.ds = kwargs.get('ds', 4 - 3 / self.N)  # or sqrt(N)
-        # self.flg_injection = False
-        # self.ps = 0
+        self.cs = kwargs.get('cs', 0.3)
+        self.ds = kwargs.get('ds', 4. - 3. / self.N)  #math.sqrt(self.N)) 
+        self.flg_injection = False
+        self.ps = 0.
 
         # Initialize Dynamic Parameters
         self.D = std_vec
@@ -324,7 +316,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.S = np.zeros(self.N)
         self.pc = np.zeros(self.N)
         self.dx = np.zeros(self.N)
-        self.U = np.zeros((self.N, self.k + self.mu + 1))
+        self.U = None
 
     def sample(self, number, update=None):
         """return list of i.i.d. samples.
@@ -332,33 +324,77 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         :param number: is the number of samples.
         :param update: controls a possibly lazy update of the sampler.
         """
-        X = np.asarray(
-            [self.transform(self.randn(self.N)) for i in range(number)])
+        # self.flg_injection = False
+        if self.flg_injection:
+            mnorm = self.norm(self.dx)
+            dy = (np.linalg.norm(self.randn(self.N)) / mnorm) * self.dx
+            X = np.asarray([dy, -dy] + [
+                self.transform(self.randn(self.N)) for i in range(number - 2)
+            ])
+        else:
+            X = np.asarray(
+                [self.transform(self.randn(self.N)) for i in range(number)])
         return X
 
-    def update(self, vectors, weights, sigma=None, hsig=False):
+    def update(self, vectors, weights):
         """``vectors`` is a list of samples, ``weights`` a corrsponding
         list of learning rates
         """
-        if sigma is None:
-            print('Warning: k adaptation requires `sigma`, but not given.')
-
-        ka = self.ka
+        ka = self.k_active
         k = self.k
         # Parameters
         ww = np.array(weights, copy=True)
-        ww = ww[1:] / np.sum(np.abs(ww))  # w[0] is the weight for pc
-        cc, cone, cmu = self._get_params(ww)
+        ww = ww[1:] / np.sum(np.abs(ww[1:]))  # w[0] is the weight for pc
+        cc, cone, cmu = self._get_params(ww, k)
         mu = np.sum(ww > 0, dtype=int)
         mueff = 1.0 / np.dot(ww, ww)
         idx = np.argsort(ww)[::-1]
-        sary = np.asarray(vectors)[idx[:mu] + 1]
+        sary = np.asarray(vectors)[idx[:mu] + 1] / self.sigma
         w = ww[idx[:mu]]
+        lam = len(weights) - 1
+
+        if self.kadapt and not hasattr(self, 'opt_conv'):
+            # VkD Dynamic Parameters
+            self.opt_conv = 0.5 * min(1., float(lam) / self.N)
+            self.last_log_sigma = np.log(self.sigma)
+            self.last_log_d = 2.0 * np.log(self.D)
+            self.last_log_cond_corr = np.zeros(self.N)
+            self.ema_log_sigma = ExponentialMovingAverage(
+                decay=self.opt_conv / self.accepted_slowdown, dim=1)
+            self.ema_log_d = ExponentialMovingAverage(
+                decay=self.k_adapt_decay, dim=self.N)
+            self.ema_log_s = ExponentialMovingAverage(
+                decay=self.k_adapt_decay, dim=self.N)
+            self.itr_after_k_inc = 0
+
+        # TPA (PPSN 2014 version
+        if self.flg_injection:
+            nlist = np.asarray([
+                np.array(vectors[idx[i] + 1]) /
+                np.linalg.norm(vectors[idx[i] + 1]) for i in range(lam)
+            ])
+            ndx = self.dx / np.linalg.norm(self.dx)
+            for ip in range(lam):
+                if np.allclose(nlist[ip], ndx):
+                    break
+            for im in range(lam):
+                if np.allclose(nlist[im], -ndx):
+                    break
+            alpha_act = im - ip
+            alpha_act /= float(lam - 1)
+            self.ps += self.cs * (alpha_act - self.ps)
+            self.sigma *= math.exp(self.ps / self.ds)
+            hsig = self.ps < 0.5
+        else:
+            self.flg_injection = True
+            hsig = True
+        self.dx = np.dot(w, sary)
 
         # Cumulation
-        self.pc = (1. - cc) * self.pc + hsig * math.sqrt(cc * (
-            2. - cc) * mueff) * np.dot(w, sary)
+        self.pc = (1. - cc) * self.pc + hsig * math.sqrt(cc * (2. - cc) *
+                                                         mueff) * self.dx
 
+        self.U = np.zeros((self.N, self.k + mu + 1))
         # Update V, S and D
         # Cov = D(alpha**2 * I + UU^t)D
         if cmu == 0.0:
@@ -368,13 +404,13 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self.U[:, :ka] = (self.V[:ka].T * (np.sqrt(self.S[:ka]) * alpha))
             self.U[:, rankU - 1] = math.sqrt(cone) * (self.pc / self.D)
         elif cone == 0.0:
-            rankU = ka + self.mu
+            rankU = ka + mu
             alpha = math.sqrt(
                 abs(1 - cmu - cone + cone * (1 - hsig) * cc * (2 - cc)))
             self.U[:, :ka] = (self.V[:ka].T * (np.sqrt(self.S[:ka]) * alpha))
             self.U[:, ka:rankU] = np.sqrt(cmu * w) * (sary / self.D).T
         else:
-            rankU = ka + self.mu + 1
+            rankU = ka + mu + 1
             alpha = math.sqrt(
                 abs(1 - cmu - cone + cone * (1 - hsig) * cc * (2 - cc)))
             self.U[:, :ka] = (self.V[:ka].T * (np.sqrt(self.S[:ka]) * alpha))
@@ -417,11 +453,13 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.pc /= gmean_eig
 
         # ======================================================================
+        if self.kadapt is False:
+            return
         # k-Adaptation (PPSN 2016)
         self.itr_after_k_inc += 1
 
         # Exponential Moving Average
-        self.ema_log_sigma.update(math.log(sigma) - self.last_log_sigma)
+        self.ema_log_sigma.update(math.log(self.sigma) - self.last_log_sigma)
         self.lnsigma_change = self.ema_log_sigma.M / (self.opt_conv /
                                                       self.accepted_slowdown)
         self.last_log_sigma = math.log(self.sigma)
@@ -458,9 +496,9 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 max(int(math.ceil(self.k * self.k_adapt_factor)), self.k + 1),
                 self.kmax)
             self.V = np.vstack((self.V, np.zeros((newk - k, self.N))))
-            self.U = np.empty((self.N, newk + self.mu + 1))
+            self.U = np.empty((self.N, newk + mu + 1))
             # update constants
-            (cone, cmu, cc) = self._get_learning_rate(self.k)
+            (cone, cmu, cc) = self._get_params(w, self.k)
             self.itr_after_k_inc = 0
 
         elif self.itr_after_k_inc > k * self.k_adapt_wait and np.any(
@@ -473,7 +511,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self.S[new_k:] = 0
             self.k = self.k_active = new_k
             # update constants
-            (cone, cmu, cc) = self._get_learning_rate(self.k)
+            (cone, cmu, cc) = self._get_params(w, self.k)
         # ==============================================================================
 
         # Covariance Normalization by Its Determinant
@@ -509,7 +547,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         cc = math.sqrt(cone)
         cmu = min(1 - cone, 2.0 * (mueff - 2 + 1.0 / mueff) /
                   (nelem + 4 * (k + 2) + mueff))
-        return cone, cmu, cc
+        return cc, cone, cmu
 
     def parameters(self, weights):
         """return `dict` with (default) parameters, e.g., `c1` and `cmu`.
@@ -527,7 +565,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     def norm(self, x):
         """return Mahalanobis norm of `x` w.r.t. the statistical model"""
-        return sum(self.transform_inverse(x)**2)**0.5
+        return np.sum(self.transform_inverse(x)**2)**0.5
 
     @property
     def condition_number(self):
@@ -535,26 +573,29 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        if self.debug:
-            print('Warning: `covariance_matrix` is computationally expensive')
-        ka = self.ka
-        C = np.eye(self.N) + np.dot(self.V[:ka] * self.S[:ka], self.V[:ka].T)
-        C = (C * self.D).T * self.D
-        return C
+        return None
+        ka = self.k_active
+        if ka > 0:
+            C = np.eye(self.N) + np.dot(self.V[:ka] * self.S[:ka],
+                                        self.V[:ka].T)
+            C = (C * self.D).T * self.D
+        else:
+            C = np.diag(self.D**2)
+        return C * self.sigma**2
 
     @property
     def variances(self):
         """vector of coordinate-wise (marginal) variances"""
-        ka = self.ka
+        ka = self.k_active
         if ka > 0:
-            return self.D**2
+            return self.D**2 * self.sigma**2
         else:
-            return self.D**2 * (1.0 + np.dot(self.S[:ka], self.V[:ka]**2))
+            return self.D**2 * (
+                1.0 + np.dot(self.S[:ka], self.V[:ka]**2)) * self.sigma**2
 
     @property
     def correlation_matrix(self):
-        if self.debug:
-            print('Warning: `correlation_matrix` is computationally expensive')
+        return None
         C = self.covariance_matrix
         sqrtdC = np.sqrt(self.variances)
         return (C / sqrtdC).T / sqrtdC
@@ -567,10 +608,11 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         y = x + np.dot(
             np.dot(x, self.V[:ka].T) *
             (np.sqrt(1.0 + self.S[:ka]) - 1.0), self.V[:ka])
-        y *= self.D
+        y *= self.D * self.sigma
+        return y
 
     def transform_inverse(self, x):
-        y = x / self.D
+        y = x / self.D / self.sigma
         if self.k_active == 0:
             return y
         else:
@@ -594,7 +636,8 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         raise NotImplementedError
 
     def __imul__(self, factor):
-        self.D *= math.sqrt(factor)
+        #print(factor)
+        self.sigma *= math.sqrt(factor)
         return self
 
     def _get_log_determinant_of_cov(self):
