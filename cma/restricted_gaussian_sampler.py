@@ -2,13 +2,15 @@
 
 TODO: correct the interface of __init__, remove unnecessaries
 
+TODO:
+2017/05/10: pass the option to sampler
+2017/05/10: how to give sigma to update?
+
 MEMO: 
 2017/05/08: line 2958 of evolution_strategy.py: cc is assigned from sp.cc
 2017/05/08: line 3021 of evolution_strategy.py: `weights` are multiplied by c1 and cmu
 2017/05/08: line 3021 of evolution_strategy.py: first element of `vectors` is pc
 2017/05/07: hsig interface
-
-(Done on 2017/05/07) 
 2017/05/07: `CMAAdaptSigmaNone` not working
 2017/05/07: `dimension` passed to __init__ in not int.
 2017/05/06: 'AdaptSigma = CMAAdaptSigmaTPA' won't work. AssertionError happens in `_update_ps`.
@@ -268,15 +270,12 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     Dimension. In Proc. of GECCO 2016, pp. 197--204 (2016)
     """
 
-    def __init__(self,
-                 dimension,
-                 randn=np.random.randn,
-                 kadapt=False,
+    def __init__(self, dimension, randn=np.random.randn, kadapt=True,
                  **kwargs):
         """pass dimension of the underlying sample space
         """
 
-        kwargs['k_init'] = 1
+        #kwargs['k_init'] = 1
         try:
             self.N = len(dimension)
             std_vec = np.array(dimension, copy=True)
@@ -324,7 +323,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         :param number: is the number of samples.
         :param update: controls a possibly lazy update of the sampler.
         """
-        # self.flg_injection = False
+        #self.flg_injection = False  # no ssa inside this class
         if self.flg_injection:
             mnorm = self.norm(self.dx)
             dy = (np.linalg.norm(self.randn(self.N)) / mnorm) * self.dx
@@ -340,6 +339,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """``vectors`` is a list of samples, ``weights`` a corrsponding
         list of learning rates
         """
+        #self.flg_injection = False  # no ssa inside this class        
         ka = self.k_active
         k = self.k
         # Parameters
@@ -377,9 +377,14 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             for ip in range(lam):
                 if np.allclose(nlist[ip], ndx):
                     break
+                if ip == lam - 1:
+                    print('error')
             for im in range(lam):
                 if np.allclose(nlist[im], -ndx):
                     break
+                if im == lam - 1:
+                    print('error')
+
             alpha_act = im - ip
             alpha_act /= float(lam - 1)
             self.ps += self.cs * (alpha_act - self.ps)
@@ -636,7 +641,6 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         raise NotImplementedError
 
     def __imul__(self, factor):
-        #print(factor)
         self.sigma *= math.sqrt(factor)
         return self
 
