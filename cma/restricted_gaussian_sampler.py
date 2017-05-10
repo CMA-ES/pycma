@@ -275,7 +275,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """pass dimension of the underlying sample space
         """
 
-        #kwargs['k_init'] = 1
+        kwargs['k_init'] = 1
         try:
             self.N = len(dimension)
             std_vec = np.array(dimension, copy=True)
@@ -323,7 +323,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         :param number: is the number of samples.
         :param update: controls a possibly lazy update of the sampler.
         """
-        #self.flg_injection = False  # no ssa inside this class
+        self.flg_injection = False  # no ssa inside this class
         if self.flg_injection:
             mnorm = self.norm(self.dx)
             dy = (np.linalg.norm(self.randn(self.N)) / mnorm) * self.dx
@@ -339,7 +339,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """``vectors`` is a list of samples, ``weights`` a corrsponding
         list of learning rates
         """
-        #self.flg_injection = False  # no ssa inside this class        
+        self.flg_injection = False  # no ssa inside this class        
         ka = self.k_active
         k = self.k
         # Parameters
