@@ -37,7 +37,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     In Proc. of GECCO 2014, pp. 373 -- 380 (2014)
     """
 
-    def __init__(self, dimension, randn=np.random.randn, **kwargs):
+    def __init__(self, dimension, randn=np.random.randn):
         """pass dimension of the underlying sample space
         """
         try:
@@ -220,7 +220,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        #return None  # Expensive
+        return None  # Expensive
         C = self.covariance_matrix
         sqrtdC = np.sqrt(self.variances)
         return (C / sqrtdC).T / sqrtdC
@@ -270,12 +270,13 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     Dimension. In Proc. of GECCO 2016, pp. 197--204 (2016)
     """
 
-    def __init__(self, dimension, randn=np.random.randn, kadapt=True,
+    def __init__(self,
+                 dimension,
+                 randn=np.random.randn,
+                 kadapt=True,
                  **kwargs):
         """pass dimension of the underlying sample space
         """
-
-        kwargs['k_init'] = 1
         try:
             self.N = len(dimension)
             std_vec = np.array(dimension, copy=True)
@@ -284,6 +285,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             std_vec = np.ones(self.N)
         self.randn = randn
         self.sigma = 1.0
+        self.sigma_fac = 1.0
 
         self.kadapt = kadapt
         # VkD Static Parameters
@@ -298,7 +300,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self.k_adapt_factor = kwargs.get('k_adapt_factor', 1.414)
             self.factor_sigma_slope = kwargs.get('factor_sigma_slope', 0.1)
             self.factor_diag_slope = kwargs.get(
-                'factor_diag_slope', 1.0)  # 0.3 in PPSN (due to cc change)
+                'factor_diag_slope', 2)  # 0.3 in PPSN (due to cc change)
             self.accepted_slowdown = max(1., self.k_inc_cond / 10.)
             self.k_adapt_decay = 1.0 / self.N
             self.k_adapt_wait = 2.0 / self.k_adapt_decay - 1
@@ -323,7 +325,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         :param number: is the number of samples.
         :param update: controls a possibly lazy update of the sampler.
         """
-        self.flg_injection = False  # no ssa inside this class
+        # self.flg_injection = False  # no ssa inside this class
         if self.flg_injection:
             mnorm = self.norm(self.dx)
             dy = (np.linalg.norm(self.randn(self.N)) / mnorm) * self.dx
@@ -339,12 +341,13 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """``vectors`` is a list of samples, ``weights`` a corrsponding
         list of learning rates
         """
-        self.flg_injection = False  # no ssa inside this class        
+        # self.flg_injection = False  # no ssa inside this class        
         ka = self.k_active
         k = self.k
         # Parameters
         ww = np.array(weights, copy=True)
         ww = ww[1:] / np.sum(np.abs(ww[1:]))  # w[0] is the weight for pc
+        assert np.all(ww >= 0.0)
         cc, cone, cmu = self._get_params(ww, k)
         mu = np.sum(ww > 0, dtype=int)
         mueff = 1.0 / np.dot(ww, ww)
@@ -464,10 +467,10 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.itr_after_k_inc += 1
 
         # Exponential Moving Average
-        self.ema_log_sigma.update(math.log(self.sigma) - self.last_log_sigma)
+        self.ema_log_sigma.update(math.log(self.sigma * self.sigma_fac) - self.last_log_sigma)
         self.lnsigma_change = self.ema_log_sigma.M / (self.opt_conv /
                                                       self.accepted_slowdown)
-        self.last_log_sigma = math.log(self.sigma)
+        self.last_log_sigma = math.log(self.sigma * self.sigma_fac)
         self.ema_log_d.update(2. * np.log(self.D) + np.log(1 + np.dot(
             self.S[:self.k], self.V[:self.k]**2)) - self.last_log_d)
         self.lndiag_change = self.ema_log_d.M / (cmu + cone)
@@ -485,7 +488,8 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             np.abs(self.lnsigma_change) < self.factor_sigma_slope)
         flg_k_increase *= np.all(
             np.abs(self.lndiag_change) < self.factor_diag_slope)
-        # print(self.itr_after_k_inc > self.k_adapt_wait, self.k < self.kmax,
+        # print(self.itr_after_k_inc > self.k_adapt_wait,
+        #       self.k < self.kmax,
         #       np.all((1 + self.S[:self.k]) > self.k_inc_cond),
         #       np.abs(self.lnsigma_change) < self.factor_sigma_slope,
         #       np.percentile(np.abs(self.lndiag_change), [1, 50, 99]))
@@ -578,11 +582,11 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        return None
+        # return None
         ka = self.k_active
         if ka > 0:
-            C = np.eye(self.N) + np.dot(self.V[:ka] * self.S[:ka],
-                                        self.V[:ka].T)
+            C = np.eye(self.N) + np.dot(self.V[:ka].T * self.S[:ka],
+                                        self.V[:ka])
             C = (C * self.D).T * self.D
         else:
             C = np.diag(self.D**2)
@@ -642,6 +646,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     def __imul__(self, factor):
         self.sigma *= math.sqrt(factor)
+        self.sigma_fac /= math.sqrt(factor)       
         return self
 
     def _get_log_determinant_of_cov(self):
