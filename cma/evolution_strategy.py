@@ -4295,8 +4295,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         """
         if not isinstance(es, CMAEvolutionStrategy):
-            raise TypeError("only class CMAEvolutionStrategy can be " +
-                            "registered for logging")
+            utils.print_warning("""only class CMAEvolutionStrategy should
+    be registered for logging. The used "%s" class may not to work
+    properly. This warning may also occur after using `reload`. Then,
+    restarting Python should solve the issue.""" %
+                                str(type(es)))
         self.es = es
         if append is not None:
             self.append = append
