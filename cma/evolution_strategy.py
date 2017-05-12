@@ -4513,14 +4513,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
             xrecent = es.best.last.x
         except:
             xrecent = None
-        diagC = es.sigma * es.sigma_vec.scaling * es.dC**0.5
+        diagC = es.sigma * es.sigma_vec.scaling * es.sm.variances**0.5
         if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
-            maxD = es.D.max()
-            minD = es.D.min()
-            diagD = es.D
+            try:
+                diagD = es.sm.D
+            except:
+                diagD = [1]
+            maxD = max(diagD)
+            minD = min(diagD)
         else:
-            maxD = max(es.sigma_vec * es.dC**0.5)  # dC should be 1 though
-            minD = min(es.sigma_vec * es.dC**0.5)
+            maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
+            minD = min(es.sigma_vec * es.sm.variances**0.5)
             diagD = diagC
         more_to_write = es.more_to_write
         if 11 < 3:  # and len(more_to_write) > 1:
