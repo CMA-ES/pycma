@@ -244,7 +244,7 @@ class StatisticalModelSamplerWithZeroMeanBaseClass(object):
     """yet versatile base class to replace a sampler namely in
     `CMAEvolutionStrategy`"""
     def __init__(self, std_vec, **kwargs):
-        """pass the vector of initial standard deviation or dimension of
+        """pass the vector of initial standard deviations or dimension of
         the underlying sample space.
 
         Ideally catch the case when `std_vec` is a scalar and then
