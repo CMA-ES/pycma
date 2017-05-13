@@ -3490,7 +3490,8 @@ class _CMAStopDict(dict):
                 try:
                     self._addstop('noeffectaxis',
                                  sum(es.mean == es.mean + 0.1 * es.sigma *
-                                     es.D[i] * es.sigma_vec.scaling * es.B[:, i]) == N)
+                                     es.sm.D[i] * es.sigma_vec.scaling *
+                                     es.sm.B[:, i]) == N)
                 except AttributeError:
                     pass
             self._addstop('tolconditioncov',
