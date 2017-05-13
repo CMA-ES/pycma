@@ -243,9 +243,18 @@ class OOOptimizer(object):
 class StatisticalModelSamplerWithZeroMeanBaseClass(object):
     """yet versatile base class to replace a sampler namely in
     `CMAEvolutionStrategy`"""
-    def __init__(self, dimension):
-        """pass dimension of the underlying sample space
+    def __init__(self, std_vec, **kwargs):
+        """pass the vector of initial standard deviation or dimension of
+        the underlying sample space.
+
+        Ideally catch the case when `std_vec` is a scalar and then
+        interpreted as dimension.
         """
+        try:
+            dimension = len(std_vec)
+        except TypeError:  # std_vec has no len
+            dimension = std_vec
+            std_vec = np.ones(dimension)
         raise NotImplementedError
     def sample(self, number, update=None):
         """return list of i.i.d. samples.
