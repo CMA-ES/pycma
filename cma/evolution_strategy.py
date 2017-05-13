@@ -643,7 +643,8 @@ class RecombinationWeights(list):
         """lower bound the sum of negative weights to ``-abs(value)``.
         """
         weights = self  # simpler to change to data attribute and nicer to read
-        if sum(weights[self.mu:]) >= -abs(value):  # nothing to limit
+        value = abs(value)
+        if sum(weights[self.mu:]) >= -value:  # nothing to limit
             return  # needed when sum is zero
         assert weights[-1] < 0 and weights[self.mu] <= 0
         factor = abs(value / sum(weights[self.mu:]))
@@ -4311,8 +4312,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         """
         if not isinstance(es, CMAEvolutionStrategy):
-            raise TypeError("only class CMAEvolutionStrategy can be " +
-                            "registered for logging")
+            utils.print_warning("""only class CMAEvolutionStrategy should
+    be registered for logging. The used "%s" class may not to work
+    properly. This warning may also occur after using `reload`. Then,
+    restarting Python should solve the issue.""" %
+                                str(type(es)))
         self.es = es
         if append is not None:
             self.append = append
@@ -4460,7 +4464,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                'CMADataLogger')
         # convert single line to matrix of shape (1, len)
         for key in self.key_names:
-            d = getattr(self, key)
+            try:
+                d = getattr(self, key)
+            except AttributeError:
+                utils.print_warning("attribute %s missing" % key, 'load',
+                                    'CMADataLogger')
+                continue
             if len(d.shape) == 1:  # one line has shape (8, )
                 setattr(self, key, d.reshape((1, len(d))))
 
@@ -4521,14 +4530,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
             xrecent = es.best.last.x
         except:
             xrecent = None
-        diagC = es.sigma * es.sigma_vec.scaling * es.dC**0.5
+        diagC = es.sigma * es.sigma_vec.scaling * es.sm.variances**0.5
         if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
-            maxD = es.D.max()
-            minD = es.D.min()
-            diagD = es.D
+            try:
+                diagD = es.sm.D
+            except:
+                diagD = [1]
+            maxD = max(diagD)
+            minD = min(diagD)
         else:
-            maxD = max(es.sigma_vec * es.dC**0.5)  # dC should be 1 though
-            minD = min(es.sigma_vec * es.dC**0.5)
+            maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
+            minD = min(es.sigma_vec * es.sm.variances**0.5)
             diagD = diagC
         more_to_write = es.more_to_write
         if 11 < 3:  # and len(more_to_write) > 1:
