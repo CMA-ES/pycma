@@ -2081,7 +2081,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5
                           )
             except AttributeError:
-                utils.print_warning("Gradient injection failed due to missing attribute ``self.B``")
+                utils.print_warning("""Gradient injection failed
+    presumably due to missing attribute ``self.B``""")
 
 
         # insert solutions, this could also (better?) be done in self.gp.pheno
