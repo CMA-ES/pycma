@@ -1813,7 +1813,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.sm = self.opts['CMA_sampler']
             if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
                 utils.print_warning("""statistical model sampler did
-    not evaluated to the expected type `%s` but to type `%s`. This is
+    not evaluate to the expected type `%s` but to type `%s`. This is
     likely to lead to an exception later on. """ % (
                     str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
                     str(type(self.sm))))
