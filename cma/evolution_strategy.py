@@ -3121,8 +3121,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """helper function for a smooth transition to sampling classes.
 
         By now all tests run through without this method in effect.
-        Gradient injection however relies on non-documented attributes
-        B and D in the sampler. """
+        Gradient injection and noeffectaxis however rely on the
+        non-documented attributes B and D in the sampler. """
         # return  # will be outcommented soon
         if sm_ is None:
             sm_ = self.sm
