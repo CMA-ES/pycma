@@ -1977,6 +1977,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                      for x in pop_geno]
 
         if gradf is not None:
+            if not isinstance(self.sm, sampler.GaussFullSampler):
+                utils.print_warning("""Gradient injection may fail,
+    because sampler attributes `B` and `D` are not present""",
+                                    "ask", "CMAEvolutionStrategy",
+                                    self.countiter, maxwarns=1)
             try:
                 # see Hansen (2011), Injecting external solutions into CMA-ES
                 if not self.gp.islinear:
@@ -2049,7 +2054,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     NotImplementedError("""
                     gradient with fixed variables is not (yet) implemented,
                     implement a simple transformation of the objective instead""")
-                v = self.D * np.dot(self.B.T, self.sigma_vec * grad_at_mean)
+                v = self.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
                 # newton_direction = sv * B * D * D * B^T * sv * gradient = sv * B * D * v
                 # v = D^-1 * B^T * sv^-1 * newton_direction = D * B^T * sv * gradient
                 q = sum(v**2)
@@ -2057,7 +2062,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     # Newton direction
                     pop_geno[index_for_gradient] = xmean - self.sigma \
                                 * (self.N / q)**0.5 \
-                                * (self.sigma_vec * np.dot(self.B, self.D * v))
+                                * (self.sigma_vec * np.dot(self.sm.B, self.sm.D * v))
                     if 11 < 3 and self.opts['vv']:
                         # gradient direction
                         q = sum((np.dot(self.sm.B.T, self.sigma_vec**-1 * grad_at_mean) / self.sm.D)**2)
@@ -2082,7 +2087,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                           )
             except AttributeError:
                 utils.print_warning("""Gradient injection failed
-    presumably due to missing attribute ``self.B``""")
+    presumably due to missing attribute ``self.sm.B or self.sm.D``""")
 
 
         # insert solutions, this could also (better?) be done in self.gp.pheno
@@ -3113,8 +3118,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             self.countiter)
 
     def _updateBDfromSM(self, sm_=None):
-        """helper function for a smooth transition to sampling classes"""
-        # return  # almost possible, only gradient injection fails (test does not run through)
+        """helper function for a smooth transition to sampling classes.
+
+        By now all tests run through without this method in effect.
+        Gradient injection however relies on non-documented attributes
+        B and D in the sampler. """
+        # return  # will be outcommented soon
         if sm_ is None:
             sm_ = self.sm
         if isinstance(sm_, sampler.GaussStandardConstant):
