@@ -720,8 +720,8 @@ cma_default_options = {
     'CMA_mu': 'None  # parents selection parameter, default is popsize // 2',
     'CMA_on': '1  # multiplier for all covariance matrix updates',
     'CMA_sample_on_sphere_surface': 'False  #v all mutation vectors have the same length, currently (with new_sampling) not in effect',
-    'CMA_sampler': 'None  # an instance that needs to implement ask and tell',
-    'CMA_sampler_options': 'None  # a dictionary of sampler options that is passed to init',    
+    'CMA_sampler': 'None  # a class or instance that implements the interface of `cma.interfaces.StatisticalModelSamplerWithZeroMeanBaseClass`',
+    'CMA_sampler_options': '{}  # options passed to `CMA_sampler` class init as keyword arguments',
     'CMA_rankmu': '1.0  # multiplier for rank-mu update learning rate of covariance matrix',
     'CMA_rankone': '1.0  # multiplier for rank-one update learning rate of covariance matrix',
     'CMA_recombination_weights': 'None  # a list, see class RecombinationWeights, overwrites CMA_mu and popsize options',
@@ -1803,20 +1803,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     )
             elif isinstance(self.opts['CMA_sampler'], type):  # type(...) is type, inspect.isclass(.)
                 try:
-                    if self.opts['CMA_sampler_options'] is None:
-                        self.sm = self.opts['CMA_sampler'](stds * np.ones(N))
-                    else:
-                        self.sm = self.opts['CMA_sampler'](stds * np.ones(N), **self.opts['CMA_sampler_options'])
+                    self.sm = self.opts['CMA_sampler'](
+                                stds * np.ones(N),
+                                **self.opts['CMA_sampler_options'])
                 except:
-                    try:
-                        if self.opts['CMA_sampler_options'] is None:                        
-                            self.sm = self.opts['CMA_sampler'](N, **sampler_opts)
-                        else:
-                            self.sm = self.opts['CMA_sampler'](N, **self.opts['CMA_sampler_options'])
-                    except:
-                        #XXX(Y.A.) duplicated?
-                        self.sm = self.opts['CMA_sampler']
-                        assert(isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass))
+                    self.sm = self.opts['CMA_sampler'](N,
+                                **self.opts['CMA_sampler_options'])
             else:
                 self.sm = self.opts['CMA_sampler']
                 if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):

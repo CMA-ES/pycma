@@ -243,7 +243,7 @@ class OOOptimizer(object):
 class StatisticalModelSamplerWithZeroMeanBaseClass(object):
     """yet versatile base class to replace a sampler namely in
     `CMAEvolutionStrategy`"""
-    def __init__(self, std_vec):
+    def __init__(self, std_vec, **kwargs):
         """pass the vector of initial standard deviation or dimension of
         the underlying sample space.
 
