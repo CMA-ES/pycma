@@ -1807,17 +1807,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                 stds * np.ones(N),
                                 **self.opts['CMA_sampler_options'])
                 except:
-                    try:
-                        self.sm = self.opts['CMA_sampler'](N,
-                                    **self.opts['CMA_sampler_options'])
-                    except:
-                        self.sm = self.opts['CMA_sampler']
-                        assert(isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass))
+                    self.sm = self.opts['CMA_sampler'](N,
+                                **self.opts['CMA_sampler_options'])
             else:
                 self.sm = self.opts['CMA_sampler']
-                if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
-                    raise ValueError("'%s' type of statistical model not allowed" % str(type(self.sm)))
-            assert(isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass))
+            if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
+                utils.print_warning("""statistical model sampler did
+    not evaluated to the expected type `%s` but to type `%s`. This is
+    likely to lead to an exception later on. """ % (
+                    str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
+                    str(type(self.sm))))
             self._updateBDfromSM(self.sm)
 
         self.D = self.dC**0.5  # we assume that the initial C is diagonal
