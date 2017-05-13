@@ -628,6 +628,7 @@ class RecombinationWeights(list):
         Precondition: last weight must be strictly smaller than zero.
         """
         weights = self  # simpler to change to data attribute and nicer to read
+        value = abs(value)  # simplify code, prevent erroneous assertion error
         assert weights[-1] < 0 and weights[self.mu] <= 0
         factor = abs(value / sum(weights[self.mu:]))
         for i in range(self.mu, self.lambda_):
@@ -643,7 +644,7 @@ class RecombinationWeights(list):
         """lower bound the sum of negative weights to ``-abs(value)``.
         """
         weights = self  # simpler to change to data attribute and nicer to read
-        value = abs(value)
+        value = abs(value)  # simplify code, prevent erroneous assertion error
         if sum(weights[self.mu:]) >= -value:  # nothing to limit
             return  # needed when sum is zero
         assert weights[-1] < 0 and weights[self.mu] <= 0
