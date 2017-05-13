@@ -1807,13 +1807,20 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                 stds * np.ones(N),
                                 **self.opts['CMA_sampler_options'])
                 except:
+                    if max(stds) > min(stds):
+                        utils.print_warning("""different initial standard
+    deviations are not supported by the current sampler and hence ignored
+    """)
+                    elif stds[0] != 1:
+                        utils.print_warning("""ignoring scaling factor %f
+    for sample distribution""" % stds[0])
                     self.sm = self.opts['CMA_sampler'](N,
                                 **self.opts['CMA_sampler_options'])
-            else:
+            else:  # CMA_sampler is already initialized as class instance
                 self.sm = self.opts['CMA_sampler']
             if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
                 utils.print_warning("""statistical model sampler did
-    not evaluated to the expected type `%s` but to type `%s`. This is
+    not evaluate to the expected type `%s` but to type `%s`. This is
     likely to lead to an exception later on. """ % (
                     str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
                     str(type(self.sm))))
