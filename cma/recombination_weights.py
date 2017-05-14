@@ -6,6 +6,8 @@ weights in the covariance matrix update.
 # https://gist.github.com/nikohansen/3eb4ef0790ff49276a7be3cdb46d84e9
 from __future__ import division
 import math
+import numpy as np  # not stricly necessary
+
 class RecombinationWeights(list):
     """a list of decreasing (recombination) weight values.
 
@@ -32,7 +34,7 @@ class RecombinationWeights(list):
     Usage:
 
     >>> # from recombination_weights import RecombinationWeights
-    >>> from cma.evolution_strategy import RecombinationWeights
+    >>> from cma.recombination_weights import RecombinationWeights
     >>> dimension, popsize = 5, 7
     >>> weights = RecombinationWeights(popsize)
     >>> print("sum=%.2f, mu=%d, sumpos=%.2f, sumneg=%.2f" % (
@@ -83,6 +85,7 @@ class RecombinationWeights(list):
     ...                 weights.mueffminus)
     '1.0  0.0  5.0  5.0  0.0  '
 
+    Reference: Hansen 2016, arXiv:1604.00772.
     """
     def __init__(self, len_):
         """return recombination weights `list`, post condition is
@@ -104,10 +107,9 @@ class RecombinationWeights(list):
         try:
             len_ = len(weights)
         except TypeError:
-            try:
-                weights = list(weights)
-                len_ = len(weights)
-            except TypeError:
+            try:  # iterator without len
+                len_ = len(list(weights))
+            except TypeError:  # create from scratch
                 weights = [math.log((len_ + 1) / 2.) - math.log(i)
                            for i in range(1, len_ + 1)]  # raw shape
         if len_ < 2:
@@ -224,7 +226,10 @@ class RecombinationWeights(list):
     def _negative_weights_set_sum(self, value):
         """set sum of negative weights to ``-abs(value)``
 
-        Precondition: last weight must be strictly smaller than zero.
+        Precondition: the last weight must no be greater than zero.
+
+        Details: if no negative weight exists, all zero weights with index
+        lambda / 2 or greater become uniformely negative.
         """
         weights = self  # simpler to change to data attribute and nicer to read
         value = abs(value)  # simplify code, prevent erroneous assertion error
@@ -233,8 +238,9 @@ class RecombinationWeights(list):
             # breaks if mu == lambda
             # we could also just return here
             # return
-            for i in range(self.mu, self.lambda_):
-                weights[i] = -value / (self.lambda_ - self.mu)
+            istart = max((self.mu, int(self.lambda_ / 2)))
+            for i in range(istart, self.lambda_):
+                weights[i] = -value / (self.lambda_ - istart)
         factor = abs(value / sum(weights[self.mu:]))
         for i in range(self.mu, self.lambda_):
             weights[i] *= factor
