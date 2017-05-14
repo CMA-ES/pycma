@@ -225,6 +225,25 @@ def various_doctests():
         >>> s = es.stop()
         >>> es = es.optimize(cma.ff.sphere)
 
+    VD-CMA:
+
+        >>> import cma
+        >>> try:
+        ...     import cma.restricted_gaussian_sampler
+        ... except ImportError:
+        ...     "not all version may have the python file"
+        ... else:
+        ...     es = cma.CMAEvolutionStrategy(20 * [1], 1, {
+        ...         'CMA_active': False, 'AdaptSigma': None,
+        ...         'CMA_sampler': cma.restricted_gaussian_sampler.GaussVDSampler,
+        ...         # 'CMA_sampler_options': {'seed':6}
+        ...         'ftarget': 1e-8,
+        ...         'verbose': -9,
+        ...     })
+        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
+        >>> assert es.result.fbest <= 1e-8
+        >>> assert es.result.evaluations < 3e4
+
     """
 
 def doctest_files(file_list=files_for_doctest, **kwargs):
