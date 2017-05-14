@@ -1808,7 +1808,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     randn=self.opts['randn'],
                     eigenmethod=self.opts['CMA_eigenmethod'],
                     )
-                p = self.sm.parameters(self.sp.weights.mueff, self.sp.weights.lambda_)
+                p = self.sm.parameters(mueff=self.sp.weights.mueff,
+                                       lam=self.sp.weights.lambda_)
                 self.sp.weights.finalize_negative_weights(N, p['c1'], p['cmu'])
             elif isinstance(self.opts['CMA_sampler'], type):  # type(...) is type, inspect.isclass(.)
                 try:
@@ -2781,7 +2782,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # get learning rate constants
         cc = sp.cc
         c1 = self.opts['CMA_on'] * self.opts['CMA_rankone'] * self.sm.parameters(
-            sp.weights.mueff, sp.weights.lambda_).get('c1', sp.c1)  # mueff and lambda_ should not be necessary here
+            mueff=sp.weights.mueff, lam=sp.weights.lambda_).get('c1', sp.c1)  # mueff and lambda_ should not be necessary here
         cmu = self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters().get('cmu', sp.cmu)
         if flg_diagonal:
             cc, c1, cmu = sp.cc_sep, sp.c1_sep, sp.cmu_sep
