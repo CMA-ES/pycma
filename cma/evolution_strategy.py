@@ -560,8 +560,6 @@ class RecombinationWeights(list):
                                    weights[:self.mu])
         sneg = sum(weights[self.mu:])
         assert (sneg - sum(w for w in weights if w < 0))**2 < 1e-11
-        self.mueffminus = 0 if sneg == 0 else \
-            sneg**2 / sum(w**2 for w in weights[self.mu:])
         not do_asserts or self.do_asserts()
         return self
 
@@ -618,7 +616,6 @@ class RecombinationWeights(list):
         """finalize by setting all negative weights to zero"""
         for k in range(len(self)):
             self[k] *= 0 if self[k] < 0 else 1
-        self.mueffminus = 0
         self.finalized = True
         return self
 
@@ -628,12 +625,17 @@ class RecombinationWeights(list):
         Precondition: last weight must be strictly smaller than zero.
         """
         weights = self  # simpler to change to data attribute and nicer to read
-        assert weights[-1] < 0 and weights[self.mu] <= 0
+        value = abs(value)  # simplify code, prevent erroneous assertion error
+        assert weights[self.mu] <= 0
+        if not weights[-1] < 0:
+            # breaks if mu == lambda
+            # we could also just return here
+            # return
+            for i in range(self.mu, self.lambda_):
+                weights[i] = -value / (self.lambda_ - self.mu)
         factor = abs(value / sum(weights[self.mu:]))
         for i in range(self.mu, self.lambda_):
             weights[i] *= factor
-        if value == 0:
-            self.mueffminus = 0  # otherwise scaling doesn't change mueff
         assert 1 - value - 1e-5 < sum(weights) < 1 - value + 1e-5
         if self.debug:
             print("sum w = %.2f, sum w^- = %.2f" %
@@ -643,7 +645,7 @@ class RecombinationWeights(list):
         """lower bound the sum of negative weights to ``-abs(value)``.
         """
         weights = self  # simpler to change to data attribute and nicer to read
-        value = abs(value)
+        value = abs(value)  # simplify code, prevent erroneous assertion error
         if sum(weights[self.mu:]) >= -value:  # nothing to limit
             return  # needed when sum is zero
         assert weights[-1] < 0 and weights[self.mu] <= 0
@@ -651,8 +653,6 @@ class RecombinationWeights(list):
         if factor < 1:
             for i in range(self.mu, self.lambda_):
                 weights[i] *= factor
-            if value == 0:
-                self.mueffminus = 0
             if self.debug:
                 print("sum w = %.2f (with correction %.2f)" %
                       (sum(weights), value))
@@ -690,6 +690,13 @@ class RecombinationWeights(list):
     def lambda_(self):
         """alias for ``len(self)``"""
         return len(self)
+    @property
+    def mueffminus(self):
+        weights = self
+        sneg = sum(weights[self.mu:])
+        assert (sneg - sum(w for w in weights if w < 0))**2 < 1e-11
+        return (0 if sneg == 0 else
+                sneg**2 / sum(w**2 for w in weights[self.mu:]))
     @property
     def positive_weights(self):
         """all (strictly) positive weights as ``np.array``.
@@ -1801,6 +1808,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     randn=self.opts['randn'],
                     eigenmethod=self.opts['CMA_eigenmethod'],
                     )
+                p = self.sm.parameters(self.sp.weights.mueff, self.sp.weights.lambda_)
+                self.sp.weights.finalize_negative_weights(N, p['c1'], p['cmu'])
             elif isinstance(self.opts['CMA_sampler'], type):  # type(...) is type, inspect.isclass(.)
                 try:
                     self.sm = self.opts['CMA_sampler'](
@@ -2770,9 +2779,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ### line 2799
 
         # get learning rate constants
-        cc, c1, cmu = sp.cc, \
-                      self.opts['CMA_on'] * self.opts['CMA_rankone'] * self.sm.parameters(sp.weights).get('c1', sp.c1), \
-                      self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters(sp.weights).get('cmu', sp.cmu)
+        cc = sp.cc
+        c1 = self.opts['CMA_on'] * self.opts['CMA_rankone'] * self.sm.parameters(
+            sp.weights.mueff, sp.weights.lambda_).get('c1', sp.c1)  # mueff and lambda_ should not be necessary here
+        cmu = self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters().get('cmu', sp.cmu)
         if flg_diagonal:
             cc, c1, cmu = sp.cc_sep, sp.c1_sep, sp.cmu_sep
 
@@ -2836,6 +2846,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.sm.update([(c1 / (c1a + 1e-23))**0.5 * self.pc] +  # c1a * pc**2 gets c1 * pc**2
                               list(pop_zero / (self.sigma * self.sigma_vec.scaling)),
                               sampler_weights)
+            if any(np.asarray(self.sm.variances) < 0):
+                raise RuntimeError("""A sampler variance has become
+    negative after update, this must be considered as a bug.
+    Variances `self.sm.variances`=%s""" % str(self.sm.variances))
         self._updateBDfromSM(self.sm)
 
         # step-size adaptation, adapt sigma
@@ -3554,7 +3568,6 @@ class _CMAParameters(object):
     >>>
     >>> type(es.sp)  # sp contains the strategy parameters
     <class 'cma.evolution_strategy._CMAParameters'>
-    >>>
     >>> es.sp.disp()  #doctest: +ELLIPSIS
     {'CMA_on': True,
      'N': 20,
@@ -3715,6 +3728,7 @@ class _CMAParameters(object):
         if any(w < 0 for w in sp.weights):
             if opts['CMA_active'] and opts['CMA_on'] and opts['CMA_rankmu']:
                 sp.weights.finalize_negative_weights(N, sp.c1, sp.cmu)
+                # this is re-done using self.sm.parameters()['c1']...
             else:
                 sp.weights.zero_negative_weights()
 
