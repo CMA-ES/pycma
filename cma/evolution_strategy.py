@@ -630,7 +630,7 @@ class RecombinationWeights(list):
         if not weights[-1] < 0:
             # breaks if mu == lambda
             # we could also just return here
-            # return
+            return
             for i in range(self.mu, self.lambda_):
                 weights[i] = -value / (self.lambda_ - self.mu)
         factor = abs(value / sum(weights[self.mu:]))
