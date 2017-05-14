@@ -207,7 +207,7 @@ def various_doctests():
         >>> idx = [0, 1, 5, -1]
         >>> f = cma.s.ft.IntegerMixedFunction(cma.ff.elli, idx)
         >>> es = cma.CMAEvolutionStrategy(4 * [5], 10, dict(
-        ...               ftarget=1e-9, seed=2,
+        ...               ftarget=1e-9, seed=5,
         ...               integer_variables=idx
         ...            ))  # doctest:+ELLIPSIS
         WARNING... integer index 5 not in range of dimension 4
@@ -224,6 +224,16 @@ def various_doctests():
         ...                      verbose=-9))
         >>> s = es.stop()
         >>> es = es.optimize(cma.ff.sphere)
+
+    Test of huge lambda:
+
+        >>> import cma
+        >>> es = cma.CMAEvolutionStrategy(3 * [0.91], 1, {
+        ...     'verbose': -9,
+        ...     'popsize': 200,
+        ...     'ftarget': 1e-8 })
+        >>> es = es.optimize(cma.ff.tablet)
+        >>> assert es.result.evaluations < 5000
 
     """
 
