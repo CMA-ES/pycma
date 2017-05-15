@@ -21,15 +21,28 @@ class RecombinationWeights(list):
     definiteness of C if ``y_i^T C^-1 y_i <= dimension`` for all
     ``w_i < 0``.
 
-    Class attributes:
+    Class attributes/properties:
 
     - ``lambda_``: number of weights, alias for ``len(self)``
     - ``mu``: number of strictly positive weights, i.e.
       ``sum([wi > 0 for wi in self])``
     - ``mueff``: variance effective number of positive weights, i.e.
       ``1 / sum([self[i]**2 for i in range(self.mu)])`` where
-      ``sum([self[i] for i in range(self.mu)])**2 == 1``
-    - ``mueffminus``: variance effective number of negative weights
+      ``1 == sum([self[i] for i in range(self.mu)])**2``
+    - `mueffminus`: variance effective number of negative weights
+    - `positive_weights`: `np.array` of the strictly positive weights
+    - ``finalized``: `True` if class instance is ready to use
+
+    Class methods not inherited from list:
+
+    - `finalize_negative_weights`: main method
+    - `zero_negative_weights`: set negative weights to zero, leads to
+      ``finalized`` to be `True`.
+    - `set_attributes_from_weights`: useful when weight values are
+      "manually" changed or inserted
+    - `asarray`: alias for ``np.asarray(self)``
+    - `do_asserts`: check consistency of weight values, passes also when
+      not yet ``finalized``
 
     Usage:
 
