@@ -204,12 +204,13 @@ class RecombinationWeights(list):
         self._c1 = c1  # for the record
         self._cmu = cmu
 
-        if cmu > 0:
-            self._negative_weights_set_sum(1 + c1 / cmu)
-            self._negative_weights_limit_sum((1 - c1 - cmu) / cmu /
-                                             dimension)
-        self._negative_weights_limit_sum(1 + 2 * self.mueffminus /
-                                         (self.mueff + 2))
+        if self[-1] < 0:
+            if cmu > 0:
+                self._negative_weights_set_sum(1 + c1 / cmu)
+                self._negative_weights_limit_sum((1 - c1 - cmu) / cmu /
+                                                 dimension)
+            self._negative_weights_limit_sum(1 + 2 * self.mueffminus /
+                                             (self.mueff + 2))
         self.do_asserts()
         self.finalized = True
 
