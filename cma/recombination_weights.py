@@ -33,13 +33,13 @@ class RecombinationWeights(list):
     - `positive_weights`: `np.array` of the strictly positive weights
     - ``finalized``: `True` if class instance is ready to use
 
-    Class methods not inherited from list:
+    Class methods not inherited from `list`:
 
     - `finalize_negative_weights`: main method
     - `zero_negative_weights`: set negative weights to zero, leads to
       ``finalized`` to be `True`.
     - `set_attributes_from_weights`: useful when weight values are
-      "manually" changed or inserted
+      "manually" changed, removed or inserted
     - `asarray`: alias for ``np.asarray(self)``
     - `do_asserts`: check consistency of weight values, passes also when
       not yet ``finalized``
@@ -80,9 +80,9 @@ class RecombinationWeights(list):
     >>> print("sum=%.2f, mu=%d, sumpos=%.2f" %
     ...       (sum(weights), weights.mu, sum(weights[:weights.mu])))
     sum=0.24, mu=10, sumpos=1.00
-    >>> print('weights = [%s]' % ', '.join(["%.1f" % (100*weights[i])
+    >>> print('weights = [%s]%%' % ', '.join(["%.1f" % (100*weights[i])
     ...                                     for i in range(0, 22, 5)]))
-    weights = [27.0, 6.8, 0.0, -6.1, -11.7]
+    weights = [27.0, 6.8, 0.0, -6.1, -11.7]%
     >>> weights.zero_negative_weights()  #  doctest:+ELLIPSIS
     [0.270...
     >>> "%.2f, %.2f" % (sum(weights), sum(weights[weights.mu:]))
