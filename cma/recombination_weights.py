@@ -2,6 +2,11 @@
 delicate part is the correct setting of negative weights depending
 on learning rates to prevent negative definite matrices when using the
 weights in the covariance matrix update.
+
+The dependency chain is
+
+lambda -> weights -> mueff -> c1, cmu -> negative weights
+
 """
 # https://gist.github.com/nikohansen/3eb4ef0790ff49276a7be3cdb46d84e9
 from __future__ import division
@@ -219,6 +224,9 @@ class RecombinationWeights(list):
 
         if self[-1] < 0:
             if cmu > 0:
+                if c1 > 10 * cmu:
+                    print("""WARNING: c1/cmu = %f/%f seems to assume a
+                    too large value""" % (c1, cmu))
                 self._negative_weights_set_sum(1 + c1 / cmu)
                 self._negative_weights_limit_sum((1 - c1 - cmu) / cmu /
                                                  dimension)
