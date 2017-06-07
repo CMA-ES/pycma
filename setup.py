@@ -49,6 +49,6 @@ setup(name="cma",
           # "License :: OSI Approved :: MIT License",
       ],
       keywords=["optimization", "CMA-ES", "cmaes"],
-      packages=["cma"],
+      packages=["cma", "cma.utilities"],
       requires=["numpy"],
 )
