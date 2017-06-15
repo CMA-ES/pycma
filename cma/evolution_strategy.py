@@ -1431,6 +1431,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             opts['mean_shift_line_samples']) else False
 
         # iiinteger handling, currently very basic:
+        # CAVEAT: integer indices may give unexpected results if fixed_variables is used
+        if len(opts['integer_variables']) and opts['fixed_variables']:
+            utils.print_warning(
+                "CAVEAT: fixed_variables change the meaning of "
+                "integer_variables indices")
         # 1) prepare minstd to be a vector
         if (len(opts['integer_variables']) and
                 np.isscalar(opts['minstd'])):
@@ -1455,7 +1460,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         def eval_scaling_vector(in_):
             res = 1
             if in_ is not None and np.all(in_):
-                res = array(in_, dtype=float)
+                if np.size(in_) == 1:
+                    try:
+                        res = in_[0]
+                    except TypeError:
+                        res = in_
+                elif self.opts['fixed_variables']:
+                    res = array([in_[i] for i in range(len(in_))
+                                    if i not in self.opts['fixed_variables']],
+                                dtype=float)
+                else:
+                    res = array(in_, dtype=float)
                 if np.size(res) not in (1, N):
                     raise ValueError(
                         "CMA_stds option must have dimension %d "
