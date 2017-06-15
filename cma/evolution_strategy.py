@@ -1457,9 +1457,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if in_ is not None and np.all(in_):
                 res = array(in_, dtype=float)
                 if np.size(res) not in (1, N):
-                    raise ValueError("""CMA_stds option must have dimension %d
-                                 instead of %d""" %
-                                 (str(N), np.size(res)))
+                    raise ValueError(
+                        "CMA_stds option must have dimension %d "
+                        "instead of %d" % (N, np.size(res)))
             return res
         if 1 < 3:  # new version with class
             self.sigma_vec0 = eval_scaling_vector(self.opts['CMA_stds'])
