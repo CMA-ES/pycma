@@ -1430,6 +1430,36 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.mean_shift_samples = True if (isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) or
             opts['mean_shift_line_samples']) else False
 
+        def eval_vector(in_, opts, N, default_value=1.0):
+            """return `default_value` as scalar or `in_` after removing
+            fixed variables if ``len(in_) == N``
+            """
+            res = default_value
+            if in_ is not None:
+                if np.size(in_) == 1:  # return scalar value
+                    try:
+                        res = float(in_[0])
+                    except TypeError:
+                        res = float(in_)
+                elif opts['fixed_variables'] and np.size(in_) > N:
+                    res = array([in_[i] for i in range(len(in_))
+                                      if i not in opts['fixed_variables']],
+                                dtype=float)
+                    if len(res) != N:
+                        utils.print_warning(
+                            "resulting len %d != N = %d" % (len(res), N),
+                            'eval_vector', iteration=self.countiter)
+                else:
+                    res = array(in_, dtype=float)
+                if np.size(res) not in (1, N):
+                    raise ValueError(
+                        "CMA_stds option must have dimension %d "
+                        "instead of %d" % (N, np.size(res)))
+            return res
+
+        opts['minstd'] = eval_vector(opts['minstd'], opts, N, 0)
+        opts['maxstd'] = eval_vector(opts['maxstd'], opts, N, np.inf)
+
         # iiinteger handling, currently very basic:
         # CAVEAT: integer indices may give unexpected results if fixed_variables is used
         if len(opts['integer_variables']) and opts['fixed_variables']:
@@ -1477,17 +1507,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         "instead of %d" % (N, np.size(res)))
             return res
         if 1 < 3:  # new version with class
-            self.sigma_vec0 = eval_scaling_vector(self.opts['CMA_stds'])
+            self.sigma_vec0 = eval_vector(self.opts['CMA_stds'], opts, N)
             self.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec0)
             if np.isfinite(self.opts['CMA_dampsvec_fac']):
                 self.sigma_vec *= np.ones(N)  # make sure to get a vector
         else:
-            self.sigma_vec = eval_scaling_vector(self.opts['CMA_stds'])
+            self.sigma_vec = eval_vector(self.opts['CMA_stds'], opts, N)
             if np.isfinite(self.opts['CMA_dampsvec_fac']):
                 self.sigma_vec *= np.ones(N)  # make sure to get a vector
             self.sigma_vec0 = self.sigma_vec if np.isscalar(self.sigma_vec) \
                                             else self.sigma_vec.copy()
-        stds = eval_scaling_vector(self.opts['CMA_teststds'])
+        stds = eval_vector(self.opts['CMA_teststds'], opts, N)
         if self.opts['CMA_diagonal']:  # is True or > 0
             # linear time and space complexity
             self.sigma_vec = transformations.DiagonalDecoding(stds * np.ones(N))
