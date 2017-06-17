@@ -1465,7 +1465,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         res = in_[0]
                     except TypeError:
                         res = in_
-                elif self.opts['fixed_variables']:
+                elif self.opts['fixed_variables'] and np.size(in_) > self.N:
                     res = array([in_[i] for i in range(len(in_))
                                     if i not in self.opts['fixed_variables']],
                                 dtype=float)
