@@ -1487,25 +1487,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if not isinstance(opts['verb_append'], bool) else 0
         self.pc = np.zeros(N)
         self.pc_neg = np.zeros(N)
-        def eval_scaling_vector(in_):
-            res = 1
-            if in_ is not None and np.all(in_):
-                if np.size(in_) == 1:
-                    try:
-                        res = in_[0]
-                    except TypeError:
-                        res = in_
-                elif self.opts['fixed_variables'] and np.size(in_) > self.N:
-                    res = array([in_[i] for i in range(len(in_))
-                                    if i not in self.opts['fixed_variables']],
-                                dtype=float)
-                else:
-                    res = array(in_, dtype=float)
-                if np.size(res) not in (1, N):
-                    raise ValueError(
-                        "CMA_stds option must have dimension %d "
-                        "instead of %d" % (N, np.size(res)))
-            return res
         if 1 < 3:  # new version with class
             self.sigma_vec0 = eval_vector(self.opts['CMA_stds'], opts, N)
             self.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec0)
