@@ -37,7 +37,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     In Proc. of GECCO 2014, pp. 373 -- 380 (2014)
     """
 
-    def __init__(self, dimension, randn=np.random.randn):
+    def __init__(self, dimension, randn=np.random.randn, debug=False):
         """pass dimension of the underlying sample space
         """
         try:
@@ -56,6 +56,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.vn = self.vvec / self.norm_v
         self.vnn = self.vn**2
         self.pc = np.zeros(self.N)
+        self._debug = debug  # plot covariance matrix
 
     def sample(self, number, update=None):
         """return list of i.i.d. samples.
@@ -206,11 +207,14 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        #return None  # Expensive
-        C = np.diag(self.dvec**2)
-        dv = self.dvec * self.vvec
-        C += np.outer(dv, dv)
-        return C
+        if self._debug:
+            # Expensive
+            C = np.diag(self.dvec**2)
+            dv = self.dvec * self.vvec
+            C += np.outer(dv, dv)
+            return C
+        else:
+            return None 
 
     @property
     def variances(self):
@@ -220,10 +224,13 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        return None  # Expensive
-        C = self.covariance_matrix
-        sqrtdC = np.sqrt(self.variances)
-        return (C / sqrtdC).T / sqrtdC
+        if self._debug:
+            # Expensive
+            C = self.covariance_matrix
+            sqrtdC = np.sqrt(self.variances)
+            return (C / sqrtdC).T / sqrtdC
+        else:
+            return None  
 
     def transform(self, x):
         """transform ``x`` as implied from the distribution parameters"""
