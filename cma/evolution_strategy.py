@@ -4425,7 +4425,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             pass
     def plot(self, fig=None, iabscissa=1, iteridx=None,
              plot_mean=False, # was: plot_mean=True
-             foffset=1e-19, x_opt=None, fontsize=9,
+             foffset=1e-19, x_opt=None, fontsize=7,
              downsample_to=1e7):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
@@ -4538,7 +4538,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         return self
 
     def plot_all(self, fig=None, iabscissa=1, iteridx=None,
-             foffset=1e-19, x_opt=None, fontsize=9):
+             foffset=1e-19, x_opt=None, fontsize=7):
         """
         plot data from a `CMADataLogger` (using the files written by the logger).
 
@@ -4938,11 +4938,13 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def _enter_plotting(self, fontsize=9):
+    def _enter_plotting(self, fontsize=7):
         """assumes that a figure is open """
         # interactive_status = matplotlib.is_interactive()
         self.original_fontsize = pyplot.rcParams['font.size']
-        pyplot.rcParams['font.size'] = fontsize
+        # if font size deviates from default, we assume this is on purpose and hence leave it alone
+        if pyplot.rcParams['font.size'] == pyplot.rcParamsDefault['font.size']:
+            pyplot.rcParams['font.size'] = fontsize
         # was: pyplot.hold(False)
         # pyplot.gcf().clear()  # opens a figure window, if non exists
         pyplot.ioff()
@@ -5179,7 +5181,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
-         foffset=1e-19, x_opt=None, fontsize=9, downsample_to=3e3):
+         foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for
