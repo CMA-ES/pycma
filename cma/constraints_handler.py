@@ -222,7 +222,7 @@ class BoundTransform(BoundaryHandlerBase):
         if self.bounds is None or (self.bounds[0] is None and
                                    self.bounds[1] is None):
             return x
-        return self.bounds_tf(x, copy)
+        return np.asarray(self.bounds_tf(x, copy))
 
     def transform(self, x):
         return self.repair(x)
@@ -234,7 +234,7 @@ class BoundTransform(BoundaryHandlerBase):
         if self.bounds is None or (self.bounds[0] is None and
                                    self.bounds[1] is None):
             return x
-        return self.bounds_tf.inverse(x, copy_if_changed)  # this doesn't exist
+        return np.asarray(self.bounds_tf.inverse(x, copy_if_changed))  # this doesn't exist
 
 class BoundPenalty(BoundaryHandlerBase):
     """Compute a bound penalty and update coordinate-wise penalty weights.
