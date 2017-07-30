@@ -1925,6 +1925,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 arinj.append((self.pop_injection_solutions.pop(0) - self.mean) / self.sigma)
             if self.mean_shift_samples and self.countiter > 1:
                 # TPA is implemented by injection of the Delta mean
+                if len(arinj) < 2:
+                    utils.print_warning(
+                        "Mean shift samples are missing.\n"
+                        "If `ask` is called more than once, TPA step-size"
+                        " adaptation may not work at all. ")
                 s1 = sum(arinj[1]**2)**0.5              # set both vectors
                 arinj[1] *= sum(arinj[0]**2)**0.5 / s1  # to same length
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
