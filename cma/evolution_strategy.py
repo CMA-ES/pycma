@@ -1910,6 +1910,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                     % (len(self.pop_injection_directions), self.popsize)
                                     + "popsize %d will be used" % (len(self.pop_injection_directions) + 2)
                                     + (" and the warning is suppressed in the following" if self.countiter == 3 else ""))
+            # directions must come first because of mean_shift_samples/TPA
             while self.pop_injection_directions:
                 if len(arinj) >= number:
                     break
@@ -1933,15 +1934,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 s1 = sum(arinj[1]**2)**0.5              # set both vectors
                 arinj[1] *= sum(arinj[0]**2)**0.5 / s1  # to same length
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
-                    utils.print_warning("""mean_shift_samples, but the
-                        first two solutions are
-                        not mirrors. This can happen if only `ask(1)` is
-                        used instead of `ask()`. """,
-                                   "ask_geno", "CMAEvolutionStrategy",
-                                        self.countiter)
+                    utils.print_warning(
+                        "mean_shift_samples, but the first two solutions"
+                        " are not mirrors.",
+                        "ask_geno", "CMAEvolutionStrategy",
+                        self.countiter)
                     arinj[1] /= sum(arinj[0]**2)**0.5 / s1  # revert change
             self.number_of_injections_delivered += len(arinj)
-            assert self.countiter < 2 or not self.mean_shift_samples or self.number_of_injections_delivered >= 2
+            assert (self.countiter < 2 or not self.mean_shift_samples
+                    or self.number_of_injections_delivered >= 2)
 
         Niid = number - len(arinj) # each row is a solution
         # compute ary
@@ -2199,7 +2200,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.mean_shift_samples:
             ary = [self.mean - self.mean_old]
             ary.append(self.mean_old - self.mean)  # another copy!
-            if ary[-1][0] == 0.0:
+            if np.alltrue(ary[-1] == 0.0):
                 utils.print_warning('zero mean shift encountered',
                                '_prepare_injection_directions',
                                'CMAEvolutionStrategy', self.countiter)
@@ -2637,10 +2638,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def inject(self, solutions, force=None):
         """inject list of one or several genotypic solution(s).
 
-        Unless `force is True`, the solutions are used as direction relative to
-        the distribution mean to compute a new candidate solution returned in
-        method `ask_geno` which in turn is used in method `ask`. `inject` is to
-        be called before `ask` or after `tell` and can be called repeatedly. 
+        Unless `force is True`, the solutions are used as direction
+        relative to the distribution mean to compute a new candidate
+        solution returned in method `ask_geno` which in turn is used in
+        method `ask`. `inject` is to be called before `ask` or after
+        `tell` and can be called repeatedly.
 
         >>> import cma
         >>> es = cma.CMAEvolutionStrategy(4 * [1], 2)  #doctest: +ELLIPSIS
