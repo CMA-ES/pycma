@@ -191,8 +191,6 @@ try:
 except ImportError:
     print('Could not import matplotlib.pyplot, therefore ``cma.plot()``" +'
           ' etc. is not available')
-else:
-    pyplot.ion()  # prevents that the execution stops after plotting
 
 from . import interfaces
 from . import transformations
@@ -4957,7 +4955,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         pyplot.ioff()
     def _finalize_plotting(self):
         pyplot.draw()  # update "screen"
-        pyplot.ion()
+        pyplot.ion()  # prevents that the execution stops after plotting
         pyplot.show()
         pyplot.rcParams['font.size'] = self.original_fontsize
     def _xlabel(self, iabscissa=1):
