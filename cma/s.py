@@ -19,7 +19,6 @@ from .utilities.math import Mh
 
 try:
     from matplotlib.pyplot import savefig as figsave, close as figclose, ion as figion
-    figion()  # prevents that execution stops after plotting
     def figshow():
         """`pyplot.show` to make a plotted figure show up"""
         # is_interactive = matplotlib.is_interactive()
