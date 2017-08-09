@@ -8,14 +8,6 @@ from .utilities.math import Mh
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
-try:
-    from matplotlib import pyplot
-except:
-    pyplot = None
-    print('Could not import matplotlib.pyplot, therefore ' +
-          '"``cma.utils.sections()``' +
-          ' etc. is not available')
-
 class BestSolution(object):
     """container to keep track of the best solution seen"""
     def __init__(self, x=None, f=np.inf, evals=None):
@@ -421,7 +413,7 @@ class Sections(object):
 
     """
     def __init__(self, func, x, args=(), basis=None, name=None,
-                 plot_cmd=pyplot.plot if pyplot else None, load=True):
+                 plot_cmd=None, load=True):
         """
         Parameters
         ----------
@@ -444,6 +436,8 @@ class Sections(object):
             load previous data from file ``str(func) + '.pkl'``
 
         """
+        if plot_cmd is None:
+            from matplotlib.pyplot import plot as plot_cmd
         self.func = func
         self.args = args
         self.x = x
@@ -504,10 +498,11 @@ class Sections(object):
 
     def plot(self, plot_cmd=None, tf=lambda y: y):
         """plot the data we have, return ``self``"""
+        from matplotlib import pyplot
         if not plot_cmd:
             plot_cmd = self.plot_cmd
         colors = 'bgrcmyk'
-        pyplot.hold(False)
+        pyplot.gcf().clear()
         res = self.res
 
         flatx, flatf = self.flattened()
@@ -521,7 +516,6 @@ class Sections(object):
                 arx = sorted(res[i].keys())
                 plot_cmd(arx, [tf(np.median(res[i][x]) + addf) for x in arx], color + '-')
                 pyplot.text(arx[-1], tf(np.median(res[i][arx[-1]])), i)
-                pyplot.hold(True)
                 plot_cmd(flatx[i], tf(np.array(flatf[i]) + addf), color + 'o')
         pyplot.ylabel('f + ' + str(addf))
         pyplot.draw()

@@ -17,17 +17,18 @@ from .utilities.utils import pprint
 from .utilities.math import Mh
 # from .fitness_functions import elli as felli
 
-try:
-    from matplotlib.pyplot import savefig as figsave, close as figclose, ion as figion
-    def figshow():
-        """`pyplot.show` to make a plotted figure show up"""
-        # is_interactive = matplotlib.is_interactive()
-        import pyplot  # like this it doesn't show up in the interface
-        pyplot.ion()
-        pyplot.show()
-        # if we call now matplotlib.interactive(True), the console is
-        # blocked
-except:
-    figsave, figclose, figshow = 3 * ['not available']
-    print('Could not import matplotlib.pyplot, therefore ``cma.plot()``' +
-          ' etc. is not available')
+def figshow():
+    """`pyplot.show` to make a plotted figure show up"""
+    # is_interactive = matplotlib.is_interactive()
+    from matplotlib import pyplot  # like this it doesn't show up in the interface
+    pyplot.ion()
+    pyplot.show()
+    # if we call now matplotlib.interactive(True), the console is
+    # blocked
+if 11 < 3:
+    try:
+        from matplotlib.pyplot import savefig as figsave, close as figclose, ion as figion
+    except:
+        figsave, figclose, figshow = 3 * ['not available']
+        print('Could not import matplotlib.pyplot, therefore ``cma.plot()``' +
+              ' etc. is not available')
