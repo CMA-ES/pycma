@@ -1920,10 +1920,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if self.mean_shift_samples and self.countiter > 1:
                 # TPA is implemented by injection of the Delta mean
                 if len(arinj) < 2:
-                    utils.print_warning(
-                        "Mean shift samples are missing.\n"
-                        "If `ask` is called more than once, TPA step-size"
-                        " adaptation may not work at all. ")
+                    raise RuntimeError(
+                        "Mean shift samples are expected but missing.\n"
+                        "This happens if, for example, "
+                        "`ask` is called more than once,"
+                        " without calling `tell`\n(because the first"
+                        " call removes the samples from the injected list).\n"
+                        "`cma.sigma_adaptation.CMAAdaptSigmaTPA`"
+                        " step-size adaptation generates mean shift\n"
+                        "samples and does not work without them. ")
                 s1 = sum(arinj[1]**2)**0.5              # set both vectors
                 arinj[1] *= sum(arinj[0]**2)**0.5 / s1  # to same length
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
