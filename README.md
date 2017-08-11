@@ -41,6 +41,8 @@ and a quick start guide.
 
 * Version ``2.x.x`` is yet to be released to [PyPI](https://pypi.python.org/pypi). 
 
+* Version ``2.2.0` VkD CMA-ES added to the master branch. 
+
 * Version ``1.x.*`` is a one file implementation and not available in the history of 
   this repository. The latest ``1.*`` version can be found 
   [here](https://pypi.python.org/pypi/cma/1.1.7).
