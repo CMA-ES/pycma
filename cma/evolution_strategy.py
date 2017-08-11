@@ -1545,6 +1545,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     str(type(self.sm))))
             self._updateBDfromSM(self.sm)
 
+        self.dC = self.sm.variances
         self.D = self.dC**0.5  # we assume that the initial C is diagonal
         self.pop_injection_solutions = []
         self.pop_injection_directions = []
@@ -1702,108 +1703,118 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                      for x in pop_geno]
 
         if gradf is not None:
-            # see Hansen (2011), Injecting external solutions into CMA-ES
-            if not self.gp.islinear:
-                utils.print_warning("""
-                using the gradient (option ``gradf``) with a non-linear
-                coordinate-wise transformation (option ``transformation``)
-                has never been tested.""")
-                # TODO: check this out
-            def grad_numerical_of_coordinate_map(x, map, epsilon=None):
-                """map is a coordinate-wise independent map, return
-                the estimated diagonal of the Jacobian.
-                """
-                eps = 1e-8 * (1 + abs(x)) if epsilon is None else epsilon
-                return (map(x + eps) - map(x - eps)) / (2 * eps)
-            def grad_numerical_sym(x, func, epsilon=None):
-                """return symmetric numerical gradient of func : R^n -> R.
-                """
-                eps = 1e-8 * (1 + abs(x)) if epsilon is None else epsilon
-                grad = np.zeros(len(x))
-                ei = np.zeros(len(x))  # float is 1.6 times faster than int
-                for i in rglen(x):
-                    ei[i] = eps[i]
-                    grad[i] = (func(x + ei) - func(x - ei)) / (2*eps[i])
-                    ei[i] = 0
-                return grad
+            if not isinstance(self.sm, sampler.GaussFullSampler):
+                utils.print_warning("""Gradient injection may fail,
+    because sampler attributes `B` and `D` are not present""",
+                                    "ask", "CMAEvolutionStrategy",
+                                    self.countiter, maxwarns=1)
             try:
-                if self.last_iteration_with_gradient == self.countiter:
-                    utils.print_warning('gradient is used several times in ' +
-                            'this iteration', iteration=self.countiter,
-                                verbose=self.opts['verbose'])
-                self.last_iteration_with_gradient = self.countiter
-            except AttributeError:
-                pass
-            index_for_gradient = min((2, len(pop_pheno)-1))
-            if xmean is None:
-                xmean = self.mean
-            xpheno = self.gp.pheno(xmean, copy=True,
-                                into_bounds=self.boundary_handler.repair)
-            grad_at_mean = gradf(xpheno, *args)
-            # lift gradient into geno-space
-            if not self.gp.isidentity or (self.boundary_handler is not None
-                    and self.boundary_handler.has_bounds()):
-                boundary_repair = None
-                gradpen = 0
-                if isinstance(self.boundary_handler, BoundTransform):
-                    boundary_repair = self.boundary_handler.repair
-                elif isinstance(self.boundary_handler,
-                                BoundPenalty):
-                    fpenalty = lambda x: self.boundary_handler.__call__(
-                        x, SolutionDict({tuple(x): {'geno': x}}), self.gp)
-                    gradpen = grad_numerical_sym(
-                        xmean, fpenalty)
-                elif self.boundary_handler is None or \
-                        isinstance(self.boundary_handler,
-                                   BoundNone):
+                # see Hansen (2011), Injecting external solutions into CMA-ES
+                if not self.gp.islinear:
+                    utils.print_warning("""
+                    using the gradient (option ``gradf``) with a non-linear
+                    coordinate-wise transformation (option ``transformation``)
+                    has never been tested.""")
+                    # TODO: check this out
+                def grad_numerical_of_coordinate_map(x, map, epsilon=None):
+                    """map is a coordinate-wise independent map, return
+                    the estimated diagonal of the Jacobian.
+                    """
+                    eps = 1e-8 * (1 + abs(x)) if epsilon is None else epsilon
+                    return (map(x + eps) - map(x - eps)) / (2 * eps)
+                def grad_numerical_sym(x, func, epsilon=None):
+                    """return symmetric numerical gradient of func : R^n -> R.
+                    """
+                    eps = 1e-8 * (1 + abs(x)) if epsilon is None else epsilon
+                    grad = np.zeros(len(x))
+                    ei = np.zeros(len(x))  # float is 1.6 times faster than int
+                    for i in rglen(x):
+                        ei[i] = eps[i]
+                        grad[i] = (func(x + ei) - func(x - ei)) / (2*eps[i])
+                        ei[i] = 0
+                    return grad
+                try:
+                    if self.last_iteration_with_gradient == self.countiter:
+                        utils.print_warning('gradient is used several times in ' +
+                                'this iteration', iteration=self.countiter,
+                                    verbose=self.opts['verbose'])
+                    self.last_iteration_with_gradient = self.countiter
+                except AttributeError:
                     pass
-                else:
-                    raise NotImplementedError(
-                        "unknown boundary handling method" +
-                        str(self.boundary_handler) +
-                        " when using gradf")
-                gradgp = grad_numerical_of_coordinate_map(
-                    xmean,
-                    lambda x: self.gp.pheno(x, copy=True,
-                            into_bounds=boundary_repair))
-                grad_at_mean = grad_at_mean * gradgp + gradpen
+                index_for_gradient = min((2, len(pop_pheno)-1))
+                if xmean is None:
+                    xmean = self.mean
+                xpheno = self.gp.pheno(xmean, copy=True,
+                                    into_bounds=self.boundary_handler.repair)
+                grad_at_mean = gradf(xpheno, *args)
+                # lift gradient into geno-space
+                if not self.gp.isidentity or (self.boundary_handler is not None
+                        and self.boundary_handler.has_bounds()):
+                    boundary_repair = None
+                    gradpen = 0
+                    if isinstance(self.boundary_handler, BoundTransform):
+                        boundary_repair = self.boundary_handler.repair
+                    elif isinstance(self.boundary_handler,
+                                    BoundPenalty):
+                        fpenalty = lambda x: self.boundary_handler.__call__(
+                            x, SolutionDict({tuple(x): {'geno': x}}), self.gp)
+                        gradpen = grad_numerical_sym(
+                            xmean, fpenalty)
+                    elif self.boundary_handler is None or \
+                            isinstance(self.boundary_handler,
+                                       BoundNone):
+                        pass
+                    else:
+                        raise NotImplementedError(
+                            "unknown boundary handling method" +
+                            str(self.boundary_handler) +
+                            " when using gradf")
+                    gradgp = grad_numerical_of_coordinate_map(
+                        xmean,
+                        lambda x: self.gp.pheno(x, copy=True,
+                                into_bounds=boundary_repair))
+                    grad_at_mean = grad_at_mean * gradgp + gradpen
 
-            # TODO: frozen variables brake the code (e.g. at grad of map)
-            if len(grad_at_mean) != self.N or self.opts['fixed_variables']:
-                NotImplementedError("""
-                gradient with fixed variables is not (yet) implemented,
-                implement a simple transformation of the objective instead""")
-            v = self.D * np.dot(self.B.T, self.sigma_vec * grad_at_mean)
-            # newton_direction = sv * B * D * D * B^T * sv * gradient = sv * B * D * v
-            # v = D^-1 * B^T * sv^-1 * newton_direction = D * B^T * sv * gradient
-            q = sum(v**2)
-            if q:
-                # Newton direction
-                pop_geno[index_for_gradient] = xmean - self.sigma \
-                            * (self.N / q)**0.5 \
-                            * (self.sigma_vec * np.dot(self.B, self.D * v))
-                if 11 < 3 and self.opts['vv']:
-                    # gradient direction
-                    q = sum((np.dot(self.sm.B.T, self.sigma_vec**-1 * grad_at_mean) / self.sm.D)**2)
+                # TODO: frozen variables brake the code (e.g. at grad of map)
+                if len(grad_at_mean) != self.N or self.opts['fixed_variables']:
+                    NotImplementedError("""
+                    gradient with fixed variables is not (yet) implemented,
+                    implement a simple transformation of the objective instead""")
+                v = self.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
+                # newton_direction = sv * B * D * D * B^T * sv * gradient = sv * B * D * v
+                # v = D^-1 * B^T * sv^-1 * newton_direction = D * B^T * sv * gradient
+                q = sum(v**2)
+                if q:
+                    # Newton direction
                     pop_geno[index_for_gradient] = xmean - self.sigma \
-                                    * (self.N / q)**0.5 * grad_at_mean \
-                        if q else xmean
-            else:
-                pop_geno[index_for_gradient] = xmean
-                utils.print_warning('gradient zero observed',
-                                    iteration=self.countiter)
-            # test "pure" gradient:
-            # pop_geno[index_for_gradient] = -0.52 * grad_at_mean
-            pop_pheno[index_for_gradient] = self.gp.pheno(
-                pop_geno[index_for_gradient], copy=True,
-                into_bounds=self.boundary_handler.repair)
-            if 11 < 3:
-                print("x/m", pop_pheno[index_for_gradient] / self.mean)
-                print("  x-m=",
-                      pop_pheno[index_for_gradient] - self.mean)
-                print("    g=", grad_at_mean)
-                print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5
-                      )
+                                * (self.N / q)**0.5 \
+                                * (self.sigma_vec * np.dot(self.sm.B, self.sm.D * v))
+                    if 11 < 3 and self.opts['vv']:
+                        # gradient direction
+                        q = sum((np.dot(self.sm.B.T, self.sigma_vec**-1 * grad_at_mean) / self.sm.D)**2)
+                        pop_geno[index_for_gradient] = xmean - self.sigma \
+                                        * (self.N / q)**0.5 * grad_at_mean \
+                            if q else xmean
+                else:
+                    pop_geno[index_for_gradient] = xmean
+                    utils.print_warning('gradient zero observed',
+                                        iteration=self.countiter)
+                # test "pure" gradient:
+                # pop_geno[index_for_gradient] = -0.52 * grad_at_mean
+                pop_pheno[index_for_gradient] = self.gp.pheno(
+                    pop_geno[index_for_gradient], copy=True,
+                    into_bounds=self.boundary_handler.repair)
+                if 11 < 3:
+                    print("x/m", pop_pheno[index_for_gradient] / self.mean)
+                    print("  x-m=",
+                          pop_pheno[index_for_gradient] - self.mean)
+                    print("    g=", grad_at_mean)
+                    print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5
+                          )
+            except AttributeError:
+                utils.print_warning("""Gradient injection failed
+    presumably due to missing attribute ``self.sm.B or self.sm.D``""")
+
 
         # insert solutions, this could also (better?) be done in self.gp.pheno
         for i in rglen((pop_geno)):
@@ -1945,7 +1956,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Niid = number - len(arinj) # each row is a solution
         # compute ary
         if Niid >= 0:  # should better be true
-            ary = self.sigma_vec * self.sm.sample(Niid)
+            ary = self.sigma_vec * np.asarray(self.sm.sample(Niid))
             self._updateBDfromSM(self.sm)  # sm.sample invoked lazy update
             # unconditional mirroring
             if self.sp.lam_mirr and self.opts['CMA_mirrormethod'] == 0:
@@ -2850,7 +2861,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             self.countiter)
 
     def _updateBDfromSM(self, sm_=None):
-        """helper function for a smooth transition to sampling classes"""
+        """helper function for a smooth transition to sampling classes.
+
+        By now all tests run through without this method in effect.
+        Gradient injection and noeffectaxis however rely on the
+        non-documented attributes B and D in the sampler. """
+        # return  # will be outcommented soon
         if sm_ is None:
             sm_ = self.sm
         if isinstance(sm_, sampler.GaussStandardConstant):
@@ -2859,7 +2875,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.C = array(1)
             self.dC = self.D
         else:
-            self.C = self.sm.covariance_matrix
+            self.C = self.sm.covariance_matrix  # TODO: this should go away
             try:
                 self.B = self.sm.B
                 self.D = self.sm.D
@@ -3214,9 +3230,13 @@ class _CMAStopDict(dict):
 #                )
             if opts['CMA_diagonal'] is not True and es.countiter > opts['CMA_diagonal']:
                 i = es.countiter % N
-                self._addstop('noeffectaxis',
-                             sum(es.mean == es.mean + 0.1 * es.sigma *
-                                 es.D[i] * es.sigma_vec.scaling * es.B[:, i]) == N)
+                try:
+                    self._addstop('noeffectaxis',
+                                 sum(es.mean == es.mean + 0.1 * es.sigma *
+                                     es.sm.D[i] * es.sigma_vec.scaling *
+                                     es.sm.B[:, i]) == N)
+                except AttributeError:
+                    pass
             self._addstop('tolconditioncov',
                           opts['tolconditioncov'] and
                           es.D[-1] > opts['tolconditioncov']**0.5 * es.D[0], opts['tolconditioncov'])
@@ -4310,7 +4330,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # correlation matrix eigenvalues
             if 1 < 3:
                 fn = self.name_prefix + 'axlencorr.dat'
-                c = es.sm.correlation_matrix
+                try:
+                    c = es.sm.correlation_matrix
+                except (AttributeError, NotImplemented, NotImplementedError):
+                    c = None
                 if c is not None:
                     # accept at most 50% internal loss
                     if 11 < 3 or self._eigen_counter < eigen_decompositions / 2:

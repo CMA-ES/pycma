@@ -390,9 +390,12 @@ class BoundPenalty(BoundaryHandlerBase):
         N = es.N
         # ## prepare
         # compute varis = sigma**2 * C_ii
-        varis = es.sigma**2 * np.array(N * [es.C] if np.isscalar(es.C) else (# scalar case
-                                es.C if np.isscalar(es.C[0]) else  # diagonal matrix case
-                                [es.C[i][i] for i in range(N)]))  # full matrix case
+        if 11 < 3:  # old
+            varis = es.sigma**2 * np.array(N * [es.C] if np.isscalar(es.C) else (# scalar case
+                                    es.C if np.isscalar(es.C[0]) else  # diagonal matrix case
+                                    [es.C[i][i] for i in range(N)]))  # full matrix case
+        else:
+            varis = es.sigma**2 * es.sm.variances
 
         # relative violation in geno-space
         dmean = (es.mean - es.gp.geno(self.repair(es.gp.pheno(es.mean)))) / varis**0.5
