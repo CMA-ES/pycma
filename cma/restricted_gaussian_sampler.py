@@ -1,5 +1,7 @@
 """VD-CMA and VkD-CMA
 
+See module `cma.test` for a usage example.
+
 TODO: correct the interface of __init__, remove unnecessaries
 
 TODO:
@@ -14,10 +16,9 @@ MEMO:
 2017/05/07: `CMAAdaptSigmaNone` not working
 2017/05/07: `dimension` passed to __init__ in not int.
 2017/05/06: 'AdaptSigma = CMAAdaptSigmaTPA' won't work. AssertionError happens in `_update_ps`.
-2017/05/06: `correlation_matrix` is not declared in `StatisticalModelSamplerWithZeroMeanBaseClass`. 
-  However, it is used in `evolution_strategy.py`. 
-2017/05/06: the following line of code in `ask_geno` assumes that the result of `sample` is an ndarray, rather than list.
-            ary = self.sigma_vec * self.sm.sample(Niid)/
+2017/05/06: `correlation_matrix` is not declared in `StatisticalModelSamplerWithZeroMeanBaseClass`. However, it is used in `evolution_strategy.py`.
+2017/05/06: the following line of code in `ask_geno` assumes that the result of `sample` is an ndarray, rather than list. ary = self.sigma_vec * self.sm.sample(Niid)/
+
 """
 import math
 import numpy as np

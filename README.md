@@ -1,14 +1,30 @@
 # pycma
-A Python implementation of CMA-ES and a few related numerical optimization tools. 
+
+A Python implementation of CMA-ES and a few related numerical optimization tools.
 
 The [Covariance Matrix Adaptation Evolution Strategy](https://en.wikipedia.org/wiki/CMA-ES) 
-(CMA-ES) is a stochastic numerical optimization algorithm for difficult (non-convex, 
-ill-conditioned, multi-modal, rugged, noisy) optimization problems in continuous search 
-spaces. 
+([CMA-ES](http://cma.gforge.inria.fr/)) is a stochastic derivative-free numerical optimization
+algorithm for difficult (non-convex, ill-conditioned, multi-modal, rugged, noisy) optimization
+problems in continuous search spaces.
+
+A quick start guide with a few usage examples is given [here](https://pypi.python.org/pypi/cma).
 
 The API Documentation is available [here](http://cma.gforge.inria.fr/apidocs-pycma).
 
-## Installation
+Hints of how to use this (kind of) optimization module in practice can be found
+[here](http://cma.gforge.inria.fr/cmaes_sourcecode_page.html#practical).
+
+## Installation of the [latest release](https://pypi.python.org/pypi/cma)
+
+Type
+```
+  python -m pip install cma
+```
+in a system shell to install the [latest _release_](https://pypi.python.org/pypi/cma)
+from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The
+release link also provides more installation hints and a quick start guide.
+
+## Installation of the current master branch
 
 Download and unzip the code (see green button above) or 
 ``git clone https://github.com/CMA-ES/pycma.git``. 
@@ -26,24 +42,13 @@ Download and unzip the code (see green button above) or
   may be necessary. Moving the ``cma`` folder away from this location would invalidate the 
   installation.
 
-## Installation of the [latest release](https://pypi.python.org/pypi/cma)
-
-Typing
-```
-  python -m pip install cma
-```
-in a system shell installs the [most recent _release_](https://pypi.python.org/pypi/cma)
-from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The 
-[release link](https://pypi.python.org/pypi/cma) also provides more installation hints 
-and a quick start guide.
-
 ## Version History
 
-* Version ``2.x.x`` is yet to be released to [PyPI](https://pypi.python.org/pypi). 
+* Version ``2.2.0`` added VkD CMA-ES to the master branch.
 
-* Version ``2.2.0` VkD CMA-ES added to the master branch. 
+* Version ``2.*`` is a multi-file split-up of the original module.
 
-* Version ``1.x.*`` is a one file implementation and not available in the history of 
-  this repository. The latest ``1.*`` version can be found 
+* Version ``1.x.*`` is a one file implementation and not available in the history of
+  this repository. The latest ``1.*`` version ```1.1.7`` can be found
   [here](https://pypi.python.org/pypi/cma/1.1.7).
   
