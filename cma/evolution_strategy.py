@@ -1933,13 +1933,24 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 if len(arinj) < 2:
                     raise RuntimeError(
                         "Mean shift samples are expected but missing.\n"
-                        "This happens if, for example, "
-                        "`ask` is called more than once,"
-                        " without calling `tell`\n(because the first"
-                        " call removes the samples from the injected list).\n"
+                        "This happens if, for example, `ask` is called"
+                        "  more than once, without calling `tell`\n"
+                        "(because the first call removes the samples from"
+                        " the injection list).\n"
                         "`cma.sigma_adaptation.CMAAdaptSigmaTPA`"
                         " step-size adaptation generates mean shift\n"
-                        "samples and does not work without them. ")
+                        "samples and relies on them. \n"
+                        "Using ``ask(1)`` for any subsequent calls of"
+                        " `ask` works OK and TPA works if the\n"
+                        "first two samples from the"
+                        " first call are retained as first samples when"
+                        " calling `tell`. \n"
+                        "EXAMPLE: \n"
+                        "    X = es.ask()\n"
+                        "    X.append(es.ask(1)[0])\n"
+                        "    ...\n"
+                        "    es.tell(X, ...)"
+                    )
                 s1 = sum(arinj[1]**2)**0.5              # set both vectors
                 arinj[1] *= sum(arinj[0]**2)**0.5 / s1  # to same length
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
