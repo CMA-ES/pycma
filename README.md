@@ -7,12 +7,13 @@ The [Covariance Matrix Adaptation Evolution Strategy](https://en.wikipedia.org/w
 algorithm for difficult (non-convex, ill-conditioned, multi-modal, rugged, noisy) optimization
 problems in continuous search spaces.
 
-A quick start guide with a few usage examples is given [here](https://pypi.python.org/pypi/cma).
+Useful links:
 
-The API Documentation is available [here](http://cma.gforge.inria.fr/apidocs-pycma).
+* [A quick start guide with a few usage examples](https://pypi.python.org/pypi/cma)
 
-Hints of how to use this (kind of) optimization module in practice can be found
-[here](http://cma.gforge.inria.fr/cmaes_sourcecode_page.html#practical).
+* [The API Documentation](http://cma.gforge.inria.fr/apidocs-pycma)
+
+* [Hints for how to use this (kind of) optimization module in practice](http://cma.gforge.inria.fr/cmaes_sourcecode_page.html#practical)
 
 ## Installation of the [latest release](https://pypi.python.org/pypi/cma)
 
