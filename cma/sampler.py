@@ -336,21 +336,38 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             s = 1
         self.C = (self.C + self.C.T) / (2 * s)
         self.dC = np.diag(self.C)
-        self.D, self.B = self.eigenmethod(self.C)
-        if any(self.D <= 0):
-            raise ValueError("covariance matrix was not positive definite," +
-                " this must be considered as a bug")
-        assert all(np.isfinite(self.D))
-        self.D **= 0.5
-        idx = np.argsort(self.D)
-        self.D = self.D[idx]
-        # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
-        self.B = self.B[:, idx]
-        assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
-        if 11 < 3:  # not needed for now
-            self.inverse_root_C = np.dot(self.B / self.D, self.B.T)
-            self.inverse_root_C = (self.inverse_root_C + self.inverse_root_C.T) / 2
-        self.count_eigen += 1
+        D_old = self.D
+        try:
+            self.D, self.B = self.eigenmethod(self.C)
+            if any(self.D <= 0):
+                raise ValueError(
+                    "covariance matrix was not positive definite"
+                    " with a minimal eigenvalue of %f."
+                    " This must be considered as a bug"
+                      % min(self.D))
+        except Exception as e:  # "as" is available since Python 2.6
+            raise RuntimeWarning(
+                "covariance matrix eigen decomposition failed with \n"
+                + str(e))
+            # try again with diag(C) = diag(C) + min(eigenvalues(C_old))
+            min_di2 = min(D_old)**2
+            for i in range(self.dimension):
+                self.C[i][i] += min_di2
+            self.dC += min_di2
+            self.D = (D_old**2 + min_di2)**0.5
+            self._decompose_C()
+        else:
+            assert all(np.isfinite(self.D))
+            self.D **= 0.5
+            idx = np.argsort(self.D)
+            self.D = self.D[idx]
+            # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
+            self.B = self.B[:, idx]
+            assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
+            if 11 < 3:  # not needed for now
+                self.inverse_root_C = np.dot(self.B / self.D, self.B.T)
+                self.inverse_root_C = (self.inverse_root_C + self.inverse_root_C.T) / 2
+            self.count_eigen += 1
 
     def multiply_C(self, factor):
         """multiply ``self.C`` with ``factor`` updating internal states.
