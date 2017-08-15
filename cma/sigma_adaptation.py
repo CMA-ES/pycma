@@ -407,16 +407,19 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             for i in np.random.randint(1, es.N, 1):
                 if dx0 * dx1 * (es.pop[0][i] - es.mean_old[i]) * (
                     es.pop[1][i] - es.mean_old[i]):
+                    dmi_div_dx0i = (es.mean[i] - es.mean_old[i]) \
+                                    / (es.pop[0][i] - es.mean_old[i])
+                    dmi_div_dx1i = (es.mean[i] - es.mean_old[i]) \
+                                        / (es.pop[1][i] - es.mean_old[i])
                     if not Mh.equals_approximately(
-                                    (es.mean[i] - es.mean_old[i])
-                                    / (es.pop[0][i] - es.mean_old[i]),
-                                    dm / dx0, 1e-4) or \
+                            dmi_div_dx0i, dm / dx0, 1e-4) or \
                             not Mh.equals_approximately(
-                                        (es.mean[i] - es.mean_old[i])
-                                        / (es.pop[1][i] - es.mean_old[i]),
-                                        dm / dx1, 1e-4):
+                                    dmi_div_dx1i, dm / dx1, 1e-4):
                         utils.print_warning(
-                            'TPA: apparent inconsistency with mirrored samples',
+                            'TPA: apparent inconsistency with mirrored'
+                            ' samples, where dmi_div_dx0i, dm/dx0=%f, %f'
+                            ' and dmi_div_dx1i, dm/dx1=%f, %f' % (
+                                dmi_div_dx0i, dm/dx0, dmi_div_dx1i, dm/dx1),
                             'check_consistency',
                             'CMAAdaptSigmaTPA', es.countiter)
                 else:
