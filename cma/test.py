@@ -249,14 +249,10 @@ def various_doctests():
     VD-CMA:
 
         >>> import cma
-        >>> try:
-        ...     import cma.restricted_gaussian_sampler
-        ... except ImportError:
-        ...     "not all version may have the python file"
-        ... else:
-        ...     es = cma.CMAEvolutionStrategy(20 * [1], 1, {
+        >>> from cma import restricted_gaussian_sampler
+        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1, {
         ...         'CMA_active': False, 'AdaptSigma': None,
-        ...         'CMA_sampler': cma.restricted_gaussian_sampler.GaussVkDSampler,
+        ...         'CMA_sampler': restricted_gaussian_sampler.GaussVkDSampler,
         ...         # 'CMA_sampler_options': {'seed':6}
         ...         'ftarget': 1e-8,
         ...         'verbose': -9,
@@ -268,14 +264,10 @@ def various_doctests():
     VkD-CMA:
 
         >>> import cma
-        >>> try:
-        ...     import cma.restricted_gaussian_sampler
-        ... except ImportError:
-        ...     "not all version may have the python file"
-        ... else:
-        ...     es = cma.CMAEvolutionStrategy(20 * [1], 1, {
+        >>> from cma import restricted_gaussian_sampler
+        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1, {
         ...         'CMA_active': False, 'AdaptSigma': None,
-        ...         'CMA_sampler': cma.restricted_gaussian_sampler.GaussVkDSampler,
+        ...         'CMA_sampler': restricted_gaussian_sampler.GaussVkDSampler,
         ...         # 'CMA_sampler_options': {'seed':6}
         ...         'ftarget': 1e-8,
         ...         'verbose': -9,
