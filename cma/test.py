@@ -252,10 +252,10 @@ def various_doctests():
         >>> from cma import restricted_gaussian_sampler
         >>> es = cma.CMAEvolutionStrategy(20 * [1], 1, {
         ...         'CMA_active': False, 'AdaptSigma': None,
-        ...         'CMA_sampler': restricted_gaussian_sampler.GaussVkDSampler,
-        ...         # 'CMA_sampler_options': {'seed':6}
+        ...         'CMA_sampler': restricted_gaussian_sampler.GaussVDSampler,
+        ...         # 'CMA_sampler_options': {'seed': 6},
         ...         'ftarget': 1e-8,
-        ...         'verbose': -9,
+        ...         'verbose': -9,  # helpful for automatic testing
         ...     })
         >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
         >>> assert es.result.fbest <= 1e-8
@@ -268,9 +268,9 @@ def various_doctests():
         >>> es = cma.CMAEvolutionStrategy(20 * [1], 1, {
         ...         'CMA_active': False, 'AdaptSigma': None,
         ...         'CMA_sampler': restricted_gaussian_sampler.GaussVkDSampler,
-        ...         # 'CMA_sampler_options': {'seed':6}
+        ...         # 'CMA_sampler_options': {'seed': 6},
         ...         'ftarget': 1e-8,
-        ...         'verbose': -9,
+        ...         'verbose': -9,  # helpful for automatic testing
         ...     })
         >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
         >>> assert es.result.fbest <= 1e-8

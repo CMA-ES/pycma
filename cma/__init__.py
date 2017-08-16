@@ -92,6 +92,7 @@ From a python shell::
 
 :Author: Nikolaus Hansen, 2008-2017
 :Author: Petr Baudis, 2014
+:Author: Youhei Akimoto, 2017
 
 :License: BSD 3-Clause, see LICENSE file.
 
