@@ -109,34 +109,41 @@ From a python shell::
 #    sphinx: doc style of doc.python.org, could not make it work (yet)
 # __docformat__ = "reStructuredText"  # this hides some comments entirely?
 
-
-# necessary for Python 2.5 only?
-from __future__ import absolute_import
+from __future__ import absolute_import  # now local imports must use .
 # big difference between PY2 and PY3:
 from __future__ import division
 from __future__ import print_function
-# only necessary for python 2.5 and not in heavy use
+# only necessary for python 2.5 (not supported) and not in heavy use
 from __future__ import with_statement
 
 # __package__ = 'cma'
-from . import (constraints_handler, evolution_strategy, fitness_functions,
-               fitness_transformations, interfaces, optimization_tools,
-               sampler, sigma_adaptation, transformations, utilities)
-# from . import test  # gives a warning with python -m cma.test (since Python 3.5.3?)
-test = "type 'import cma.test' "
-from . import s
-from .fitness_functions import ff
-from .fitness_transformations import GlueArguments, ScaleCoordinates
-from .evolution_strategy import fmin, CMAEvolutionStrategy, CMAOptions, CMADataLogger
-from .evolution_strategy import disp, plot
-from .optimization_tools import NoiseHandler
-from .constraints_handler import BoundPenalty, BoundTransform
+from . import purecma
+try:
+    from . import (constraints_handler, evolution_strategy, fitness_functions,
+                   fitness_transformations, interfaces, optimization_tools,
+                   sampler, sigma_adaptation, transformations, utilities,
+                   )
+    # from . import test  # gives a warning with python -m cma.test (since Python 3.5.3?)
+    test = 'type "import cma.test" to access the `test` module of `cma`'
+    from . import s
+    from .fitness_functions import ff
+    from .fitness_transformations import GlueArguments, ScaleCoordinates
+    from .evolution_strategy import fmin, CMAEvolutionStrategy, CMAOptions, CMADataLogger
+    from .evolution_strategy import disp, plot
+    from .optimization_tools import NoiseHandler
+    from .constraints_handler import BoundPenalty, BoundTransform
+
+except ImportError:
+    print('Only `cma.purecma` has been imported. Install `numpy` ("pip'
+          ' install numpy") if you want to import the entire `cma`'
+          ' package.')
+
 del division, print_function, absolute_import, with_statement  #, unicode_literals
 
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
 __author__ = 'Nikolaus Hansen'
-__version__ = "2.2.0  $Revision: 4401 $ $Date: 2017-08-11 15:45:30 +0200 (Fri, 11 Aug 2017) $"
+__version__ = "2.2.0  $Revision: 4402 $ $Date: 2017-08-20 14:50:15 +0200 (Sun, 20 Aug 2017) $"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
-# $Id: __init__.py 4401 2017-08-11 13:45:30Z hansen $
+# $Id: __init__.py 4402 2017-08-20 12:50:15Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py

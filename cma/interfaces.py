@@ -89,15 +89,11 @@ class OOOptimizer(object):
         dictionary like ``{'termination reason': value, ...}`` or ``{}``.
 
         For example ``{'tolfun': 1e-12}``, or the empty dictionary ``{}``.
-
-        TODO: this should rather be a property? A change would not be
-        backwards compatible.
         """
         raise NotImplementedError('method stop() is not implemented')
     def disp(self, modulo=None):
-        """abstract method, display some iteration info when
-        ``self.iteration_counter % modulo < 1``, using a reasonable
-        default for `modulo` if ``modulo is None``.
+        """abstract method, display some iteration infos if
+        ``self.iteration_counter % modulo == 0``
         """
     @property
     def result(self):
@@ -107,8 +103,11 @@ class OOOptimizer(object):
         raise NotImplementedError('result property is not implemented')
         return [self.xcurrent]
 
-    def optimize(self, objective_fct,
-                 maxfun=None, iterations=None, min_iterations=1,
+    def optimize(self,
+                 objective_fct,
+                 maxfun=1e99,
+                 iterations=None,
+                 min_iterations=1,
                  args=(),
                  verb_disp=None,
                  callback=None):
@@ -143,7 +142,7 @@ class OOOptimizer(object):
             callback function called like ``callback(self)`` or
             a list of call back functions called in the same way. If
             available, ``self.logger.add`` is added to this list.
-            TODO: currently there is no way to prevent this other than
+            todo: currently there is no way to prevent this other than
             changing the code of `_prepare_callback_list`.
 
         ``return self``, that is, the `OOOptimizer` instance.
@@ -164,17 +163,14 @@ class OOOptimizer(object):
         True
 
         """
-        if iterations is not None and min_iterations > iterations:
-            print("doing min_iterations = %d > %d = iterations"
-                  % (min_iterations, iterations))
-            iterations = min_iterations
+        assert iterations is None or min_iterations <= iterations
 
         callback = self._prepare_callback_list(callback)
 
         citer, cevals = 0, 0
         while not self.stop() or citer < min_iterations:
-            if (cevals >= maxfun if maxfun else False) or (
-                citer >= iterations if iterations else False):
+            if cevals >= maxfun or citer >= (iterations if iterations
+                                                else np.inf):
                 return self
             citer += 1
 
@@ -182,14 +178,14 @@ class OOOptimizer(object):
             fitvals = [objective_fct(x, *args) for x in X]
             cevals += len(fitvals)
             self.tell(X, fitvals)  # all the work is done here
+            self.disp(verb_disp)
             for f in callback:
                 f(self)
-            self.disp(verb_disp)
 
         # final output
         self._force_final_logging()
 
-        if verb_disp:  # do not print by default to allow silent verbosity
+        if verb_disp:
             self.disp(1)
             print('termination by', self.stop())
             print('best f-value =', self.result[1])
@@ -197,7 +193,7 @@ class OOOptimizer(object):
 
         return self
 
-    def _prepare_callback_list(self, callback):  # helper function
+    def _prepare_callback_list(self, callback):
         """return a list of callbacks including ``self.logger.add``.
 
         ``callback`` can be a `callable` or a `list` (or iterable) of
@@ -222,30 +218,27 @@ class OOOptimizer(object):
                 processing it was %s""" % str(callback))
         return callback
 
-    def _force_final_logging(self):  # helper function
+    def _force_final_logging(self):
         """try force the logger to log NOW"""
-        try:
-            if not self.logger:
-                return
-        except AttributeError:
+        if not self.logger:
             return
-        # the idea: modulo == 0 means never log, 1 or True means log now
+        # TODO: this is very ugly, because it assumes modulo keyword
+        # TODO: argument *and* modulo attribute to be available
+        # However, we like to force logging now which might be otherwise
+        # done in a witty sparse way.
+        # the idea: modulo == 0 means never log, 1 means log now
         try:
             modulo = bool(self.logger.modulo)
         except AttributeError:
-            modulo = True  # could also be named force
+            modulo = 1  # could also be named force
         try:
             self.logger.add(self, modulo=modulo)
         except AttributeError:
             pass
         except TypeError:
-            try:
-                self.logger.add(self)
-            except Exception as e:
-                print('  The final call of the logger in'
-                      ' OOOptimizer._force_final_logging from'
-                      ' OOOptimizer.optimize did not succeed: %s'
-                      % str(e))
+            print('  suppressing the final call of the logger in ' +
+                  'OOOptimizer.optimize (modulo keyword parameter not ' +
+                  'available)')
 
 class StatisticalModelSamplerWithZeroMeanBaseClass(object):
     """yet versatile base class to replace a sampler namely in
