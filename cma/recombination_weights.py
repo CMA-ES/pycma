@@ -2,6 +2,11 @@
 delicate part is the correct setting of negative weights depending
 on learning rates to prevent negative definite matrices when using the
 weights in the covariance matrix update.
+
+The dependency chain is
+
+lambda -> weights -> mueff -> c1, cmu -> negative weights
+
 """
 # https://gist.github.com/nikohansen/3eb4ef0790ff49276a7be3cdb46d84e9
 from __future__ import division
@@ -21,15 +26,28 @@ class RecombinationWeights(list):
     definiteness of C if ``y_i^T C^-1 y_i <= dimension`` for all
     ``w_i < 0``.
 
-    Class attributes:
+    Class attributes/properties:
 
     - ``lambda_``: number of weights, alias for ``len(self)``
     - ``mu``: number of strictly positive weights, i.e.
       ``sum([wi > 0 for wi in self])``
     - ``mueff``: variance effective number of positive weights, i.e.
       ``1 / sum([self[i]**2 for i in range(self.mu)])`` where
-      ``sum([self[i] for i in range(self.mu)])**2 == 1``
-    - ``mueffminus``: variance effective number of negative weights
+      ``1 == sum([self[i] for i in range(self.mu)])**2``
+    - `mueffminus`: variance effective number of negative weights
+    - `positive_weights`: `np.array` of the strictly positive weights
+    - ``finalized``: `True` if class instance is ready to use
+
+    Class methods not inherited from `list`:
+
+    - `finalize_negative_weights`: main method
+    - `zero_negative_weights`: set negative weights to zero, leads to
+      ``finalized`` to be `True`.
+    - `set_attributes_from_weights`: useful when weight values are
+      "manually" changed, removed or inserted
+    - `asarray`: alias for ``np.asarray(self)``
+    - `do_asserts`: check consistency of weight values, passes also when
+      not yet ``finalized``
 
     Usage:
 
@@ -67,9 +85,9 @@ class RecombinationWeights(list):
     >>> print("sum=%.2f, mu=%d, sumpos=%.2f" %
     ...       (sum(weights), weights.mu, sum(weights[:weights.mu])))
     sum=0.24, mu=10, sumpos=1.00
-    >>> print('weights = [%s]' % ', '.join(["%.1f" % (100*weights[i])
+    >>> print('weights = [%s]%%' % ', '.join(["%.1f" % (100*weights[i])
     ...                                     for i in range(0, 22, 5)]))
-    weights = [27.0, 6.8, 0.0, -6.1, -11.7]
+    weights = [27.0, 6.8, 0.0, -6.1, -11.7]%
     >>> weights.zero_negative_weights()  #  doctest:+ELLIPSIS
     [0.270...
     >>> "%.2f, %.2f" % (sum(weights), sum(weights[weights.mu:]))
@@ -206,6 +224,9 @@ class RecombinationWeights(list):
 
         if self[-1] < 0:
             if cmu > 0:
+                if c1 > 10 * cmu:
+                    print("""WARNING: c1/cmu = %f/%f seems to assume a
+                    too large value""" % (c1, cmu))
                 self._negative_weights_set_sum(1 + c1 / cmu)
                 self._negative_weights_limit_sum((1 - c1 - cmu) / cmu /
                                                  dimension)

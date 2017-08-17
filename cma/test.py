@@ -158,6 +158,16 @@ def various_doctests():
         >>> res = cma.fmin(cma.ff.cigar, 5 * [0.1], 0.1, opts)
         >>> assert res[1] < 1800
 
+    Testing combination of ``fixed_variables`` and ``CMA_stds`` options.
+
+        >>> import cma
+        >>> options = {
+        ...     'fixed_variables':{1:2.345},
+        ...     'CMA_stds': 4 * [1],
+        ...     'minstd': 3 * [1]}
+        >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, options) #doctest: +ELLIPSIS
+        (3_w,7)-aCMA-ES (mu_w=2.3,w_1=58%) in dimension 3 (seed=...
+
     Test of elitism:
 
         >>> import cma
