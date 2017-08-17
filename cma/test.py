@@ -42,6 +42,7 @@ files_for_doctest = ['constraints_handler.py',
                      'fitness_transformations.py',
                      'interfaces.py',
                      'optimization_tools.py',
+                     'recombination_weights.py',
                      'sampler.py',
                      'sigma_adaptation.py',
                      'test.py',
@@ -207,7 +208,7 @@ def various_doctests():
         >>> idx = [0, 1, 5, -1]
         >>> f = cma.s.ft.IntegerMixedFunction(cma.ff.elli, idx)
         >>> es = cma.CMAEvolutionStrategy(4 * [5], 10, dict(
-        ...               ftarget=1e-9, seed=2,
+        ...               ftarget=1e-9, seed=5,
         ...               integer_variables=idx
         ...            ))  # doctest:+ELLIPSIS
         WARNING... integer index 5 not in range of dimension 4
@@ -224,6 +225,54 @@ def various_doctests():
         ...                      verbose=-9))
         >>> s = es.stop()
         >>> es = es.optimize(cma.ff.sphere)
+
+    Test of huge lambda:
+
+        >>> import cma
+        >>> es = cma.CMAEvolutionStrategy(3 * [0.91], 1, {
+        ...     'verbose': -9,
+        ...     'popsize': 200,
+        ...     'ftarget': 1e-8 })
+        >>> es = es.optimize(cma.ff.tablet)
+        >>> assert es.result.evaluations < 5000
+
+    VD-CMA:
+
+        >>> import cma
+        >>> try:
+        ...     import cma.restricted_gaussian_sampler
+        ... except ImportError:
+        ...     "not all version may have the python file"
+        ... else:
+        ...     es = cma.CMAEvolutionStrategy(20 * [1], 1, {
+        ...         'CMA_active': False, 'AdaptSigma': None,
+        ...         'CMA_sampler': cma.restricted_gaussian_sampler.GaussVkDSampler,
+        ...         # 'CMA_sampler_options': {'seed':6}
+        ...         'ftarget': 1e-8,
+        ...         'verbose': -9,
+        ...     })
+        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
+        >>> assert es.result.fbest <= 1e-8
+        >>> assert es.result.evaluations < 3e4
+
+    VkD-CMA:
+
+        >>> import cma
+        >>> try:
+        ...     import cma.restricted_gaussian_sampler
+        ... except ImportError:
+        ...     "not all version may have the python file"
+        ... else:
+        ...     es = cma.CMAEvolutionStrategy(20 * [1], 1, {
+        ...         'CMA_active': False, 'AdaptSigma': None,
+        ...         'CMA_sampler': cma.restricted_gaussian_sampler.GaussVkDSampler,
+        ...         # 'CMA_sampler_options': {'seed':6}
+        ...         'ftarget': 1e-8,
+        ...         'verbose': -9,
+        ...     })
+        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
+        >>> assert es.result.fbest <= 1e-8
+        >>> assert es.result.evaluations < 1e4
 
     """
 

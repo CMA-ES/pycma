@@ -170,9 +170,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         ngd = dvec * svec
         return ngv, ngd
 
-    def _get_params(self, weights, **kwargs):
-        w = np.asarray(weights)
-        mueff = 1.0 / np.dot(w, w)
+    def _get_params2(self, mueff, **kwargs):
         cfactor = kwargs.get('cfactor', max((self.N - 5.) / 6.0, 0.5))
         cc = kwargs.get('cc', (4. + mueff / self.N) /
                         (self.N + 4. + 2. * mueff / self.N))
@@ -183,7 +181,12 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                                  (self.N + 2.)**2 + mueff)))
         return cc, cone, cmu
 
-    def parameters(self, weights):
+    def _get_params(self, weights, **kwargs):
+        w = np.asarray(weights)
+        mueff = 1.0 / np.dot(w, w)  # results in too large values with negative weights
+        return self._get_params2(mueff, **kwargs)
+
+    def parameters_old(self, weights):
         """return `dict` with (default) parameters, e.g., `c1` and `cmu`.
 
         :See also: `RecombinationWeights`"""
@@ -194,6 +197,18 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             pass
         self.weights = np.array(weights, copy=True)
         cc, c1, cmu = self._get_params(weights)
+        self._parameters = dict(cc=cc, c1=c1, cmu=cmu)
+        return self._parameters
+
+    def parameters(self, mueff=None, **kwargs):
+        """return `dict` with (default) parameters, e.g., `c1` and `cmu`.
+
+        :See also: `RecombinationWeights`"""
+        if (hasattr(self, '_mueff') and
+                (mueff == self._mueff or mueff is None)):
+            return self._parameters
+        self._mueff = mueff
+        cc, c1, cmu = self._get_params2(mueff)
         self._parameters = dict(cc=cc, c1=c1, cmu=cmu)
         return self._parameters
 
@@ -552,6 +567,9 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """
         w = np.array(weights)
         mueff = np.sum(w[w > 0.])**2 / np.dot(w[w > 0.], w[w > 0.])
+        return self._get_params2(mueff, k)
+
+    def _get_params2(self, mueff, k):
         nelem = self.N * (k + 1)
         cone = 2.0 / (nelem + self.N + 2 * (k + 2) + mueff)  # PPSN 2016
         # cone = 2.0 / (nelem + 2 * (k + 2) + self.mueff)  # GECCO 2016
@@ -565,7 +583,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                   (nelem + 4 * (k + 2) + mueff))
         return cc, cone, cmu
 
-    def parameters(self, weights):
+    def parameters_old(self, weights):
         """return `dict` with (default) parameters, e.g., `c1` and `cmu`.
 
         :See also: `RecombinationWeights`"""
@@ -576,6 +594,19 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             pass
         self.weights = np.array(weights, copy=True)
         cc, c1, cmu = self._get_params(weights, self.k)
+        self._parameters = dict(cc=cc, c1=c1, cmu=cmu)
+        return self._parameters
+
+    def parameters(self, mueff=None, **kwargs):
+        """return `dict` with (default) parameters, e.g., `c1` and `cmu`.
+
+        :See also: `RecombinationWeights`"""
+        if mueff is not None:
+            self._mueff = mueff
+        if not hasattr(self, '_mueff'):
+            print("""The first call of `parameters` method must specify
+    the `mueff` argument! Otherwise an except will be raised. """)
+        cc, c1, cmu = self._get_params2(self._mueff, self.k)
         self._parameters = dict(cc=cc, c1=c1, cmu=cmu)
         return self._parameters
 

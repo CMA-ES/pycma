@@ -199,6 +199,7 @@ from . import transformations
 from . import optimization_tools as ot
 from . import sampler
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform
+from .recombination_weights import RecombinationWeights
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import pprint
@@ -401,309 +402,6 @@ _assertions_quadratic = True  # issue warnings
 _assertions_cubic = True
 _depreciated = True
 
-# https://gist.github.com/nikohansen/3eb4ef0790ff49276a7be3cdb46d84e9
-# from __future__ import division
-# import math
-class RecombinationWeights(list):
-    """a list of decreasing (recombination) weight values.
-
-    To be used in the update of the covariance matrix C in CMA-ES as
-    ``w_i``::
-
-        C <- (1 - c1 - cmu * sum w_i) C + c1 ... + cmu sum w_i y_i y_i^T
-
-    After calling `finalize_negative_weights`, the weights
-    ``w_i`` let ``1 - c1 - cmu * sum w_i = 1`` and guaranty positive
-    definiteness of C if ``y_i^T C^-1 y_i <= dimension`` for all
-    ``w_i < 0``.
-
-    Class attributes:
-
-    - ``lambda_``: number of weights, alias for ``len(self)``
-    - ``mu``: number of strictly positive weights, i.e.
-      ``sum([wi > 0 for wi in self])``
-    - ``mueff``: variance effective number of positive weights, i.e.
-      ``1 / sum([self[i]**2 for i in range(self.mu)])`` where
-      ``sum([self[i] for i in range(self.mu)])**2 == 1``
-    - ``mueffminus``: variance effective number of negative weights
-
-    Usage:
-
-    >>> # from recombination_weights import RecombinationWeights
-    >>> from cma.evolution_strategy import RecombinationWeights
-    >>> dimension, popsize = 5, 7
-    >>> weights = RecombinationWeights(popsize)
-    >>> print("sum=%.2f, mu=%d, sumpos=%.2f, sumneg=%.2f" % (
-    ...       sum(weights),
-    ...       weights.mu,
-    ...       sum(weights[:weights.mu]),
-    ...       sum(weights[weights.mu:])))
-    sum=0.00, mu=3, sumpos=1.00, sumneg=-1.00
-    >>> print('weights = [%s]' % ', '.join("%.2f" % w for w in weights))
-    weights = [0.59, 0.29, 0.12, 0.00, -0.19, -0.34, -0.47]
-    >>> c1 = 2. / (dimension + 1)**2  # caveat: __future___ division
-    >>> cmu = weights.mueff / (weights.mueff + dimension**2)
-    >>> weights.finalize_negative_weights(dimension, c1, cmu)
-    >>> print('weights = [%s]' % ', '.join("%.2f" % w for w in weights))
-    weights = [0.59, 0.29, 0.12, 0.00, -0.31, -0.57, -0.79]
-    >>> print("sum=%.2f, c1+cmu*sum=%.2f" % (sum(weights),
-    ...                                      c1 + cmu * sum(weights)))
-    sum=-0.67, c1+cmu*sum=0.00
-    >>> print('mueff=%.1f, mueffminus=%.1f, mueffall=%.1f' % (
-    ...       weights.mueff,
-    ...       weights.mueffminus,
-    ...       sum(abs(w) for w in weights)**2 /
-    ...         sum(w**2 for w in weights)))
-    mueff=2.3, mueffminus=2.7, mueffall=4.8
-    >>> weights = RecombinationWeights(21)
-    >>> weights.finalize_negative_weights(3, 0.081, 0.28)
-    >>> weights.insert(weights.mu, 0)  # add zero weight in the middle
-    >>> weights = weights.set_attributes_from_weights()  # change lambda_
-    >>> assert weights.lambda_ == 22
-    >>> print("sum=%.2f, mu=%d, sumpos=%.2f" %
-    ...       (sum(weights), weights.mu, sum(weights[:weights.mu])))
-    sum=0.24, mu=10, sumpos=1.00
-    >>> print('weights = [%s]' % ', '.join(["%.1f" % (100*weights[i])
-    ...                                     for i in range(0, 22, 5)]))
-    weights = [27.0, 6.8, 0.0, -6.1, -11.7]
-    >>> weights.zero_negative_weights()  #  doctest:+ELLIPSIS
-    [0.270...
-    >>> "%.2f, %.2f" % (sum(weights), sum(weights[weights.mu:]))
-    '1.00, 0.00'
-    >>> mu = int(weights.mu / 2)
-    >>> for i in range(len(weights)):
-    ...     weights[i] = 1. / mu if i < mu else 0
-    >>> weights = weights.set_attributes_from_weights()
-    >>> 5 * "%.1f  " % (sum(w for w in weights if w > 0),
-    ...                 sum(w for w in weights if w < 0),
-    ...                 weights.mu,
-    ...                 weights.mueff,
-    ...                 weights.mueffminus)
-    '1.0  0.0  5.0  5.0  0.0  '
-
-    """
-    def __init__(self, len_):
-        """return recombination weights `list`, post condition is
-        ``sum(self) == 0 and sum(self.positive_weights) == 1``.
-
-        Positive and negative weights sum to 1 and -1, respectively.
-        The number of positive weights, ``self.mu``, is about
-        ``len_/2``. Weights are strictly decreasing.
-
-        `finalize_negative_weights` (...) or `zero_negative_weights` ()
-        should be called to finalize the negative weights.
-
-        :param `len_`: AKA ``lambda`` is the number of weights, see
-            attribute `lambda_` which is an alias for ``len(self)``.
-            Alternatively, a list of "raw" weights can be provided.
-
-        """
-        weights = len_
-        try:
-            len_ = len(weights)
-        except TypeError:
-            try:
-                weights = list(weights)
-                len_ = len(weights)
-            except TypeError:
-                weights = [math.log((len_ + 1) / 2.) - math.log(i)
-                           for i in range(1, len_ + 1)]  # raw shape
-        if len_ < 2:
-            raise ValueError("number of weights must be >=2, was %d"
-                             % (len_))
-        self.debug = False
-
-        # self[:] = weights  # should do, or
-        # super(RecombinationWeights, self).__init__(weights)
-        list.__init__(self, weights)
-
-        self.set_attributes_from_weights(do_asserts=False)
-        sum_neg = sum(self[self.mu:])
-        if sum_neg != 0:
-            for i in range(self.mu, len(self)):
-                self[i] /= -sum_neg
-        self.do_asserts()
-        self.finalized = False
-
-    def set_attributes_from_weights(self, weights=None, do_asserts=True):
-        """make the class attribute values consistent with weights, in
-        case after (re-)setting the weights from input parameter ``weights``,
-        post condition is also ``sum(self.postive_weights) == 1``.
-
-        This method allows to set or change the weight list manually,
-        e.g. like ``weights[:] = new_list`` or using the `pop`,
-        `insert` etc. generic `list` methods to change the list.
-        Currently, weights must be non-increasing and the first weight
-        must be strictly positive and the last weight not larger than
-        zero. Then all ``weights`` are normalized such that the
-        positive weights sum to one.
-        """
-        if weights is not None:
-            if not weights[0] > 0:
-                raise ValueError(
-                    "the first weight must be >0 but was %f" % weights[0])
-            if weights[-1] > 0:
-                raise ValueError(
-                    "the last weight must be <=0 but was %f" %
-                    weights[-1])
-            self[:] = weights
-        weights = self
-        assert all(weights[i] >= weights[i+1]
-                        for i in range(len(weights) - 1))
-        self.mu = sum(w > 0 for w in weights)
-        spos = sum(weights[:self.mu])
-        assert spos > 0
-        for i in range(len(self)):
-            self[i] /= spos
-        # variance-effectiveness of sum^mu w_i x_i
-        self.mueff = 1**2 / sum(w**2 for w in
-                                   weights[:self.mu])
-        sneg = sum(weights[self.mu:])
-        assert (sneg - sum(w for w in weights if w < 0))**2 < 1e-11
-        self.mueffminus = 0 if sneg == 0 else \
-            sneg**2 / sum(w**2 for w in weights[self.mu:])
-        not do_asserts or self.do_asserts()
-        return self
-
-    def finalize_negative_weights(self, dimension, c1, cmu):
-        """finalize negative weights using ``dimension`` and learning
-        rates ``c1`` and ``cmu``.
-
-        This is a rather intricate method which makes this class
-        useful. The negative weights are scaled to achieve
-        in this order:
-
-        1. zero decay, i.e. ``c1 + cmu * sum w == 0``,
-        2. a learning rate respecting mueff, i.e. ``sum |w|^- / sum |w|^+
-           <= 1 + 2 * self.mueffminus / (self.mueff + 2)``,
-        3. guaranty positive definiteness, assuming sum w^+ = 1 and
-           all negative input vectors used later have at most dimension
-           as squared Mahalanobis norm, by guarantying
-           ``(dimension-1) * cmu * sum |w|^- < 1 - c1 - cmu`` setting
-           ``sum |w|^- <= (1 - c1 -cmu) / dimension / cmu``.
-
-        The latter two conditions do not change the weights with default
-        population size.
-
-        Details:
-
-        - To guaranty 3., the input vectors associated to negative
-          weights must obey ||.||^2 <= dimension in Mahalanobis norm.
-        - The third argument, ``cmu``, usually depends on the
-          (raw) weights, in particular it depends on ``self.mueff``.
-          For this reason the calling syntax
-          ``weights = RecombinationWeights(...).finalize_negative_weights(...)``
-          is not supported.
-
-        """
-        if dimension <= 0:
-            raise ValueError("dimension must be larger than zero, was " +
-                             str(dimension))
-        self._c1 = c1  # for the record
-        self._cmu = cmu
-
-        if cmu > 0:
-            self._negative_weights_set_sum(1 + c1 / cmu)
-            self._negative_weights_limit_sum((1 - c1 - cmu) / cmu /
-                                             dimension)
-        self._negative_weights_limit_sum(1 + 2 * self.mueffminus /
-                                         (self.mueff + 2))
-        self.do_asserts()
-        self.finalized = True
-
-        if self.debug:
-            print("sum w = %.2f (final)" % sum(self))
-
-    def zero_negative_weights(self):
-        """finalize by setting all negative weights to zero"""
-        for k in range(len(self)):
-            self[k] *= 0 if self[k] < 0 else 1
-        self.mueffminus = 0
-        self.finalized = True
-        return self
-
-    def _negative_weights_set_sum(self, value):
-        """set sum of negative weights to ``-abs(value)``
-
-        Precondition: last weight must be strictly smaller than zero.
-        """
-        weights = self  # simpler to change to data attribute and nicer to read
-        assert weights[-1] < 0 and weights[self.mu] <= 0
-        factor = abs(value / sum(weights[self.mu:]))
-        for i in range(self.mu, self.lambda_):
-            weights[i] *= factor
-        if value == 0:
-            self.mueffminus = 0  # otherwise scaling doesn't change mueff
-        assert 1 - value - 1e-5 < sum(weights) < 1 - value + 1e-5
-        if self.debug:
-            print("sum w = %.2f, sum w^- = %.2f" %
-                  (sum(weights), -sum(weights[self.mu:])))
-
-    def _negative_weights_limit_sum(self, value):
-        """lower bound the sum of negative weights to ``-abs(value)``.
-        """
-        weights = self  # simpler to change to data attribute and nicer to read
-        if sum(weights[self.mu:]) >= -abs(value):  # nothing to limit
-            return  # needed when sum is zero
-        assert weights[-1] < 0 and weights[self.mu] <= 0
-        factor = abs(value / sum(weights[self.mu:]))
-        if factor < 1:
-            for i in range(self.mu, self.lambda_):
-                weights[i] *= factor
-            if value == 0:
-                self.mueffminus = 0
-            if self.debug:
-                print("sum w = %.2f (with correction %.2f)" %
-                      (sum(weights), value))
-        assert sum(weights) + 1e-5 >= 1 - value
-
-    def do_asserts(self):
-        """assert consistency.
-
-        Assert:
-
-        - attribute values of ``lambda_, mu, mueff, mueffminus``
-        - value of first and last weight
-        - monotonicity of weights
-        - sum of positive weights to be one
-
-        """
-        weights = self
-        assert 1 >= weights[0] > 0
-        assert weights[-1] <= 0
-        assert len(weights) == self.lambda_
-        assert all(weights[i] >= weights[i+1]
-                        for i in range(len(weights) - 1))  # monotony
-        assert self.mu > 0  # needed for next assert
-        assert weights[self.mu-1] > 0 >= weights[self.mu]
-        assert 0.999 < sum(w for w in weights[:self.mu]) < 1.001
-        assert (self.mueff / 1.001 <
-                sum(weights[:self.mu])**2 / sum(w**2 for w in weights[:self.mu]) <
-                1.001 * self.mueff)
-        assert (self.mueffminus == 0 == sum(weights[self.mu:]) or
-                self.mueffminus / 1.001 <
-                sum(weights[self.mu:])**2 / sum(w**2 for w in weights[self.mu:]) <
-                1.001 * self.mueffminus)
-
-    @property
-    def lambda_(self):
-        """alias for ``len(self)``"""
-        return len(self)
-    @property
-    def positive_weights(self):
-        """all (strictly) positive weights as ``np.array``.
-
-        Useful to implement recombination for the new mean vector.
-        """
-        try:
-            return np.asarray(self[:self.mu])
-        except NameError:
-            return self[:self.mu]
-    @property
-    def asarray(self):
-        """return weights as numpy array"""
-        return np.asarray(self)
-
 cma_default_options = {
     # the follow string arguments are evaluated if they do not contain "filename"
     'AdaptSigma': 'True  # or False or any CMAAdaptSigmaBase class e.g. CMAAdaptSigmaTPA, CMAAdaptSigmaCSA',
@@ -719,8 +417,8 @@ cma_default_options = {
     'CMA_mu': 'None  # parents selection parameter, default is popsize // 2',
     'CMA_on': '1  # multiplier for all covariance matrix updates',
     'CMA_sample_on_sphere_surface': 'False  #v all mutation vectors have the same length, currently (with new_sampling) not in effect',
-    'CMA_sampler': 'None  # an instance that needs to implement ask and tell',
-    'CMA_sampler_options': 'None  # a dictionary of sampler options that is passed to init',    
+    'CMA_sampler': 'None  # a class or instance that implements the interface of `cma.interfaces.StatisticalModelSamplerWithZeroMeanBaseClass`',
+    'CMA_sampler_options': '{}  # options passed to `CMA_sampler` class init as keyword arguments',
     'CMA_rankmu': '1.0  # multiplier for rank-mu update learning rate of covariance matrix',
     'CMA_rankone': '1.0  # multiplier for rank-one update learning rate of covariance matrix',
     'CMA_recombination_weights': 'None  # a list, see class RecombinationWeights, overwrites CMA_mu and popsize options',
@@ -1800,27 +1498,32 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     randn=self.opts['randn'],
                     eigenmethod=self.opts['CMA_eigenmethod'],
                     )
+                p = self.sm.parameters(mueff=self.sp.weights.mueff,
+                                       lam=self.sp.weights.lambda_)
+                self.sp.weights.finalize_negative_weights(N, p['c1'], p['cmu'])
             elif isinstance(self.opts['CMA_sampler'], type):  # type(...) is type, inspect.isclass(.)
                 try:
-                    if self.opts['CMA_sampler_options'] is None:
-                        self.sm = self.opts['CMA_sampler'](stds * np.ones(N))
-                    else:
-                        self.sm = self.opts['CMA_sampler'](stds * np.ones(N), **self.opts['CMA_sampler_options'])
+                    self.sm = self.opts['CMA_sampler'](
+                                stds * np.ones(N),
+                                **self.opts['CMA_sampler_options'])
                 except:
-                    try:
-                        if self.opts['CMA_sampler_options'] is None:                        
-                            self.sm = self.opts['CMA_sampler'](N, **sampler_opts)
-                        else:
-                            self.sm = self.opts['CMA_sampler'](N, **self.opts['CMA_sampler_options'])
-                    except:
-                        #XXX(Y.A.) duplicated?
-                        self.sm = self.opts['CMA_sampler']
-                        assert(isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass))
-            else:
+                    if max(stds) > min(stds):
+                        utils.print_warning("""different initial standard
+    deviations are not supported by the current sampler and hence ignored
+    """)
+                    elif stds[0] != 1:
+                        utils.print_warning("""ignoring scaling factor %f
+    for sample distribution""" % stds[0])
+                    self.sm = self.opts['CMA_sampler'](N,
+                                **self.opts['CMA_sampler_options'])
+            else:  # CMA_sampler is already initialized as class instance
                 self.sm = self.opts['CMA_sampler']
-                if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
-                    raise ValueError("'%s' type of statistical model not allowed" % str(type(self.sm)))
-            assert(isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass))
+            if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
+                utils.print_warning("""statistical model sampler did
+    not evaluate to the expected type `%s` but to type `%s`. This is
+    likely to lead to an exception later on. """ % (
+                    str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
+                    str(type(self.sm))))
             self._updateBDfromSM(self.sm)
 
         self.dC = self.sm.variances
@@ -1981,6 +1684,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                      for x in pop_geno]
 
         if gradf is not None:
+            if not isinstance(self.sm, sampler.GaussFullSampler):
+                utils.print_warning("""Gradient injection may fail,
+    because sampler attributes `B` and `D` are not present""",
+                                    "ask", "CMAEvolutionStrategy",
+                                    self.countiter, maxwarns=1)
             try:
                 # see Hansen (2011), Injecting external solutions into CMA-ES
                 if not self.gp.islinear:
@@ -2053,7 +1761,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     NotImplementedError("""
                     gradient with fixed variables is not (yet) implemented,
                     implement a simple transformation of the objective instead""")
-                v = self.D * np.dot(self.B.T, self.sigma_vec * grad_at_mean)
+                v = self.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
                 # newton_direction = sv * B * D * D * B^T * sv * gradient = sv * B * D * v
                 # v = D^-1 * B^T * sv^-1 * newton_direction = D * B^T * sv * gradient
                 q = sum(v**2)
@@ -2061,7 +1769,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     # Newton direction
                     pop_geno[index_for_gradient] = xmean - self.sigma \
                                 * (self.N / q)**0.5 \
-                                * (self.sigma_vec * np.dot(self.B, self.D * v))
+                                * (self.sigma_vec * np.dot(self.sm.B, self.sm.D * v))
                     if 11 < 3 and self.opts['vv']:
                         # gradient direction
                         q = sum((np.dot(self.sm.B.T, self.sigma_vec**-1 * grad_at_mean) / self.sm.D)**2)
@@ -2085,7 +1793,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5
                           )
             except AttributeError:
-                utils.print_warning("Gradient injection failed due to missing attribute ``self.B``")
+                utils.print_warning("""Gradient injection failed
+    presumably due to missing attribute ``self.sm.B or self.sm.D``""")
 
 
         # insert solutions, this could also (better?) be done in self.gp.pheno
@@ -2761,9 +2470,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ### line 2799
 
         # get learning rate constants
-        cc, c1, cmu = sp.cc, \
-                      self.opts['CMA_on'] * self.opts['CMA_rankone'] * self.sm.parameters(sp.weights).get('c1', sp.c1), \
-                      self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters(sp.weights).get('cmu', sp.cmu)
+        cc = sp.cc
+        c1 = self.opts['CMA_on'] * self.opts['CMA_rankone'] * self.sm.parameters(
+            mueff=sp.weights.mueff, lam=sp.weights.lambda_).get('c1', sp.c1)  # mueff and lambda_ should not be necessary here
+        cmu = self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters().get('cmu', sp.cmu)
         if flg_diagonal:
             cc, c1, cmu = sp.cc_sep, sp.c1_sep, sp.cmu_sep
 
@@ -2827,6 +2537,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.sm.update([(c1 / (c1a + 1e-23))**0.5 * self.pc] +  # c1a * pc**2 gets c1 * pc**2
                               list(pop_zero / (self.sigma * self.sigma_vec.scaling)),
                               sampler_weights)
+            if any(np.asarray(self.sm.variances) < 0):
+                raise RuntimeError("""A sampler variance has become
+    negative after update, this must be considered as a bug.
+    Variances `self.sm.variances`=%s""" % str(self.sm.variances))
         self._updateBDfromSM(self.sm)
 
         # step-size adaptation, adapt sigma
@@ -3116,8 +2830,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             self.countiter)
 
     def _updateBDfromSM(self, sm_=None):
-        """helper function for a smooth transition to sampling classes"""
-        # return  # almost possible, only gradient injection fails (test does not run through)
+        """helper function for a smooth transition to sampling classes.
+
+        By now all tests run through without this method in effect.
+        Gradient injection and noeffectaxis however rely on the
+        non-documented attributes B and D in the sampler. """
+        # return  # will be outcommented soon
         if sm_ is None:
             sm_ = self.sm
         if isinstance(sm_, sampler.GaussStandardConstant):
@@ -3484,7 +3202,8 @@ class _CMAStopDict(dict):
                 try:
                     self._addstop('noeffectaxis',
                                  sum(es.mean == es.mean + 0.1 * es.sigma *
-                                     es.D[i] * es.sigma_vec.scaling * es.B[:, i]) == N)
+                                     es.sm.D[i] * es.sigma_vec.scaling *
+                                     es.sm.B[:, i]) == N)
                 except AttributeError:
                     pass
             self._addstop('tolconditioncov',
@@ -3540,7 +3259,6 @@ class _CMAParameters(object):
     >>>
     >>> type(es.sp)  # sp contains the strategy parameters
     <class 'cma.evolution_strategy._CMAParameters'>
-    >>>
     >>> es.sp.disp()  #doctest: +ELLIPSIS
     {'CMA_on': True,
      'N': 20,
@@ -3701,6 +3419,7 @@ class _CMAParameters(object):
         if any(w < 0 for w in sp.weights):
             if opts['CMA_active'] and opts['CMA_on'] and opts['CMA_rankmu']:
                 sp.weights.finalize_negative_weights(N, sp.c1, sp.cmu)
+                # this is re-done using self.sm.parameters()['c1']...
             else:
                 sp.weights.zero_negative_weights()
 
@@ -4311,8 +4030,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         """
         if not isinstance(es, CMAEvolutionStrategy):
-            raise TypeError("only class CMAEvolutionStrategy can be " +
-                            "registered for logging")
+            utils.print_warning("""only class CMAEvolutionStrategy should
+    be registered for logging. The used "%s" class may not to work
+    properly. This warning may also occur after using `reload`. Then,
+    restarting Python should solve the issue.""" %
+                                str(type(es)))
         self.es = es
         if append is not None:
             self.append = append
@@ -4460,7 +4182,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                'CMADataLogger')
         # convert single line to matrix of shape (1, len)
         for key in self.key_names:
-            d = getattr(self, key)
+            try:
+                d = getattr(self, key)
+            except AttributeError:
+                utils.print_warning("attribute %s missing" % key, 'load',
+                                    'CMADataLogger')
+                continue
             if len(d.shape) == 1:  # one line has shape (8, )
                 setattr(self, key, d.reshape((1, len(d))))
 
@@ -4521,14 +4248,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
             xrecent = es.best.last.x
         except:
             xrecent = None
-        diagC = es.sigma * es.sigma_vec.scaling * es.dC**0.5
+        diagC = es.sigma * es.sigma_vec.scaling * es.sm.variances**0.5
         if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
-            maxD = es.D.max()
-            minD = es.D.min()
-            diagD = es.D
+            try:
+                diagD = es.sm.D
+            except:
+                diagD = [1]
+            maxD = max(diagD)
+            minD = min(diagD)
         else:
-            maxD = max(es.sigma_vec * es.dC**0.5)  # dC should be 1 though
-            minD = min(es.sigma_vec * es.dC**0.5)
+            maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
+            minD = min(es.sigma_vec * es.sm.variances**0.5)
             diagD = diagC
         more_to_write = es.more_to_write
         if 11 < 3:  # and len(more_to_write) > 1:

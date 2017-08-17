@@ -243,8 +243,8 @@ class OOOptimizer(object):
 class StatisticalModelSamplerWithZeroMeanBaseClass(object):
     """yet versatile base class to replace a sampler namely in
     `CMAEvolutionStrategy`"""
-    def __init__(self, std_vec):
-        """pass the vector of initial standard deviation or dimension of
+    def __init__(self, std_vec, **kwargs):
+        """pass the vector of initial standard deviations or dimension of
         the underlying sample space.
 
         Ideally catch the case when `std_vec` is a scalar and then
@@ -269,28 +269,30 @@ class StatisticalModelSamplerWithZeroMeanBaseClass(object):
         """
         raise NotImplementedError
 
-    def parameters(self, weights):
+    def parameters(self, mueff=None, lam=None):
         """return `dict` with (default) parameters, e.g., `c1` and `cmu`.
 
         :See also: `RecombinationWeights`"""
-        try:
-            if np.all(self.weights == weights):
-                return self._parameters
-        except AttributeError:
-            pass
-        self.weights = np.array(weights, copy=True)
-        lam = len(weights)
-        w = np.array([w for w in weights if w > 0])
-        mueff = sum(w)**2 / sum(w**2)
+        if (hasattr(self, '_mueff') and hasattr(self, '_lam') and
+            (mueff == self._mueff or mueff is None) and
+            (lam == self._lam or lam is None)):
+            return self._parameters
+        self._mueff = mueff
+        lower_lam = 6  # for setting c1
+        if lam is None:
+            lam = lower_lam
+        self._lam = lam
         # todo: put here rather generic formula with degrees of freedom
         # todo: replace these base class computations with the appropriate
-        c1 = min((1, lam / 6)) * 2 / ((self.dimension + 1.3)**2.0 +
-                                         mueff)
+        c1 = min((1, lam / lower_lam)) * 2 / ((self.dimension + 1.3)**2.0 + mueff)
+        alpha = 2
         self._parameters = dict(
             c1=c1,
             cmu=min((1 - c1,
-                        2 * (mueff - 2 + 1 / mueff) /
-                        ((self.dimension + 2)**2 + 2 * mueff / 2)))
+                     # or alpha * (mueff - 0.9) with relative min and
+                     # max value of about 1: 0.4, 1.75: 1.5
+                     alpha * (0.25 + mueff - 2 + 1 / mueff) /
+                     ((self.dimension + 2)**2 + alpha * mueff / 2)))
         )
         return self._parameters
 
