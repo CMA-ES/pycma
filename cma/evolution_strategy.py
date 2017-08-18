@@ -1540,7 +1540,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
                     str(type(self.sm))))
             self._updateBDfromSM(self.sm)
-
         self.dC = self.sm.variances
         self.D = self.dC**0.5  # we assume that the initial C is diagonal
         self.pop_injection_solutions = []

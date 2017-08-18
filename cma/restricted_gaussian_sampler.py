@@ -332,6 +332,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.ds = kwargs.get('ds', 4. - 3. / self.N)  #math.sqrt(self.N)) 
         self.flg_injection = False
         self.ps = 0.
+        self._debug = kwargs.get('debug', False)
 
         # Initialize Dynamic Parameters
         self.D = std_vec
@@ -620,21 +621,28 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        # return None
-        ka = self.k_active
-        if ka > 0:
-            C = np.eye(self.N) + np.dot(self.V[:ka].T * self.S[:ka],
-                                        self.V[:ka])
-            C = (C * self.D).T * self.D
+        if self._debug:
+            # return None
+            ka = self.k_active
+            if ka > 0:
+                C = np.eye(self.N) + np.dot(self.V[:ka].T * self.S[:ka],
+                                            self.V[:ka])
+                C = (C * self.D).T * self.D
+            else:
+                C = np.diag(self.D**2)
+            C *= self.sigma**2
         else:
-            C = np.diag(self.D**2)
-        return C * self.sigma**2
+            # Fake Covariance Matrix for Speed
+            C = self.D ** 2
+            self.B = np.eye(1)
+            self.D = np.ones(1)
+        return C
 
     @property
     def variances(self):
         """vector of coordinate-wise (marginal) variances"""
         ka = self.k_active
-        if ka > 0:
+        if ka == 0:
             return self.D**2 * self.sigma**2
         else:
             return self.D**2 * (
@@ -642,10 +650,12 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        return None
-        C = self.covariance_matrix
-        sqrtdC = np.sqrt(self.variances)
-        return (C / sqrtdC).T / sqrtdC
+        if self._debug:
+            C = self.covariance_matrix
+            sqrtdC = np.sqrt(self.variances)
+            return (C / sqrtdC).T / sqrtdC
+        else:
+            return None
 
     def transform(self, x):
         """transform ``x`` as implied from the distribution parameters"""
