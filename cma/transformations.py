@@ -544,7 +544,7 @@ class DiagonalDecoding(AdaptiveDecoding):
         self.scaling = np.array(scaling, dtype=float)
         self.dim = np.size(self.scaling)
         self.is_identity = False
-        if all(self.scaling == 1):
+        if np.all(self.scaling == 1):
             self.is_identity = True
 
     def transform(self, x):

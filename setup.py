@@ -1,6 +1,7 @@
 # from distutils.core import setup
 from setuptools import setup
 from cma import __version__  # assumes that the right module is visible first in path, i.e., cma folder is in current folder
+from cma import __doc__ as long_description
 
 # prevent the error when building Windows .exe
 import codecs
@@ -17,7 +18,7 @@ try:
     with open('README.txt') as file:
         long_description = file.read()  # now assign long_description=long_description below
 except IOError:  # file not found
-    long_description = ""
+    pass
 
 setup(name="cma",
       long_description=long_description,  # __doc__, # can be used in the cma.py file
@@ -28,8 +29,8 @@ setup(name="cma",
       author="Nikolaus Hansen",
       author_email="authors firstname.lastname at inria dot fr",
       maintainer="Nikolaus Hansen",
-      maintainer_email="authors firstname.lastname at inria dot fr",
-      url="https://www.lri.fr/~hansen/cmaes_inmatlab.html#python",
+      maintainer_email="authors_firstname.lastname@inria.fr",
+      url="https://github.com/CMA-ES/pycma",
       # license="MIT",
       license="BSD",
       classifiers = [
@@ -51,4 +52,5 @@ setup(name="cma",
       keywords=["optimization", "CMA-ES", "cmaes"],
       packages=["cma", "cma.utilities"],
       requires=["numpy"],
-)
+      package_data={'': ['LICENSE']},  # i.e. cma/LICENSE
+      )

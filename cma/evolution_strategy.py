@@ -186,13 +186,6 @@ import numpy as np
 from numpy import inf, array
 # to access the built-in sum fct:  ``__builtins__.sum`` or ``del sum``
 # removes the imported sum and recovers the shadowed build-in
-try:
-    from matplotlib import pyplot
-except ImportError:
-    print('Could not import matplotlib.pyplot, therefore ``cma.plot()``" +'
-          ' etc. is not available')
-else:
-    pyplot.ion()  # prevents that the execution stops after plotting
 
 from . import interfaces
 from . import transformations
@@ -1430,6 +1423,36 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.mean_shift_samples = True if (isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) or
             opts['mean_shift_line_samples']) else False
 
+        def eval_vector(in_, opts, N, default_value=1.0):
+            """return `default_value` as scalar or `in_` after removing
+            fixed variables if ``len(in_) == N``
+            """
+            res = default_value
+            if in_ is not None:
+                if np.size(in_) == 1:  # return scalar value
+                    try:
+                        res = float(in_[0])
+                    except TypeError:
+                        res = float(in_)
+                elif opts['fixed_variables'] and np.size(in_) > N:
+                    res = array([in_[i] for i in range(len(in_))
+                                      if i not in opts['fixed_variables']],
+                                dtype=float)
+                    if len(res) != N:
+                        utils.print_warning(
+                            "resulting len %d != N = %d" % (len(res), N),
+                            'eval_vector', iteration=self.countiter)
+                else:
+                    res = array(in_, dtype=float)
+                if np.size(res) not in (1, N):
+                    raise ValueError(
+                        "CMA_stds option must have dimension %d "
+                        "instead of %d" % (N, np.size(res)))
+            return res
+
+        opts['minstd'] = eval_vector(opts['minstd'], opts, N, 0)
+        opts['maxstd'] = eval_vector(opts['maxstd'], opts, N, np.inf)
+
         # iiinteger handling, currently very basic:
         # CAVEAT: integer indices may give unexpected results if fixed_variables is used
         if len(opts['integer_variables']) and opts['fixed_variables']:
@@ -1457,37 +1480,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if not isinstance(opts['verb_append'], bool) else 0
         self.pc = np.zeros(N)
         self.pc_neg = np.zeros(N)
-        def eval_scaling_vector(in_):
-            res = 1
-            if in_ is not None and np.all(in_):
-                if np.size(in_) == 1:
-                    try:
-                        res = in_[0]
-                    except TypeError:
-                        res = in_
-                elif self.opts['fixed_variables'] and np.size(in_) > self.N:
-                    res = array([in_[i] for i in range(len(in_))
-                                    if i not in self.opts['fixed_variables']],
-                                dtype=float)
-                else:
-                    res = array(in_, dtype=float)
-                if np.size(res) not in (1, N):
-                    raise ValueError(
-                        "CMA_stds option must have dimension %d "
-                        "instead of %d" % (N, np.size(res)))
-            return res
         if 1 < 3:  # new version with class
-            self.sigma_vec0 = eval_scaling_vector(self.opts['CMA_stds'])
+            self.sigma_vec0 = eval_vector(self.opts['CMA_stds'], opts, N)
             self.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec0)
             if np.isfinite(self.opts['CMA_dampsvec_fac']):
                 self.sigma_vec *= np.ones(N)  # make sure to get a vector
         else:
-            self.sigma_vec = eval_scaling_vector(self.opts['CMA_stds'])
+            self.sigma_vec = eval_vector(self.opts['CMA_stds'], opts, N)
             if np.isfinite(self.opts['CMA_dampsvec_fac']):
                 self.sigma_vec *= np.ones(N)  # make sure to get a vector
             self.sigma_vec0 = self.sigma_vec if np.isscalar(self.sigma_vec) \
                                             else self.sigma_vec.copy()
-        stds = eval_scaling_vector(self.opts['CMA_teststds'])
+        stds = eval_vector(self.opts['CMA_teststds'], opts, N)
         if self.opts['CMA_diagonal']:  # is True or > 0
             # linear time and space complexity
             self.sigma_vec = transformations.DiagonalDecoding(stds * np.ones(N))
@@ -1909,6 +1913,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                     % (len(self.pop_injection_directions), self.popsize)
                                     + "popsize %d will be used" % (len(self.pop_injection_directions) + 2)
                                     + (" and the warning is suppressed in the following" if self.countiter == 3 else ""))
+            # directions must come first because of mean_shift_samples/TPA
             while self.pop_injection_directions:
                 if len(arinj) >= number:
                     break
@@ -1924,18 +1929,39 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 arinj.append((self.pop_injection_solutions.pop(0) - self.mean) / self.sigma)
             if self.mean_shift_samples and self.countiter > 1:
                 # TPA is implemented by injection of the Delta mean
+                if len(arinj) < 2:
+                    raise RuntimeError(
+                        "Mean shift samples are expected but missing.\n"
+                        "This happens if, for example, `ask` is called"
+                        "  more than once, without calling `tell`\n"
+                        "(because the first call removes the samples from"
+                        " the injection list).\n"
+                        "`cma.sigma_adaptation.CMAAdaptSigmaTPA`"
+                        " step-size adaptation generates mean shift\n"
+                        "samples and relies on them. \n"
+                        "Using ``ask(1)`` for any subsequent calls of"
+                        " `ask` works OK and TPA works if the\n"
+                        "first two samples from the"
+                        " first call are retained as first samples when"
+                        " calling `tell`. \n"
+                        "EXAMPLE: \n"
+                        "    X = es.ask()\n"
+                        "    X.append(es.ask(1)[0])\n"
+                        "    ...\n"
+                        "    es.tell(X, ...)"
+                    )
                 s1 = sum(arinj[1]**2)**0.5              # set both vectors
                 arinj[1] *= sum(arinj[0]**2)**0.5 / s1  # to same length
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
-                    utils.print_warning("""mean_shift_samples, but the
-                        first two solutions are
-                        not mirrors. This can happen if only `ask(1)` is
-                        used instead of `ask()`. """,
-                                   "ask_geno", "CMAEvolutionStrategy",
-                                        self.countiter)
+                    utils.print_warning(
+                        "mean_shift_samples, but the first two solutions"
+                        " are not mirrors.",
+                        "ask_geno", "CMAEvolutionStrategy",
+                        self.countiter)
                     arinj[1] /= sum(arinj[0]**2)**0.5 / s1  # revert change
             self.number_of_injections_delivered += len(arinj)
-            assert self.countiter < 2 or not self.mean_shift_samples or self.number_of_injections_delivered >= 2
+            assert (self.countiter < 2 or not self.mean_shift_samples
+                    or self.number_of_injections_delivered >= 2)
 
         Niid = number - len(arinj) # each row is a solution
         # compute ary
@@ -2193,7 +2219,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.mean_shift_samples:
             ary = [self.mean - self.mean_old]
             ary.append(self.mean_old - self.mean)  # another copy!
-            if ary[-1][0] == 0.0:
+            if np.alltrue(ary[-1] == 0.0):
                 utils.print_warning('zero mean shift encountered',
                                '_prepare_injection_directions',
                                'CMAEvolutionStrategy', self.countiter)
@@ -2631,10 +2657,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def inject(self, solutions, force=None):
         """inject list of one or several genotypic solution(s).
 
-        Unless `force is True`, the solutions are used as direction relative to
-        the distribution mean to compute a new candidate solution returned in
-        method `ask_geno` which in turn is used in method `ask`. `inject` is to
-        be called before `ask` or after `tell` and can be called repeatedly. 
+        Unless `force is True`, the solutions are used as direction
+        relative to the distribution mean to compute a new candidate
+        solution returned in method `ask_geno` which in turn is used in
+        method `ask`. `inject` is to be called before `ask` or after
+        `tell` and can be called repeatedly.
 
         >>> import cma
         >>> es = cma.CMAEvolutionStrategy(4 * [1], 2)  #doctest: +ELLIPSIS
@@ -4387,7 +4414,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.last_iteration = iteration
 
     def figclose(self):
-        pyplot.close(self.fighandle)
+        from matplotlib.pyplot import close
+        close(self.fighandle)
 
     def save_to(self, nameprefix, switch=False):
         """saves logger data to a different set of files, for
@@ -4436,7 +4464,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             pass
     def plot(self, fig=None, iabscissa=1, iteridx=None,
              plot_mean=False, # was: plot_mean=True
-             foffset=1e-19, x_opt=None, fontsize=9,
+             foffset=1e-19, x_opt=None, fontsize=7,
              downsample_to=1e7):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
@@ -4466,11 +4494,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
             cma.s.figsave('fig325.png')  # save current figure
             logger.figclose()
 
-        Dependencies: matlabplotlib/pyplot.
+        Dependencies: matlabplotlib.pyplot
 
         """
         try:
-            # pyplot: prodedural interface for matplotlib
+            from matplotlib import pyplot
             from matplotlib.pyplot import figure, subplot, gcf
         except ImportError:
             ImportError('could not find matplotlib.pyplot module, function plot() is not available')
@@ -4549,7 +4577,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         return self
 
     def plot_all(self, fig=None, iabscissa=1, iteridx=None,
-             foffset=1e-19, x_opt=None, fontsize=9):
+             foffset=1e-19, x_opt=None, fontsize=7):
         """
         plot data from a `CMADataLogger` (using the files written by the logger).
 
@@ -4583,7 +4611,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         """
         try:
             # pyplot: prodedural interface for matplotlib
-            from  matplotlib.pyplot import figure, subplot, gcf
+            from matplotlib import pyplot
+            from matplotlib.pyplot import figure, subplot, gcf
         except ImportError:
             ImportError('could not find matplotlib.pyplot module, function plot() is not available')
             return
@@ -4671,6 +4700,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._finalize_plotting()
         return self
     def plot_axes_scaling(self, iabscissa=1):
+        from matplotlib import pyplot
         if not hasattr(self, 'D'):
             self.load()
         dat = self
@@ -4687,6 +4717,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._finalize_plotting()
         return self
     def plot_stds(self, iabscissa=1):
+        from matplotlib import pyplot
         if not hasattr(self, 'std'):
             self.load()
         dat = self
@@ -4796,6 +4827,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         :See: `plot`
 
         """
+        from matplotlib import pyplot
         from matplotlib.pyplot import semilogy, grid, \
             axis, title, text
         fontsize = pyplot.rcParams['font.size']
@@ -4949,20 +4981,25 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def _enter_plotting(self, fontsize=9):
+    def _enter_plotting(self, fontsize=7):
         """assumes that a figure is open """
+        from matplotlib import pyplot
         # interactive_status = matplotlib.is_interactive()
         self.original_fontsize = pyplot.rcParams['font.size']
-        pyplot.rcParams['font.size'] = fontsize
+        # if font size deviates from default, we assume this is on purpose and hence leave it alone
+        if pyplot.rcParams['font.size'] == pyplot.rcParamsDefault['font.size']:
+            pyplot.rcParams['font.size'] = fontsize
         # was: pyplot.hold(False)
         # pyplot.gcf().clear()  # opens a figure window, if non exists
         pyplot.ioff()
     def _finalize_plotting(self):
+        from matplotlib import pyplot
         pyplot.draw()  # update "screen"
-        pyplot.ion()
+        pyplot.ion()  # prevents that the execution stops after plotting
         pyplot.show()
         pyplot.rcParams['font.size'] = self.original_fontsize
     def _xlabel(self, iabscissa=1):
+        from matplotlib import pyplot
         pyplot.xlabel('iterations' if iabscissa == 0
                       else 'function evaluations')
     def _plot_x(self, iabscissa=1, x_opt=None, remark=None,
@@ -5190,7 +5227,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
-         foffset=1e-19, x_opt=None, fontsize=9, downsample_to=3e3):
+         foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for

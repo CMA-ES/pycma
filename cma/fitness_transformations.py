@@ -350,8 +350,7 @@ class FixVariables(ComposedFunction):
         >>> from cma.fitness_transformations import FixVariables
         >>> index_value_pairs = [[2, 0.2], [4, 0.4]]
         >>> fun = FixVariables(cma.ff.elli, index_value_pairs)
-        >>> all(fun[1](4 * [1]) ==
-        ...         [ 1.,  1.,  0.2,  1.,  0.4, 1.])
+        >>> fun[1](4 * [1]) == [ 1.,  1.,  0.2,  1.,  0.4, 1.]
         True
 
     Or starting from a given current solution in the larger space from
@@ -363,14 +362,17 @@ class FixVariables(ComposedFunction):
         >>> index_value_pairs = [[i, current_solution[i]]  # fix these
         ...                                     for i in fixed_indices]
         >>> fun = FixVariables(cma.ff.elli, index_value_pairs)
-        >>> all(fun[1](4 * [1]) ==
-        ...         [ 1.,  1.,  0.2,  1.,  0.4, 1.])
+        >>> fun[1](4 * [1]) == [ 1.,  1.,  0.2,  1.,  0.4, 1.]
         True
+        >>> assert (current_solution ==  # list with same values
+        ...            fun.transform(fun.insert_variables(current_solution)))
+        >>> assert (current_solution ==  # list with same values
+        ...            fun.insert_variables(fun.transform(current_solution)))
 
     Details: this might replace the ``fixed_variables`` option in
     `CMAOptions` in future, but hasn't been thoroughly tested yet.
 
-    Supersedes `ExpandSolution`?
+    Supersedes `ExpandSolution`.
 
     """
     def __init__(self, f, index_value_pairs):
@@ -382,34 +384,26 @@ class FixVariables(ComposedFunction):
         # super(FixVariables, self).__init__(
         ComposedFunction.__init__(self, [f, self.insert_variables])
         self.index_value_pairs = dict(index_value_pairs)
+    def transform(self, x):
+        """transform `x` such that it could be used as argument to `self`.
+
+        Return a list or array, usually dismissing some elements of
+        `x`. ``fun.transform`` is the inverse of
+        ``fun.insert_variables == fun[1]``, that is
+        ``np.all(x == fun.transform(fun.insert_variables(x))) is True``.
+        """
+        res = [x[i] for i in range(len(x))
+                if i not in self.index_value_pairs]
+        return res if isinstance(x, list) else np.asarray(res)
     def insert_variables(self, x):
+        """return `x` with inserted fixed values"""
         if len(self.index_value_pairs) == 0:
             return x
-        if 1 < 3:  # probably faster
-            y = np.zeros(len(x) + len(self.index_value_pairs))
-            assert max(self.index_value_pairs) < len(y)
-            j = 0
-            for i in range(len(y)):
-                if i in self.index_value_pairs:
-                    y[i] = self.index_value_pairs[i]
-                else:
-                    y[i] = x[j]
-                    j += 1
-        elif 11 < 3:  # probably fastest: looping only over fixed indices
-            raise NotImplementedError("""variable_indices need yet to be
-              computed (once) from the index_value_pairs""")
-            y = np.zeros(len(x) + len(self.index_value_pairs))
-            assert len(self.variable_indices) == len(x)
-            assert max(self.variable_indices) < len(y)
-            assert max(self.index_value_pairs) < len(y)
-            y[self.variable_indices] = x[:]  # todo: recheck numpy syntax
-            for i in self.index_value_pairs:
-                y[i] = self.index_value_pairs[i]
-        else:  # definitely easier to read
-            y = list(x)
-            for i in sorted(self.index_value_pairs):
-                y.insert(i, self.index_value_pairs[i])
-            y = array(y, copy=False)  # doubles the necessary time
+        y = list(x)
+        for i in sorted(self.index_value_pairs):
+            y.insert(i, self.index_value_pairs[i])
+        if not isinstance(x, list):
+            y = np.asarray(y)  # doubles the necessary time
         return y
 
 class Expensify(Function):
