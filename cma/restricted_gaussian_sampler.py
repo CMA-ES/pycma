@@ -634,9 +634,8 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             C *= self.sigma**2
         else:
             # Fake Covariance Matrix for Speed
-            C = self.D ** 2
-            self.B = np.eye(1)
-            self.D = np.ones(1)
+            C = np.ones(1)
+            self.B = np.ones(1)
         return C
 
     @property
