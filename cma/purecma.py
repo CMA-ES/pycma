@@ -6,8 +6,9 @@ nonlinear function minimization.
 
 The **main functionality** is implemented in
 
-  - class `CMAES` and
-  - function `fmin` that is a single-line-usage wrapper around `CMAES`.
+1. class `CMAES`, and
+
+2. function `fmin` which is a single-line-usage wrapper around `CMAES`.
 
 This code has two **purposes**:
 
@@ -74,27 +75,27 @@ def fmin(objective_fct, xstart, sigma, args=(),
     Parameters
     ==========
         `objective_fct`: `callable`
-            a function that takes as input a list of floats (like
-            [3.0, 2.2, 1.1]) and returns a single float (a scalar).
-            The objective is to find ``x`` with ``objectivefct(x)``
+            a function that takes as input a `list` of floats (like
+            [3.0, 2.2, 1.1]) and returns a single `float` (a scalar).
+            The objective is to find ``x`` with ``objective_fct(x)``
             to be as small as possible.
         `xstart`: `list` or sequence
-            list of numbers (like `[3, 2, 1.2]`), initial solution vector
+            list of numbers (like `[3.2, 2, 1]`), initial solution vector
         `sigma`: `float`
             initial step-size, standard deviation in any coordinate
         `args`: `tuple` or sequence
-            arguments to `objectivefct`
+            arguments to `objective_fct`
         `ftarget`: `float`
             target function value
         `maxfevals`: `int` or `str`
             maximal number of function evaluations, a string
             is evaluated with ``N`` being the search space dimension
         `verb_disp`: `int`
-            display on console every verb_disp iteration, 0 for never
+            display on console every `verb_disp` iteration, 0 for never
         `verb_log`: `int`
-            data logging every verb_log iteration, 0 for never
+            data logging every `verb_log` iteration, 0 for never
         `verb_save`: `int`
-            save logged data every `verb_save * verb_log` iteration
+            save logged data every ``verb_save * verb_log`` iteration
 
     Return
     ======
@@ -148,7 +149,7 @@ def fmin(objective_fct, xstart, sigma, args=(),
     :See: `CMAES`, `OOOptimizer`.
     """
     es = CMAES(xstart, sigma, maxfevals, ftarget)  # new optimizer instance
-    es.logger = CMAESDataLogger(verb_log).add(es, True)  # add data row
+    es.logger = CMAESDataLogger(verb_log).add(es, force=True)  # add data row
     while not es.stop():
         X = es.ask()  # get a list of sampled candidate solutions
         fit = [objective_fct(x, *args) for x in X]  # evaluate each candidate
@@ -164,15 +165,18 @@ def fmin(objective_fct, xstart, sigma, args=(),
         print('best f-value =', es.result[1])
         print('solution =', es.result[0])
     if verb_log:
-        es.logger.add(es, True)
+        es.logger.add(es, force=True)
         es.logger.save() if verb_save else None
     return es
 
 
 class CMAESParameters(object):
     """static "internal" parameter setting for `CMAES`"""
-    def __init__(self, N, popsize, RecombinationWeights=False and RecombinationWeights):
-        """set static, fixed "strategy" parameters once and for all
+    def __init__(self, N, popsize, RecombinationWeights=None):
+        """set static, fixed "strategy" parameters once and for all.
+
+        Input parameter ``RecombinationWeights`` may be set to the class
+        `RecombinationWeights`.
         """
         # Strategy parameter setting: Selection
         self.lam = eval(safe_str(popsize, ['N', 'int', 'log']))  # population size, offspring number
@@ -237,10 +241,10 @@ class CMAES(OOOptimizer):  # could also inherit from object
         optim = pcma.CMAES(9 * [0.5], 0.3)  # calls CMAES.__init__()
         logger = pcma.CMAESDataLogger().register(optim)  # logger instance
 
-        # this loop resembles optimize() 
+        # this loop resembles optimize()
         while not optim.stop(): # iterate
             X = optim.ask()     # get candidate solutions
-            #  do whatever needs to be done, however rather don't 
+            #  do whatever needs to be done, however rather don't
             #  change X unless like for example X[2] = optim.ask()[0]
             f = [pcma.ff.elli(x) for x in X]  # evaluate solutions
             optim.tell(X, f)    # do all the real work
@@ -255,7 +259,6 @@ class CMAES(OOOptimizer):  # could also inherit from object
         print('potentially better solution xmean =', optim.result[5])
         print("let's check f(xmean) = ", pcma.ff.elli(optim.result[5]))
         logger.plot()  # if matplotlib is available
-        raw_input('press enter to continue')  # prevents closing figures
 
     A slightly longer example, which may also save data within the loop,
     is the implementation of function `fmin`.
@@ -288,16 +291,18 @@ class CMAES(OOOptimizer):  # could also inherit from object
                 evaluated with ``N`` being the search space dimension
             `ftarget`: `float`
                 target function value
+            `popsize`: `int`
+                population size, number of candidate samples per iteration
             `randn`: `callable`
                 normal random number generator, by default
                 `random.normalvariate`
 
-        Details: this method sets static parameters and calls `initialize`
-        for setting the dynamic state variables.
+        Details: this method initializes the dynamic state variables and
+        creates a `CMAESParameters` instance for static parameters.
         """
         # process some input parameters and set static parameters
         N = len(xstart)  # number of objective variables/problem dimension
-        self.ftarget = ftarget  # stop if fitness < ftarget
+        self.ftarget = ftarget  # stop if fitness <= ftarget
         self.maxfevals = eval(safe_str(maxfevals, ['N']))  # eval a string
         self.randn = randn
         self.params = CMAESParameters(N, popsize)
@@ -305,20 +310,96 @@ class CMAES(OOOptimizer):  # could also inherit from object
         # initializing dynamic state variables
         self.xmean = xstart[:]  # initial point, distribution mean, a copy
         self.sigma = sigma
-        self.pc, self.ps = N * [0], N * [0]  # evolution paths for C,sigma
-        self.B = eye(N)   # B defines the coordinate system
+        self.pc = N * [0]  # evolution path for C
+        self.ps = N * [0]  # and for sigma
+        self.C = eye(N)  # covariance matrix
+        self.B = eye(N)  # B defines the coordinate system
         self.D = N * [1]  # diagonal D defines the scaling
-        self.C = eye(N)   # covariance matrix
         self.invsqrtC = eye(N)  # C^-1/2
         self.eigeneval = 0      # tracking the update of B and D from C
         self.counteval = 0  # countiter should be equal to counteval / lam
         self.fitvals = []   # for bookkeeping output and termination
         self.best = BestSolution()
 
+    def ask(self):
+        """return a list of lambda candidate solutions,
+
+        distributed according to::
+
+            m + sigma * Normal(0,C) = m + sigma * B * D * Normal(0,I)
+                                    = m + B * D * sigma * Normal(0,I)
+        """
+        self._updateBD()  # update B, D and invsqrtC from C
+        candidate_solutions = []
+        for k in range(self.params.lam):  # repeat lam times
+            z = [di * self.sigma * self.randn(0, 1) for di in self.D]
+            candidate_solutions.append(plus(self.xmean, dot(self.B, z)))
+        return candidate_solutions
+
+    def tell(self, arx, fitvals):
+        """update the evolution paths and the distribution parameters m,
+        sigma, and C within CMA-ES.
+
+        Parameters
+        ----------
+            `arx`: `list` of "row vectors" (arx[k][i] is the i-th element of vector k)
+                a list of solutions, presumably from calling `ask`
+            `fitvals`: `list`
+                the corresponding objective function values
+        """
+        ### bookkeeping and convenience short cuts
+        self.counteval += len(fitvals)  # used evaluations for updating
+        N = len(self.xmean)
+        iN = range(N)  # iterate from 0 to N-1
+        par = self.params
+        xold = self.xmean
+
+        ### Sort by fitness
+        arx = [arx[k] for k in argsort(fitvals)]  # sorted arx
+        self.fitvals = sorted(fitvals)  # used for termination and display only
+        self.best.update(arx[0], self.fitvals[0], self.counteval)
+
+        ### recombination, compute new weighted mean value
+        self.xmean = dot(arx[0:par.mu], par.weights[:par.mu], transpose=True)
+        #          = [sum(self.weights[k] * arx[k][i] for k in range(self.mu))
+        #                                             for i in iN]
+
+        ### Cumulation: update evolution paths
+        y = minus(self.xmean, xold)
+        z = dot(self.invsqrtC, y)  # == C**(-1/2) * (xnew - xold)
+        csn = (par.cs * (2 - par.cs) * par.mueff)**0.5 / self.sigma
+        for i in iN:  # do the update
+            self.ps[i] = (1 - par.cs) * self.ps[i] + csn * z[i]
+        # turn off rank-one update if sigma should increase quickly
+        hsig = (sum(x**2 for x in self.ps)  # squared length of ps
+                / (1-(1-par.cs)**(2*self.counteval/par.lam)) / N
+                < 2 + 4./(N+1))
+        ccn = (par.cc * (2 - par.cc) * par.mueff)**0.5 / self.sigma
+        for i in iN:  # do the update
+            self.pc[i] = (1 - par.cc) * self.pc[i] + ccn * hsig * y[i]
+
+        ### Adapt covariance matrix C
+        # minor adjustment for the variance loss by hsig
+        c1a = par.c1 * (1 - (1-hsig**2) * par.cc * (2-par.cc))
+        self.C = dot1(1 - c1a - par.cmu * sum(par.weights), self.C)  # C *= 1 - c1 - cmu
+        self.C = addouter(self.C, self.pc, par.c1)  # C += c1 * p * p^T
+        for k in range(par.lam):  # so-called rank-mu update
+            # guaranty positive definiteness given appropriate negative weights
+            w2 = 1 if par.weights[k] >= 0 else N / self.mahalanobis_norm(minus(arx[k], xold))**2
+            self.C = addouter(self.C, minus(arx[k], xold),  # C += w * cmu * dx * dx^T
+                              par.weights[k] * w2 * par.cmu / self.sigma**2)
+
+        ### Adapt step-size sigma
+        mean_square_ps = sum(x**2 for x in self.ps) / len(self.ps)
+        self.sigma *= exp(min(1, (par.cs / par.damps) * (mean_square_ps - 1) / 2))
+        # chiN = (1-1./(4.*N)+1./(21.*N**2))
+        # self.sigma *= exp(min(1, (self.cs/self.damps) *
+        #     (sum(x**2 for x in self.ps)**0.5 / chiN - 1)))
+
     def stop(self):
-        """return satisfied termination conditions in a dictionary like 
-        {'termination reason':value, ...}, for example {'tolfun':1e-12}, 
-        or the empty dict {}""" 
+        """return satisfied termination conditions in a dictionary like
+        {'termination reason':value, ...}, for example {'tolfun':1e-12},
+        or the empty dict {}"""
         res = {}
         if self.counteval <= 0:
             return res
@@ -352,103 +433,21 @@ class CMAES(OOOptimizer):  # could also inherit from object
                 for j in rg:
                     self.invsqrtC[i][j] = sum(self.B[i][k] * self.B[j][k]
                                               / self.D[k] for k in rg)
-
-    def ask(self):
-        """return a list of lambda candidate solutions,
-
-        distributed according to
-
-            m + sigma * Normal(0,C) = m + sigma * B * D * Normal(0,I)
-                                    = m + B * D * sigma * Normal(0,I)
-        """
-        self._updateBD()  # update B, D and invsqrtC from C
-        candidate_solutions = []
-        for k in range(self.params.lam):  # repeat lam times
-            z = [di * self.sigma * self.randn(0, 1) for di in self.D]
-            candidate_solutions.append(plus(self.xmean, dot(self.B, z)))
-        return candidate_solutions
-
-    def tell(self, arx, fitvals):
-        """update the evolution paths and the distribution parameters m,
-        sigma, and C within CMA-ES.
-
-        Parameters
-        ----------
-            `arx`: `list` of "vectors"
-                a list of solutions, presumably from calling `ask`
-            `fitvals`: `list`
-                the corresponding objective function values
-        """
-        ### bookkeeping and convenience short cuts
-        self.counteval += len(fitvals)  # used evaluations for updating
-        N = len(self.xmean)
-        iN = range(N)  # iterate from 0 to N-1
-        par = self.params
-        xold = self.xmean
-
-        ### Sort by fitness
-        self.fitvals, arindex = sorted(fitvals), argsort(fitvals)  # min
-        arx = [arx[arindex[k]] for k in range(par.lam)]  # sorted arx
-        del fitvals, arindex  # not needed anymore, del to prevent misuse
-        # self.fitvals is kept for termination and display only
-        self.best.update([arx[0]], [self.fitvals[0]], self.counteval)
-
-        ### recombination, compute new weighted mean value
-        # xmean = [x_1=best, x_2, ..., x_mu] * weights
-        # == [sum(self.weights[k] * arx[k][i] for k in range(self.mu))
-        #                                     for i in iN]
-        self.xmean = dot(arx[0:par.mu], par.weights[:par.mu], transpose=True)
-
-        ### Cumulation: update evolution paths
-        y = minus(self.xmean, xold)
-        z = dot(self.invsqrtC, y)  # == C**(-1/2) * (xnew - xold)
-
-        c = (par.cs * (2-par.cs) * par.mueff)**0.5 / self.sigma
-        for i in iN:
-            self.ps[i] -= par.cs * self.ps[i]  # exponential decay of ps
-            self.ps[i] += c * z[i]
-        # turn off rank-one update if sigma should increase quickly
-        hsig = (sum(x**2 for x in self.ps)  # squared length of ps
-                / (1-(1-par.cs)**(2*self.counteval/par.lam)) / N
-                < 2 + 4./(N+1))
-        c = (par.cc * (2-par.cc) * par.mueff)**0.5 / self.sigma
-        for i in iN:
-            self.pc[i] -= par.cc * self.pc[i]  # exponential decay of pc
-            self.pc[i] += c * hsig * y[i]
-
-        ### Adapt covariance matrix C
-        # minor adjustment for the variance loss by hsig
-        c1a = par.c1 * (1 - (1-hsig**2) * par.cc * (2-par.cc))
-        self.C = dot1(1 - c1a - par.cmu * sum(par.weights), self.C)  # C *= 1 - c1 - cmu
-        self.C = addouter(self.C, self.pc, par.c1)  # C += c1 * p * p^T
-        for k in range(par.lam):  # so-called rank-mu update
-            # guaranty positive definiteness given appropriate negative weights
-            w2 = 1 if par.weights[k] >= 0 else N / self.mahalanobis_norm(minus(arx[k], xold))**2
-            self.C = addouter(self.C, minus(arx[k], xold),
-                              par.weights[k] * w2 * par.cmu / self.sigma**2)
-
-        ### Adapt step-size sigma
-        mean_square_ps = sum(x**2 for x in self.ps) / len(self.ps)
-        self.sigma *= exp(min(1, (par.cs / par.damps) * (mean_square_ps - 1) / 2))
-        # chiN = (1-1./(4.*N)+1./(21.*N**2))
-        # self.sigma *= exp(min(1, (self.cs/self.damps) *
-        #     (sum(x**2 for x in self.ps)**0.5 / chiN - 1)))
-
-    def mahalanobis_norm(self, dx):
-        """return sigma^-1 * (dx^T * C^-1 * dx)**0.5"""
-        return sum(xi**2 for xi in dot(self.invsqrtC, dx))**0.5 / self.sigma
     @property
     def result(self):
         """the `tuple` (xbest, f(xbest), evaluations_xbest, evaluations,
-        iterations, xmean)
-
+        iterations, xmean, final_stds)
         """
-        return self.best.get() + (self.counteval,
-                                  int(self.counteval / self.params.lam),
-                                  self.xmean)
+        return (self.best.x,
+                self.best.f,
+                self.best.evals,
+                self.counteval,
+                int(self.counteval / self.params.lam),
+                self.xmean,
+                [self.sigma * self.C[i][i]**0.5 for i in range(len(self.C))])
 
     def disp(self, verb_modulo=1):
-        """display some iteration info"""
+        """display (`print`) some iteration info to `stdout`"""
         if verb_modulo is None:
             verb_modulo = 20
         if not verb_modulo:
@@ -465,6 +464,11 @@ class CMAES(OOOptimizer):  # could also inherit from object
                   str(self.fitvals[0]))
             stdout.flush()
 
+    def mahalanobis_norm(self, dx):
+        """return ``sigma^-1 * (dx^T * C^-1 * dx)**0.5``
+        """
+        return sum(xi**2 for xi in dot(self.invsqrtC, dx))**0.5 / self.sigma
+
 # -----------------------------------------------
 class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
     """data logger for class `CMAES`, that can record and plot data.
@@ -474,7 +478,7 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
     to prevent plotting of long runs to take forever.
     """
 
-    plotted = 0  
+    plotted = 0
     """plot count for all instances"""
 
     def __init__(self, verb_modulo=1):
@@ -495,7 +499,7 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
         if ``number_of_times_called modulo verb_modulo`` equals zero
         """
         es = es or self.optim
-        if type(es) is not CMAES:
+        if not isinstance(es, CMAES):
             raise RuntimeWarning('logged object must be a CMAES instance,'
                                  ' was %s' % type(es))
         dat = self._data  # a convenient alias
@@ -666,21 +670,21 @@ class ff(object):  # instead of a submodule
 class BestSolution(object):
     """container to keep track of the best solution seen"""
     def __init__(self, x=None, f=None, evals=None):
-        """take `x`, `f`, and `evals` to initialize the best solution.
-        The better solutions have smaller `f`-values. """
+        """take `x`, `f`, and `evals` to initialize the best solution
+        """
         self.x, self.f, self.evals = x, f, evals
 
-    def update(self, arx, arf, evals=None):
-        """initialize the best solution with `x`, `f`, and `evals`.
-        Better solutions have smaller `f`-values."""
-        if self.f is None or min(arf) < self.f:
-            i = arf.index(min(arf))
-            self.x, self.f = arx[i], arf[i]
-            self.evals = None if not evals else evals - len(arf) + i + 1
+    def update(self, x, f, evals=None):
+        """update the best solution if ``f < self.f``
+        """
+        if self.f is None or f < self.f:
+            self.x = x
+            self.f = f
+            self.evals = evals
         return self
-
-    def get(self):
-        """return ``(x, f, evals)`` """
+    @property
+    def all(self):
+        """``(x, f, evals)`` of the best seen solution"""
         return self.x, self.f, self.evals
 
 def eye(dimension):
@@ -711,24 +715,18 @@ def dot(A, b, transpose=False):
     return v
 
 def dot1(a, b):
-    """scalar a times vector or matrix b"""
+    """return scalar `a` times vector or matrix `b`"""
     try:
         return [a * bi for bi in b]
     except:
         return [dot1(a, bi) for bi in b]
 
 def addouter(A, b, factor=1):
-    """add factor times outer product of vector b to matrix A, return A"""
+    """add `factor` times outer product of vector b to matrix A, return A
+    """
     for i in range(len(A)):
         for j in range(len(A[i])):
             A[i][j] += factor * b[i] * b[j]
-    return A
-
-def addm(A, B):
-    """add matrix B to matrix A, return A"""
-    for i in range(len(A)):
-        for j in range(len(A[i])):
-            A[i][j] += B[i][j]
     return A
 
 def plus(a, b):
@@ -736,7 +734,7 @@ def plus(a, b):
     return [a[i] + b[i] for i in range(len(a))]
 
 def minus(a, b):
-    """substract vectors, return a - b"""
+    """subtract vectors, return a - b"""
     try:
         return [a[i] - b[i] for i in range(len(a))]
     except:
@@ -751,9 +749,10 @@ def argsort(a):
 def safe_str(s, known_words=None):
     """return a `str` safe to `eval` or raise an exception.
 
-    Words in the `list` `known_words` are considered safe to
-    evaluate and separated with spaces on return unless contained
-    in another known word.
+    Strings in the `list` `known_words` (or combinations thereof!) are
+    considered safe to evaluate and separated with spaces on return
+    unless contained in *any* other known word (which may be considered
+    as an issue).
     """
     safe_chars = ' 0123456789.,+-*()[]e'
     known_words = sorted(known_words if known_words else [],
@@ -1126,7 +1125,6 @@ def test():
     >>> print(es.best.evals)
     1664
     >>> assert es.best.f < 1e-12
-    >>> es.logger.save()
 
   """
     import doctest

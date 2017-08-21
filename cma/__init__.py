@@ -143,7 +143,7 @@ del division, print_function, absolute_import, with_statement  #, unicode_litera
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
 __author__ = 'Nikolaus Hansen'
-__version__ = "2.2.0  $Revision: 4402 $ $Date: 2017-08-20 14:50:15 +0200 (Sun, 20 Aug 2017) $"
+__version__ = "2.3.0  $Revision: 4402 $ $Date: 2017-08-20 14:50:15 +0200 (Sun, 20 Aug 2017) $"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
 # $Id: __init__.py 4402 2017-08-20 12:50:15Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py
