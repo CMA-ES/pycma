@@ -1779,7 +1779,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     NotImplementedError("""
                     gradient with fixed variables is not (yet) implemented,
                     implement a simple transformation of the objective instead""")
-                v = self.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
+                v = self.sm.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
                 # newton_direction = sv * B * D * D * B^T * sv * gradient = sv * B * D * v
                 # v = D^-1 * B^T * sv^-1 * newton_direction = D * B^T * sv * gradient
                 q = sum(v**2)
@@ -2876,7 +2876,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         By now all tests run through without this method in effect.
         Gradient injection and noeffectaxis however rely on the
         non-documented attributes B and D in the sampler. """
-        # return  # will be outcommented soon
+        # return  # should be outcommented soon, but self.D is still in use (for some tests)!
         if sm_ is None:
             sm_ = self.sm
         if isinstance(sm_, sampler.GaussStandardConstant):
@@ -2890,9 +2890,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.B = self.sm.B
                 self.D = self.sm.D
             except AttributeError:
-                self.D, self.B = self.opts['CMA_eigenmethod'](self.C)
-                self.D **= 0.5
-            self.dC = np.diag(self.C)
+                if self.C is not None:
+                    self.D, self.B = self.opts['CMA_eigenmethod'](self.C)
+                    self.D **= 0.5
+                elif 11 < 3:  # would retain consistency but fails
+                    self.B = None
+                    self.D = None
+            if self.C is not None:
+                self.dC = np.diag(self.C)
 
     # ____________________________________________________________
     # ____________________________________________________________
@@ -3244,7 +3249,7 @@ class _CMAStopDict(dict):
                     self._addstop('noeffectaxis',
                                  sum(es.mean == es.mean + 0.1 * es.sigma *
                                      es.sm.D[i] * es.sigma_vec.scaling *
-                                     es.sm.B[:, i]) == N)
+                                     (es.sm.B[:, i] if len(es.sm.B.shape) > 1 else es.sm.B[0])) == N)
                 except AttributeError:
                     pass
             self._addstop('tolconditioncov',
