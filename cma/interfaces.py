@@ -1,6 +1,5 @@
 """Very few interface defining base class definitions"""
 from __future__ import absolute_import, division, print_function  #, unicode_literals
-import numpy as np
 del absolute_import, division, print_function  #, unicode_literals
 
 class OOOptimizer(object):
@@ -72,7 +71,7 @@ class OOOptimizer(object):
         """(re-)set to the initial state"""
         raise NotImplementedError('method initialize() must be implemented in derived class')
         self.countiter = 0
-        self.xcurrent = np.array(self.xstart, copy=True)
+        self.xcurrent = [xi for xi in self.xstart]
     def ask(self, **optional_kwargs):
         """abstract method, AKA "get" or "sample_distribution", deliver
         new candidate solution(s), a list of "vectors"
@@ -89,11 +88,15 @@ class OOOptimizer(object):
         dictionary like ``{'termination reason': value, ...}`` or ``{}``.
 
         For example ``{'tolfun': 1e-12}``, or the empty dictionary ``{}``.
+
+        TODO: this should rather be a property!? Unfortunately, a change
+        would break backwards compatibility.
         """
         raise NotImplementedError('method stop() is not implemented')
     def disp(self, modulo=None):
-        """abstract method, display some iteration infos if
-        ``self.iteration_counter % modulo == 0``
+        """abstract method, display some iteration info when
+        ``self.iteration_counter % modulo < 1``, using a reasonable
+        default for `modulo` if ``modulo is None``.
         """
     @property
     def result(self):
@@ -103,11 +106,8 @@ class OOOptimizer(object):
         raise NotImplementedError('result property is not implemented')
         return [self.xcurrent]
 
-    def optimize(self,
-                 objective_fct,
-                 maxfun=1e99,
-                 iterations=None,
-                 min_iterations=1,
+    def optimize(self, objective_fct,
+                 maxfun=None, iterations=None, min_iterations=1,
                  args=(),
                  verb_disp=None,
                  callback=None):
@@ -142,7 +142,7 @@ class OOOptimizer(object):
             callback function called like ``callback(self)`` or
             a list of call back functions called in the same way. If
             available, ``self.logger.add`` is added to this list.
-            todo: currently there is no way to prevent this other than
+            TODO: currently there is no way to prevent this other than
             changing the code of `_prepare_callback_list`.
 
         ``return self``, that is, the `OOOptimizer` instance.
@@ -163,14 +163,17 @@ class OOOptimizer(object):
         True
 
         """
-        assert iterations is None or min_iterations <= iterations
+        if iterations is not None and min_iterations > iterations:
+            print("doing min_iterations = %d > %d = iterations"
+                  % (min_iterations, iterations))
+            iterations = min_iterations
 
         callback = self._prepare_callback_list(callback)
 
         citer, cevals = 0, 0
         while not self.stop() or citer < min_iterations:
-            if cevals >= maxfun or citer >= (iterations if iterations
-                                                else np.inf):
+            if (cevals >= maxfun if maxfun else False) or (
+                citer >= iterations if iterations else False):
                 return self
             citer += 1
 
@@ -178,14 +181,14 @@ class OOOptimizer(object):
             fitvals = [objective_fct(x, *args) for x in X]
             cevals += len(fitvals)
             self.tell(X, fitvals)  # all the work is done here
-            self.disp(verb_disp)
             for f in callback:
                 f(self)
+            self.disp(verb_disp)
 
         # final output
         self._force_final_logging()
 
-        if verb_disp:
+        if verb_disp:  # do not print by default to allow silent verbosity
             self.disp(1)
             print('termination by', self.stop())
             print('best f-value =', self.result[1])
@@ -193,7 +196,7 @@ class OOOptimizer(object):
 
         return self
 
-    def _prepare_callback_list(self, callback):
+    def _prepare_callback_list(self, callback):  # helper function
         """return a list of callbacks including ``self.logger.add``.
 
         ``callback`` can be a `callable` or a `list` (or iterable) of
@@ -218,31 +221,35 @@ class OOOptimizer(object):
                 processing it was %s""" % str(callback))
         return callback
 
-    def _force_final_logging(self):
+    def _force_final_logging(self):  # helper function
         """try force the logger to log NOW"""
-        if not self.logger:
+        try:
+            if not self.logger:
+                return
+        except AttributeError:
             return
-        # TODO: this is very ugly, because it assumes modulo keyword
-        # TODO: argument *and* modulo attribute to be available
-        # However, we like to force logging now which might be otherwise
-        # done in a witty sparse way.
-        # the idea: modulo == 0 means never log, 1 means log now
+        # the idea: modulo == 0 means never log, 1 or True means log now
         try:
             modulo = bool(self.logger.modulo)
         except AttributeError:
-            modulo = 1  # could also be named force
+            modulo = True  # could also be named force
         try:
             self.logger.add(self, modulo=modulo)
         except AttributeError:
             pass
         except TypeError:
-            print('  suppressing the final call of the logger in ' +
-                  'OOOptimizer.optimize (modulo keyword parameter not ' +
-                  'available)')
+            try:
+                self.logger.add(self)
+            except Exception as e:
+                print('  The final call of the logger in'
+                      ' OOOptimizer._force_final_logging from'
+                      ' OOOptimizer.optimize did not succeed: %s'
+                      % str(e))
 
 class StatisticalModelSamplerWithZeroMeanBaseClass(object):
     """yet versatile base class to replace a sampler namely in
-    `CMAEvolutionStrategy`"""
+    `CMAEvolutionStrategy`
+    """
     def __init__(self, std_vec, **kwargs):
         """pass the vector of initial standard deviations or dimension of
         the underlying sample space.
@@ -254,8 +261,9 @@ class StatisticalModelSamplerWithZeroMeanBaseClass(object):
             dimension = len(std_vec)
         except TypeError:  # std_vec has no len
             dimension = std_vec
-            std_vec = np.ones(dimension)
+            std_vec = dimension * [1]
         raise NotImplementedError
+
     def sample(self, number, update=None):
         """return list of i.i.d. samples.
 
@@ -263,6 +271,7 @@ class StatisticalModelSamplerWithZeroMeanBaseClass(object):
         :param update: controls a possibly lazy update of the sampler.
         """
         raise NotImplementedError
+
     def update(self, vectors, weights):
         """``vectors`` is a list of samples, ``weights`` a corrsponding
         list of learning rates
@@ -299,15 +308,12 @@ class StatisticalModelSamplerWithZeroMeanBaseClass(object):
     def norm(self, x):
         """return Mahalanobis norm of `x` w.r.t. the statistical model"""
         return sum(self.transform_inverse(x)**2)**0.5
-
     @property
     def condition_number(self):
         raise NotImplementedError
-
     @property
     def covariance_matrix(self):
         raise NotImplementedError
-
     @property
     def variances(self):
         """vector of coordinate-wise (marginal) variances"""
@@ -338,34 +344,56 @@ class StatisticalModelSamplerWithZeroMeanBaseClass(object):
         raise NotImplementedError
 
 class BaseDataLogger(object):
-    """"abstract" base class for a data logger that can be used with an
+    """abstract base class for a data logger that can be used with an
     `OOOptimizer`.
-
-    Not in extensive use, as their are not many different logger around.
 
     Details: attribute `modulo` is used in `OOOptimizer.optimize`.
     """
-    def add(self, optim=None, more_data=[], **kwargs):
-        """abstract method, add a "data point" from the state of ``optim``
-        into the logger.
 
-        the argument ``optim`` can be omitted if ``optim`` was
-        ``register`` ()-ed before, acts like an event handler
-        """
-        raise NotImplementedError
+    def __init__(self):
+        self.optim = None
+        """object instance to be logging data from"""
+        self._data = None
+        """`dict` of logged data"""
+        self.filename = "_BaseDataLogger_datadict.py"
+        """file to save to or load from unless specified otherwise"""
+
     def register(self, optim, *args, **kwargs):
-        """abstract method, register an optimizer ``optim``, only needed
-        if `add` () is called without passing the ``optim`` argument
+        """register an optimizer ``optim``, only needed if method `add` is
+        called without passing the ``optim`` argument
         """
         self.optim = optim
         return self
+
+    def add(self, optim=None, more_data=None, **kwargs):
+        """abstract method, add a "data point" from the state of ``optim``
+        into the logger.
+
+        The argument ``optim`` can be omitted if ``optim`` was
+        ``register`` ()-ed before, acts like an event handler
+        """
+        raise NotImplementedError
+
     def disp(self, *args, **kwargs):
-        """display some data trace (not implemented)"""
+        """abstract method, display some data trace"""
         print('method BaseDataLogger.disp() not implemented, to be done in subclass ' + str(type(self)))
+
     def plot(self, *args, **kwargs):
-        """plot data (not implemented)"""
+        """abstract method, plot data"""
         print('method BaseDataLogger.plot() is not implemented, to be done in subclass ' + str(type(self)))
+
+    def save(self, name=None):
+        """save data to file `name` or `self.filename`"""
+        with open(name or self.filename, 'w') as f:
+            f.write(repr(self._data))
+
+    def load(self, name=None):
+        """load data from file `name` or `self.filename`"""
+        from ast import literal_eval
+        with open(name or self.filename, 'r') as f:
+            self._data = literal_eval(f.read())
+        return self
     @property
     def data(self):
-        """logged data in a dictionary (not implemented)"""
-        print('method BaseDataLogger.data is not implemented, to be done in subclass ' + str(type(self)))
+        """logged data in a dictionary"""
+        return self._data
