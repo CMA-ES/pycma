@@ -9,7 +9,10 @@ from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
 class BestSolution(object):
-    """container to keep track of the best solution seen"""
+    """container to keep track of the best solution seen.
+
+    Keeps also track of the genotype, if available.
+    """
     def __init__(self, x=None, f=np.inf, evals=None):
         """initialize the best solution with ``x``, ``f``, and ``evals``.
 

@@ -275,7 +275,7 @@ def various_doctests():
         ...     })
         >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
         >>> assert es.result.fbest <= 1e-8
-        >>> assert es.result.evaluations < 1e4
+        >>> assert es.result.evaluations < 1e4  # depends heavily on the seed
 
     """
 

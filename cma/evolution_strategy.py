@@ -474,6 +474,9 @@ class CMAOptions(dict):
     """a dictionary with the available options and their default values
     for class `CMAEvolutionStrategy`.
 
+    ``CMAOptions()`` returns a `dict` with all available options and their
+    default values with a comment string.
+
     ``CMAOptions('verb')`` returns a subset of recognized options that
     contain 'verb' in there keyword name or (default) value or
     description.
@@ -1527,9 +1530,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                 **self.opts['CMA_sampler_options'])
                 except:
                     if max(stds) > min(stds):
-                        utils.print_warning("""different initial standard
-    deviations are not supported by the current sampler and hence ignored
-    """)
+                        utils.print_warning("different initial standard"
+                            " deviations are not supported by the current"
+                            " sampler and hence ignored")
                     elif stds[0] != 1:
                         utils.print_warning("""ignoring scaling factor %f
     for sample distribution""" % stds[0])
