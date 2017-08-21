@@ -11,7 +11,6 @@ lambda -> weights -> mueff -> c1, cmu -> negative weights
 # https://gist.github.com/nikohansen/3eb4ef0790ff49276a7be3cdb46d84e9
 from __future__ import division
 import math
-import numpy as np  # not stricly necessary
 
 class RecombinationWeights(list):
     """a list of decreasing (recombination) weight values.
@@ -55,14 +54,6 @@ class RecombinationWeights(list):
     >>> from cma.recombination_weights import RecombinationWeights
     >>> dimension, popsize = 5, 7
     >>> weights = RecombinationWeights(popsize)
-    >>> print("sum=%.2f, mu=%d, sumpos=%.2f, sumneg=%.2f" % (
-    ...       sum(weights),
-    ...       weights.mu,
-    ...       sum(weights[:weights.mu]),
-    ...       sum(weights[weights.mu:])))
-    sum=0.00, mu=3, sumpos=1.00, sumneg=-1.00
-    >>> print('weights = [%s]' % ', '.join("%.2f" % w for w in weights))
-    weights = [0.59, 0.29, 0.12, 0.00, -0.19, -0.34, -0.47]
     >>> c1 = 2. / (dimension + 1)**2  # caveat: __future___ division
     >>> cmu = weights.mueff / (weights.mueff + dimension**2)
     >>> weights.finalize_negative_weights(dimension, c1, cmu)
@@ -77,6 +68,15 @@ class RecombinationWeights(list):
     ...       sum(abs(w) for w in weights)**2 /
     ...         sum(w**2 for w in weights)))
     mueff=2.3, mueffminus=2.7, mueffall=4.8
+    >>> weights = RecombinationWeights(popsize)
+    >>> print("sum=%.2f, mu=%d, sumpos=%.2f, sumneg=%.2f" % (
+    ...       sum(weights),
+    ...       weights.mu,
+    ...       sum(weights[:weights.mu]),
+    ...       sum(weights[weights.mu:])))
+    sum=0.00, mu=3, sumpos=1.00, sumneg=-1.00
+    >>> print('weights = [%s]' % ', '.join("%.2f" % w for w in weights))
+    weights = [0.59, 0.29, 0.12, 0.00, -0.19, -0.34, -0.47]
     >>> weights = RecombinationWeights(21)
     >>> weights.finalize_negative_weights(3, 0.081, 0.28)
     >>> weights.insert(weights.mu, 0)  # add zero weight in the middle
@@ -334,10 +334,12 @@ class RecombinationWeights(list):
         Useful to implement recombination for the new mean vector.
         """
         try:
-            return np.asarray(self[:self.mu])
-        except NameError:
+            from numpy import asarray
+            return asarray(self[:self.mu])
+        except:
             return self[:self.mu]
     @property
     def asarray(self):
         """return weights as numpy array"""
-        return np.asarray(self)
+        from numpy import asarray
+        return asarray(self)
