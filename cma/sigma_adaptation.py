@@ -192,7 +192,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         else:
             s = sum(self.ps**2)**0.5 / es.const.chiN - 1
             if es.opts['vv'] == 'pc for ps':
-                s = sum((es.D**-1 * np.dot(es.B.T, es.pc))**2)**0.5 / es.const.chiN - 1
+                # s = sum((es.D**-1 * np.dot(es.B.T, es.pc))**2)**0.5 / es.const.chiN - 1
                 s = (sum((es.D**-1 * np.dot(es.B.T, es.pc))**2) / es.N - 1) / 2
         s *= self.cs / self.damps
         s_clipped = Mh.minmax(s, -self.max_delta_log_sigma, self.max_delta_log_sigma)
