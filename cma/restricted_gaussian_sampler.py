@@ -38,7 +38,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     In Proc. of GECCO 2014, pp. 373 -- 380 (2014)
     """
 
-    def __init__(self, dimension, randn=np.random.randn):
+    def __init__(self, dimension, randn=np.random.randn, debug=False):
         """pass dimension of the underlying sample space
         """
         try:
@@ -57,6 +57,7 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.vn = self.vvec / self.norm_v
         self.vnn = self.vn**2
         self.pc = np.zeros(self.N)
+        self._debug = debug  # plot covariance matrix
 
     def sample(self, number, update=None):
         """return list of i.i.d. samples.
@@ -222,11 +223,14 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        #return None  # Expensive
-        C = np.diag(self.dvec**2)
-        dv = self.dvec * self.vvec
-        C += np.outer(dv, dv)
-        return C
+        if self._debug:
+            # Expensive
+            C = np.diag(self.dvec**2)
+            dv = self.dvec * self.vvec
+            C += np.outer(dv, dv)
+            return C
+        else:
+            return None 
 
     @property
     def variances(self):
@@ -236,10 +240,13 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        return None  # Expensive
-        C = self.covariance_matrix
-        sqrtdC = np.sqrt(self.variances)
-        return (C / sqrtdC).T / sqrtdC
+        if self._debug:
+            # Expensive
+            C = self.covariance_matrix
+            sqrtdC = np.sqrt(self.variances)
+            return (C / sqrtdC).T / sqrtdC
+        else:
+            return None  
 
     def transform(self, x):
         """transform ``x`` as implied from the distribution parameters"""
@@ -326,6 +333,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.ds = kwargs.get('ds', 4. - 3. / self.N)  #math.sqrt(self.N)) 
         self.flg_injection = False
         self.ps = 0.
+        self._debug = kwargs.get('debug', False)
 
         # Initialize Dynamic Parameters
         self.D = std_vec
@@ -614,21 +622,27 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        # return None
-        ka = self.k_active
-        if ka > 0:
-            C = np.eye(self.N) + np.dot(self.V[:ka].T * self.S[:ka],
-                                        self.V[:ka])
-            C = (C * self.D).T * self.D
+        if self._debug:
+            # return None
+            ka = self.k_active
+            if ka > 0:
+                C = np.eye(self.N) + np.dot(self.V[:ka].T * self.S[:ka],
+                                            self.V[:ka])
+                C = (C * self.D).T * self.D
+            else:
+                C = np.diag(self.D**2)
+            C *= self.sigma**2
         else:
-            C = np.diag(self.D**2)
-        return C * self.sigma**2
+            # Fake Covariance Matrix for Speed
+            C = np.ones(1)
+            self.B = np.ones(1)
+        return C
 
     @property
     def variances(self):
         """vector of coordinate-wise (marginal) variances"""
         ka = self.k_active
-        if ka > 0:
+        if ka == 0:
             return self.D**2 * self.sigma**2
         else:
             return self.D**2 * (
@@ -636,10 +650,12 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        return None
-        C = self.covariance_matrix
-        sqrtdC = np.sqrt(self.variances)
-        return (C / sqrtdC).T / sqrtdC
+        if self._debug:
+            C = self.covariance_matrix
+            sqrtdC = np.sqrt(self.variances)
+            return (C / sqrtdC).T / sqrtdC
+        else:
+            return None
 
     def transform(self, x):
         """transform ``x`` as implied from the distribution parameters"""
