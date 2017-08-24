@@ -312,7 +312,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         self.sigma = sigma
         self.pc = N * [0]  # evolution path for C
         self.ps = N * [0]  # and for sigma
-        self.C = eye(N)  # covariance matrix
+        self.C = Matrix(N)  # covariance matrix
         self.B = eye(N)  # B defines the coordinate system
         self.D = N * [1]  # diagonal D defines the scaling
         self.invsqrtC = eye(N)  # C^-1/2
@@ -381,13 +381,13 @@ class CMAES(OOOptimizer):  # could also inherit from object
         ### Adapt covariance matrix C
         # minor adjustment for the variance loss by hsig
         c1a = par.c1 * (1 - (1-hsig**2) * par.cc * (2-par.cc))
-        self.C = dot1(1 - c1a - par.cmu * sum(par.weights), self.C)  # C *= 1 - c1 - cmu
-        self.C = addouter(self.C, self.pc, par.c1)  # C += c1 * p * p^T
+        self.C.multiply_with(1 - c1a - par.cmu * sum(par.weights))  # C *= 1 - c1 - cmu
+        self.C.addouter(self.pc, par.c1)  # C += c1 * pc * pc^T
         for k in range(par.lam):  # so-called rank-mu update
             # guaranty positive definiteness given appropriate negative weights
             w2 = 1 if par.weights[k] >= 0 else N / self.mahalanobis_norm(minus(arx[k], xold))**2
-            self.C = addouter(self.C, minus(arx[k], xold),  # C += w * cmu * dx * dx^T
-                              par.weights[k] * w2 * par.cmu / self.sigma**2)
+            self.C.addouter(minus(arx[k], xold),  # C += w * cmu * dx * dx^T
+                            par.weights[k] * w2 * par.cmu / self.sigma**2)
 
         ### Adapt step-size sigma
         mean_square_ps = sum(x**2 for x in self.ps) / len(self.ps)
@@ -427,7 +427,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
             self.eigeneval = self.counteval
             self.D, self.B = eig(self.C)  # eigen decomposition, B==normalized eigenvectors, O(N**3)
             self.D = [d**0.5 for d in self.D]  # D contains standard deviations now
-            rg = range(len(self.C))
+            rg = range(len(self.invsqrtC))
             # this is O(n^3) and takes about half the time of eig
             for i in rg:  # compute invsqrtC = C**(-1/2) = B D**(-1/2) B'
                 for j in rg:
@@ -687,6 +687,31 @@ class BestSolution(object):
         """``(x, f, evals)`` of the best seen solution"""
         return self.x, self.f, self.evals
 
+class Matrix(list):
+    """Rudimental square matrix class"""
+    def __init__(self, dimension):
+        """initialize with identity matrix"""
+        for i in range(dimension):
+            self.append(dimension * [0])
+            self[i][i] = 1
+
+    def multiply_with(self, factor):
+        """multiply matrix in place with `factor`"""
+        for row in self:
+            for j in range(len(row)):
+                row[j] *= factor
+        return self
+
+    def addouter(self, b, factor=1):
+        """add in place `factor` times outer product of vector b,
+
+        without any dimensional consistency checks done.
+        """
+        for i, row in enumerate(self):
+            for j in range(len(row)):
+                row[j] += factor * b[i] * b[j]
+        return self
+
 def eye(dimension):
     """return identity matrix as `list` of "vectors" (lists themselves)"""
     m = [dimension * [0] for i in range(dimension)]
@@ -713,21 +738,6 @@ def dot(A, b, transpose=False):
         for i in range(m):
             v[i] = sum(b[j] * A[j][i] for j in range(n))
     return v
-
-def dot1(a, b):
-    """return scalar `a` times vector or matrix `b`"""
-    try:
-        return [a * bi for bi in b]
-    except:
-        return [dot1(a, bi) for bi in b]
-
-def addouter(A, b, factor=1):
-    """add `factor` times outer product of vector b to matrix A, return A
-    """
-    for i in range(len(A)):
-        for j in range(len(A[i])):
-            A[i][j] += factor * b[i] * b[j]
-    return A
 
 def plus(a, b):
     """add vectors, return a + b """
@@ -788,8 +798,8 @@ def eig(C):
     Return the eigenvalues and an orthonormal basis
     of the corresponding eigenvectors, ``(EVals, Basis)``, where
 
-    * ``Basis[i]``: `list`, is the i-th row of ``Basis`` and
-    * the i-th column of ``Basis``, ie ``[Basis[j][i] for j in range(len(Basis))]``
+    - ``Basis[i]``: `list`, is the i-th row of ``Basis``
+    - the i-th column of ``Basis``, ie ``[Basis[j][i] for j in range(len(Basis))]``
       is the i-th eigenvector with eigenvalue ``EVals[i]``
 
     Details: much slower than `numpy.linalg.eigh`.
@@ -824,7 +834,8 @@ def eig(C):
     #return np.linalg.eigh(C)  # return sorted EVs
     try:
         num_opt = False  # doesn't work
-        if num_opt: import numpy as np
+        if num_opt:
+            import numpy as np
     except:
         num_opt = False
 
@@ -1114,19 +1125,31 @@ def eig(C):
 def test():
     """test of the `purecma` module, called ``if __name__ == "__main__"``.
 
-    Currently only based on `doctest`.
+    Currently only based on `doctest`::
 
-    >>> import cma.purecma as pcma
-    >>> import random
-    >>> random.seed(3)
-    >>> es = pcma.fmin(pcma.ff.rosenbrock, 4 * [0.5], 0.5, verb_disp=0, verb_log=1)
-    >>> print(es.counteval)
-    1680
-    >>> print(es.best.evals)
-    1664
-    >>> assert es.best.f < 1e-12
+        >>> import cma.purecma as pcma
+        >>> import random
+        >>> random.seed(3)
+        >>> es = pcma.fmin(pcma.ff.rosenbrock, 4 * [0.5], 0.5, verb_disp=0, verb_log=1)
+        >>> print(es.counteval)
+        1680
+        >>> print(es.best.evals)
+        1664
+        >>> assert es.best.f < 1e-12
 
-  """
+    Large population size::
+
+        >>> import cma.purecma as pcma
+        >>> import random
+        >>> random.seed(4)
+        >>> es = pcma.CMAES(3 * [1], 1, popsize=300)
+        >>> es.logger = pcma.CMAESDataLogger()
+        >>> es = es.optimize(pcma.ff.elli, verb_disp=0)
+        >>> assert es.result[1] < 1e13
+        >>> print(es.result[2])
+        9000
+
+    """
     import doctest
     print('launching doctest...')
     print(doctest.testmod(report=True, verbose=0))  # module test
