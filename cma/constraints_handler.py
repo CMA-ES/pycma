@@ -21,10 +21,15 @@ class BoundaryHandlerBase(object):
         for any dimension.
 
         """
-        if not bounds:
+        if bounds in [None, (), []]:
             self.bounds = None
         else:
-            l = [None, None]  # figure out lenths
+            if not isinstance(bounds, (tuple, list)) or len(bounds) != 2:
+                raise ValueError(
+                    "bounds must be None, empty, or a list of length 2"
+                    " where each element may be a scalar, list, array,"
+                    " or None; type(bounds) was: %s" % str(type(bounds)))
+            l = [None, None]  # figure out lengths
             for i in [0, 1]:
                 try:
                     l[i] = len(bounds[i])
