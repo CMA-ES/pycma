@@ -123,6 +123,11 @@ try:
                    fitness_transformations, interfaces, optimization_tools,
                    sampler, sigma_adaptation, transformations, utilities,
                    )
+except ImportError:
+    print('Only `cma.purecma` has been imported. Install `numpy` ("pip'
+          ' install numpy") if you want to import the entire `cma`'
+          ' package.')
+else:
     # from . import test  # gives a warning with python -m cma.test (since Python 3.5.3?)
     test = 'type "import cma.test" to access the `test` module of `cma`'
     from . import s
@@ -132,11 +137,6 @@ try:
     from .evolution_strategy import disp, plot
     from .optimization_tools import NoiseHandler
     from .constraints_handler import BoundPenalty, BoundTransform
-
-except ImportError:
-    print('Only `cma.purecma` has been imported. Install `numpy` ("pip'
-          ' install numpy") if you want to import the entire `cma`'
-          ' package.')
 
 del division, print_function, absolute_import, with_statement  #, unicode_literals
 

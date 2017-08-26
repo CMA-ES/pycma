@@ -4242,12 +4242,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         return self
 
-    def add(self, es=None, more_data=None, modulo=None):
+    def add(self, es=None, more_data=(), modulo=None):
         """append some logging data from `CMAEvolutionStrategy` class instance `es`,
         if ``number_of_times_called % modulo`` equals to zero, never if ``modulo==0``.
 
-        ``more_data`` is a list of additional data to be recorded and must
-        always have the same length.
+        ``more_data`` is a list of additional data to be recorded where each
+        data entry must have the same length.
 
         When used for a different optimizer class, this function can be
         (easily?) adapted by changing the assignments under INTERFACE
@@ -4255,8 +4255,6 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         """
         mod = modulo if modulo is not None else self.modulo
-        if more_data is None:
-            more_data = []
         self.counter += 1
         if mod == 0 or (self.counter > 3 and (self.counter - 1) % mod):
             return
@@ -4430,6 +4428,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
     def save(self, name=None):
         """data are saved to disk the moment they are added"""
+
     def save_to(self, nameprefix, switch=False):
         """saves logger data to a different set of files, for
         ``switch=True`` also the loggers name prefix is switched to

@@ -172,8 +172,8 @@ class OOOptimizer(object):
 
         citer, cevals = 0, 0
         while not self.stop() or citer < min_iterations:
-            if (cevals >= maxfun if maxfun else False) or (
-                citer >= iterations if iterations else False):
+            if (maxfun and cevals >= maxfun) or (
+                iterations and citer >= iterations):
                 return self
             citer += 1
 
