@@ -5006,6 +5006,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         pyplot.ioff()
     def _finalize_plotting(self):
         from matplotlib import pyplot
+        pyplot.tight_layout(rect=(0, 0, 0.96, 1))
         pyplot.draw()  # update "screen"
         pyplot.ion()  # prevents that the execution stops after plotting
         pyplot.show()

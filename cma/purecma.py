@@ -381,8 +381,8 @@ class CMAES(OOOptimizer):  # could also inherit from object
         ### Adapt covariance matrix C
         # minor adjustment for the variance loss by hsig
         c1a = par.c1 * (1 - (1-hsig**2) * par.cc * (2-par.cc))
-        self.C.multiply_with(1 - c1a - par.cmu * sum(par.weights))  # C *= 1 - c1 - cmu
-        self.C.addouter(self.pc, par.c1)  # C += c1 * pc * pc^T
+        self.C.multiply_with(1 - c1a - par.cmu * sum(par.weights))  # C *= 1 - c1 - cmu * sum(w)
+        self.C.addouter(self.pc, par.c1)  # C += c1 * pc * pc^T, so-called rank-one update
         for k in range(par.lam):  # so-called rank-mu update
             # guaranty positive definiteness given appropriate negative weights
             w2 = 1 if par.weights[k] >= 0 else N / self.mahalanobis_norm(minus(arx[k], xold))**2
@@ -544,16 +544,31 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
             >> logger.plot()
 
         """
-        from matplotlib.pylab import gca, figure, plot, ylabel, grid, \
-            semilogy, text, xlabel, draw, show, subplot
+        from matplotlib.pylab import (
+            gca, figure, plot, title, ylabel, grid, semilogy, text,
+            xlabel, draw, show, subplot, tight_layout, legend, rcParams,
+            xlim, ylim
+            )
+        def title_(*args, **kwargs):
+            kwargs.setdefault('size', rcParams['axes.labelsize'])
+            title(*args, **kwargs)
+        def subtitle(*args, **kwargs):
+            kwargs.setdefault('horizontalalignment', 'center')
+            text(0.5 * (xlim()[1] - xlim()[0]), 0.9 * ylim()[1],
+                 *args, **kwargs)
+        def legend_(*args, **kwargs):
+            kwargs.setdefault('framealpha', 0.3)
+            kwargs.setdefault('fancybox', True)
+            legend(*args, **kwargs)
+
         figure(fig_number)
 
         dat = self._data  # dictionary with entries as given in __init__
         if not dat:
             return
         try:  # a hack to get the presumable population size lambda
-            strpopsize = ' (popsize~' + str(dat['eval'][-2] -
-                                            dat['eval'][-3]) + ')'
+            strpopsize = ' (evaluations / %s)' % str(dat['eval'][-2] -
+                                                     dat['eval'][-3])
         except IndexError:
             strpopsize = ''
 
@@ -564,25 +579,27 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
             dat['fit'][0] = dat['fit'][1]
             # should be reverted later, but let's be lazy
         assert dat['fit'].count(None) == 0
-        dmin = min(dat['fit'])
-        i = dat['fit'].index(dmin)
+        fmin = min(dat['fit'])
+        i = dat['fit'].index(fmin)
         dat['fit'][i] = max(dat['fit']) + 1
-        dmin2 = min(dat['fit'])
-        dat['fit'][i] = dmin
-        semilogy(dat['iter'], [d - dmin if d - dmin > 1e-19 else None
-                               for d in dat['fit']],
-                 'c', linewidth=1)
-        semilogy(dat['iter'], [max((dmin2 - dmin, 1e-19)) if d - dmin <= 1e-19 else None
-                               for d in dat['fit']], 'C1*')
+        fmin2 = min(dat['fit'])
+        dat['fit'][i] = fmin
+        semilogy(dat['iter'], [f - fmin if f - fmin > 1e-19 else None
+                               for f in dat['fit']],
+                 'c', linewidth=1, label='f-min(f)')
+        semilogy(dat['iter'], [max((fmin2 - fmin, 1e-19)) if f - fmin <= 1e-19 else None
+                               for f in dat['fit']], 'C1*')
 
-        semilogy(dat['iter'], [abs(d) for d in dat['fit']], 'b')
-        semilogy(dat['iter'][i], abs(dmin), 'r*')
-        semilogy(dat['iter'], dat['sig'], 'g')
-        ylabel('f-value, Delta-f-value, sigma')
+        semilogy(dat['iter'], [abs(f) for f in dat['fit']], 'b',
+                 label='abs(f-value)')
+        semilogy(dat['iter'][i], abs(fmin), 'r*')
+        semilogy(dat['iter'], dat['sig'], 'g', label='sigma')
         if dat['more_data']:
             gca().twinx()
             plot(dat['iter'], dat['more_data'])
         grid(True)
+        legend_(*[[v[i] for i in [1, 0, 2]]  # just a reordering
+                    for v in gca().get_legend_handles_labels()])
 
         # plot xmean
         subplot(222)
@@ -591,7 +608,7 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
         for i in range(len(dat['xm'][-1])):
             text(dat['iter'][0], dat['xm'][0][i], str(i))
             text(dat['iter'][-1], dat['xm'][-1][i], str(i))
-        ylabel('mean solution', ha='center')
+        subtitle('mean solution')
         grid(True)
 
         # plot D
@@ -599,7 +616,7 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
         gca().clear()
         semilogy(dat['iter'], dat['D'], 'm')
         xlabel('iterations' + strpopsize)
-        ylabel('axes lengths')
+        title_('Axis lengths')
         grid(True)
 
         # plot stds
@@ -612,10 +629,11 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
         semilogy(dat['iter'], dat['stds'])
         for i in range(len(dat['stds'][-1])):
             text(dat['iter'][-1], dat['stds'][-1][i], str(i))
-        ylabel('coordinate stds disregarding sigma', ha='center')
+        title_('Coordinate STDS w/o sigma')
         grid(True)
         xlabel('iterations' + strpopsize)
         stdout.flush()
+        tight_layout()
         draw()
         show()
         CMAESDataLogger.plotted += 1
@@ -1127,7 +1145,8 @@ def test():
 
     Currently only based on `doctest`::
 
-        >>> import cma.purecma as pcma
+        >>> try: import cma.purecma as pcma
+        ... except ImportError: import purecma as pcma
         >>> import random
         >>> random.seed(3)
         >>> es = pcma.fmin(pcma.ff.rosenbrock, 4 * [0.5], 0.5, verb_disp=0, verb_log=1)
@@ -1139,12 +1158,18 @@ def test():
 
     Large population size::
 
-        >>> import cma.purecma as pcma
+        >>> try: import cma.purecma as pcma
+        ... except ImportError: import purecma as pcma
         >>> import random
         >>> random.seed(4)
         >>> es = pcma.CMAES(3 * [1], 1, popsize=300)
         >>> es.logger = pcma.CMAESDataLogger()
-        >>> es = es.optimize(pcma.ff.elli, verb_disp=0)
+        >>> try:
+        ...    es = es.optimize(pcma.ff.elli, verb_disp=0)
+        ... except AttributeError:  # OOOptimizer.optimize is not available
+        ...     while not es.stop():
+        ...         X = es.ask()
+        ...         es.tell(X, [pcma.ff.elli(x) for x in X])
         >>> assert es.result[1] < 1e13
         >>> print(es.result[2])
         9000
