@@ -248,12 +248,12 @@ class Rotated(ComposedFunction):
     >>> assert f1([1, 2]) != f2([1, 2])
 
     """
-    def __init__(self, f, rotate=None):
+    def __init__(self, f, rotate=None, seed=None):
         """optional argument ``rotate(x)`` must return a (stable) rotation
         of ``x``.
         """
         if rotate is None:
-            rotate = Rotation()
+            rotate = Rotation(seed=seed)
         ComposedFunction.__init__(self, [f, rotate])
 
 class Shifted(ComposedFunction):

@@ -255,12 +255,14 @@ def various_doctests():
         ...         'CMA_active': False, 'AdaptSigma': None,
         ...         'CMA_sampler': restricted_gaussian_sampler.GaussVDSampler,
         ...         # 'CMA_sampler_options': {'seed': 6},
+        ...         'seed': 6,
         ...         'ftarget': 1e-8,
         ...         'verbose': -9,  # helpful for automatic testing
         ...     })
-        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
+        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=6), iterations=None)
         >>> assert es.result.fbest <= 1e-8
-        >>> assert es.result.evaluations < 4e4
+        >>> print(es.result.evaluations)
+        6372
 
     VkD-CMA:
 
@@ -270,12 +272,14 @@ def various_doctests():
         ...         'CMA_active': False, 'AdaptSigma': None,
         ...         'CMA_sampler': restricted_gaussian_sampler.GaussVkDSampler,
         ...         # 'CMA_sampler_options': {'seed': 6},
+        ...         'seed': 6,
         ...         'ftarget': 1e-8,
         ...         'verbose': -9,  # helpful for automatic testing
         ...     })
-        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar), iterations=None)
+        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=3), iterations=None)
         >>> assert es.result.fbest <= 1e-8
-        >>> assert es.result.evaluations < 1e4  # depends heavily on the seed
+        >>> print(es.result.evaluations)
+        5364
 
     """
 
