@@ -1353,6 +1353,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             N = self.N_pheno - len(opts['fixed_variables'])
         opts.evalall(locals())  # using only N
         self.opts = opts
+        if not opts['seed']:
+            np.random.seed()
+            six_decimals = (time.time() - 1e6 * (time.time() // 1e6))
+            opts['seed'] = 1e5 * np.random.rand() + six_decimals + 1e5 * (time.time() % 1)
+        opts['seed'] = int(opts['seed'])
+        np.random.seed(opts['seed'])  # CAVEAT: this only seeds np.random
         self.randn = opts['randn']
         self.gp = transformations.GenoPheno(self.N_pheno,
                         opts['scaling_of_variables'],
@@ -1571,13 +1577,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.count_eigen = 0
         self.noiseS = 0  # noise "signal"
         self.hsiglist = []
-
-        if not opts['seed']:
-            np.random.seed()
-            six_decimals = (time.time() - 1e6 * (time.time() // 1e6))
-            opts['seed'] = 1e5 * np.random.rand() + six_decimals + 1e5 * (time.time() % 1)
-        opts['seed'] = int(opts['seed'])
-        np.random.seed(opts['seed'])  # CAVEAT: this only seeds np.random
 
         self.sent_solutions = _CMASolutionDict()
         self.archive = _CMASolutionDict()
