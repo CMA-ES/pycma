@@ -84,13 +84,14 @@ class Rotation(object):
         if N not in self.dicMatrices:  # create new N-basis once and for all
             rstate = np.random.get_state()
             np.random.seed(self.seed) if self.seed else np.random.seed()
+            self.state = np.random.get_state()  # only keep last state
             B = np.random.randn(N, N)
+            np.random.set_state(rstate)  # keep untouched/good sequence from outside view
             for i in range(N):
                 for j in range(0, i):
                     B[i] -= np.dot(B[i], B[j]) * B[j]
                 B[i] /= sum(B[i]**2)**0.5
             self.dicMatrices[N] = B
-            np.random.set_state(rstate)  # keep untouched/good sequence from outside view
         if inverse:
             return np.dot(self.dicMatrices[N].T, x)  # compute rotation
         else:
