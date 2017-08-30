@@ -1,62 +1,53 @@
+# Python CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-python/ for more details
+#
 version: 2
-
-references:
-
-  install_ubuntu_python2: &install_ubuntu_python2
-    run:
-      name: Install Python 2 on Ubuntu.
-      command: |
-        apt-get update -qy
-        apt-get install -y python-dev python-numpy python-matplotlib \
-                           python-setuptools python-scipy \
-                           python-pytest
-
-  install_ubuntu_python3: &install_ubuntu_python3
-    run:
-      name: Install Python 3 on Ubuntu and set it to be the default.
-      command: |
-        apt-get update -qy
-        apt-get install -y python3-dev python3-numpy python3-matplotlib \
-                           python3-six python3-setuptools python3-scipy \
-                           python3-pytest
-        ln -s /usr/bin/python3 /usr/bin/python  # this is dirty
-
-  test_ubuntu_python2: &test_ubuntu_python2
-    run:
-      name: Run Python 2 pycma tests on Ubuntu.
-      command: |
-        python -m cma.test
-
-  test_ubuntu_python3: &test_ubuntu_python3
-    run:
-      name: Run Python 3 pycma tests on Ubuntu.
-      command: |
-        python -m cma.test
-
 jobs:
-
-  test_ubuntu_rolling_python3:
+  build:
     docker:
-      - image: ubuntu:rolling
-    working_directory: ~/pycma
+      # specify the version you desire here
+      # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
+      - image: circleci/python:3.6.1
+      
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/postgres:9.4
+
+    working_directory: ~/repo
+
     steps:
       - checkout
-      - *install_ubuntu_python3
-      - *test_ubuntu_python3
 
-  test_ubuntu_latest_python2:
-    docker:
-      - image: ubuntu:latest
-    working_directory: ~/pycma
-    steps:
-      - checkout
-      - *install_ubuntu_python2
-      - *test_ubuntu_python2
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "requirements.txt" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
 
-workflows:
+      - run:
+          name: install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install numpy
+            pip install matplotlib
 
-  version: 2
-  test-matrix:
-    jobs:
-      - test_ubuntu_rolling_python3
-      - test_ubuntu_latest_python2
+      - save_cache:
+          paths:
+            - ./venv
+          key: v1-dependencies-{{ checksum "requirements.txt" }}
+
+      # run tests!
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            python manage.py test
+
+      - store_artifacts:
+          path: test-reports
+          destination: test-reports
+          
