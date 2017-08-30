@@ -1,0 +1,62 @@
+version: 2
+
+references:
+
+  install_ubuntu_python2: &install_ubuntu_python2
+    run:
+      name: Install Python 2 on Ubuntu.
+      command: |
+        apt-get update -qy
+        apt-get install -y python-dev python-numpy python-matplotlib \
+                           python-setuptools python-scipy \
+                           python-pytest
+
+  install_ubuntu_python3: &install_ubuntu_python3
+    run:
+      name: Install Python 3 on Ubuntu and set it to be the default.
+      command: |
+        apt-get update -qy
+        apt-get install -y python3-dev python3-numpy python3-matplotlib \
+                           python3-six python3-setuptools python3-scipy \
+                           python3-pytest
+        ln -s /usr/bin/python3 /usr/bin/python  # this is dirty
+
+  test_ubuntu_python2: &test_ubuntu_python2
+    run:
+      name: Run Python 2 pycma tests on Ubuntu.
+      command: |
+        python -m cma.test
+
+  test_ubuntu_python3: &test_ubuntu_python3
+    run:
+      name: Run Python 3 pycma tests on Ubuntu.
+      command: |
+        python -m cma.test
+
+jobs:
+
+  test_ubuntu_rolling_python3:
+    docker:
+      - image: ubuntu:rolling
+    working_directory: ~/pycma
+    steps:
+      - checkout
+      - *install_ubuntu_python3
+      - *test_ubuntu_python3
+
+  test_ubuntu_latest_python2:
+    docker:
+      - image: ubuntu:latest
+    working_directory: ~/pycma
+    steps:
+      - checkout
+      - *install_ubuntu_python2
+      - *test_ubuntu_python2
+
+workflows:
+
+  version: 2
+  test-matrix:
+    jobs:
+      - test_ubuntu_rolling_python3
+      - test_ubuntu_latest_python2
