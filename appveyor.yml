@@ -1,0 +1,25 @@
+build: false
+
+environment:
+  matrix:
+    - PYTHON_VERSION: 2.7
+      MINICONDA: C:\Miniconda
+      # CYGWIN: C:\cygwin
+    - PYTHON_VERSION: 3.6
+      MINICONDA: C:\Miniconda36
+      # CYGWIN: C:\cygwin
+
+init:
+  - cmd: "ECHO %PYTHON_VERSION% %MINICONDA%"
+  - cmd: "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
+  # - cmd: "set PATH=%CYGWIN%;%CYGWIN%\\bin;%PATH%"
+
+install:
+  - cmd: conda install -y matplotlib numpy  # scipy setuptools six pytest
+  # - cmd: python do.py run-python
+  # - cmd: python do.py install-postprocessing
+
+test_script:
+  # run the test
+  - cmd: python -m cma.test
+  # - cmd: python do.py test-postprocessing-all
