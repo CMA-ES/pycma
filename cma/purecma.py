@@ -197,6 +197,9 @@ class CMAESParameters(object):
         self.damps = 2 * self.mueff/self.lam + 0.3 + self.cs  # damping for sigma, usually close to 1
         if RecombinationWeights:
             self.weights.finalize_negative_weights(N, self.c1, self.cmu)
+        # gap to postpone eigendecomposition to achieve O(N**2)
+        # chosen such that eig takes 2 times the time of tell in >=20-D
+        self.lazy_gap = 0.5 * self.lam / (self.c1 + self.cmu) / N
 
 class CMAES(OOOptimizer):  # could also inherit from object
     """class for non-linear non-convex numerical minimization with CMA-ES.
@@ -312,11 +315,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         self.sigma = sigma
         self.pc = N * [0]  # evolution path for C
         self.ps = N * [0]  # and for sigma
-        self.C = Matrix(N)  # covariance matrix
-        self.B = eye(N)  # B defines the coordinate system
-        self.D = N * [1]  # diagonal D defines the scaling
-        self.invsqrtC = eye(N)  # C^-1/2
-        self.eigeneval = 0      # tracking the update of B and D from C
+        self.C = SymmetricMatrix(N)  # covariance matrix
         self.counteval = 0  # countiter should be equal to counteval / lam
         self.fitvals = []   # for bookkeeping output and termination
         self.best = BestSolution()
@@ -329,11 +328,11 @@ class CMAES(OOOptimizer):  # could also inherit from object
             m + sigma * Normal(0,C) = m + sigma * B * D * Normal(0,I)
                                     = m + B * D * sigma * Normal(0,I)
         """
-        self._updateBD()  # update B, D and invsqrtC from C
+        self.C.updateBD(self.counteval, self.params.lazy_gap)
         candidate_solutions = []
         for k in range(self.params.lam):  # repeat lam times
-            z = [di * self.sigma * self.randn(0, 1) for di in self.D]
-            candidate_solutions.append(plus(self.xmean, dot(self.B, z)))
+            z = [di * self.sigma * self.randn(0, 1) for di in self.C.D]
+            candidate_solutions.append(plus(self.xmean, dot(self.C.B, z)))
         return candidate_solutions
 
     def tell(self, arx, fitvals):
@@ -366,7 +365,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
 
         ### Cumulation: update evolution paths
         y = minus(self.xmean, xold)
-        z = dot(self.invsqrtC, y)  # == C**(-1/2) * (xnew - xold)
+        z = dot(self.C.invsqrt, y)  # == C**(-1/2) * (xnew - xold)
         csn = (par.cs * (2 - par.cs) * par.mueff)**0.5 / self.sigma
         for i in iN:  # do the update
             self.ps[i] = (1 - par.cs) * self.ps[i] + csn * z[i]
@@ -408,31 +407,16 @@ class CMAES(OOOptimizer):  # could also inherit from object
         if self.ftarget is not None and len(self.fitvals) > 0 \
                 and self.fitvals[0] <= self.ftarget:
             res['ftarget'] = self.ftarget
-        if max(self.D) > 1e7 * min(self.D):
+        if max(self.C.D) > 1e7 * min(self.C.D):
             res['condition'] = 1e7
         if len(self.fitvals) > 1 \
                 and self.fitvals[-1] - self.fitvals[0] < 1e-12:
             res['tolfun'] = 1e-12
-        if self.sigma * max(self.D) < 1e-11:
+        if self.sigma * max(self.C.D) < 1e-11:
             # remark: max(D) >= max(diag(C))**0.5
             res['tolx'] = 1e-11
         return res
 
-    def _updateBD(self):
-        """execute eigendecomposition of C if necessary"""
-        # postpone in case to achieve O(N**2)
-        # divisor 2 is chosen such that in dimension 30 eig and tell take about the same time
-        if self.counteval - self.eigeneval > \
-                self.params.lam / (self.params.c1 + self.params.cmu) / len(self.C) / 2:
-            self.eigeneval = self.counteval
-            self.D, self.B = eig(self.C)  # eigen decomposition, B==normalized eigenvectors, O(N**3)
-            self.D = [d**0.5 for d in self.D]  # D contains standard deviations now
-            rg = range(len(self.invsqrtC))
-            # this is O(n^3) and takes about half the time of eig
-            for i in rg:  # compute invsqrtC = C**(-1/2) = B D**(-1/2) B'
-                for j in rg:
-                    self.invsqrtC[i][j] = sum(self.B[i][k] * self.B[j][k]
-                                              / self.D[k] for k in rg)
     @property
     def result(self):
         """the `tuple` (xbest, f(xbest), evaluations_xbest, evaluations,
@@ -459,7 +443,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         if iteration <= 2 or iteration % verb_modulo < 1:
             max_std = max([self.C[i][i] for i in range(len(self.C))])**0.5
             print(repr(self.counteval).rjust(5) + ': ' +
-                  ' %6.1f %8.1e  ' % (max(self.D) / min(self.D),
+                  ' %6.1f %8.1e  ' % (max(self.C.D) / min(self.C.D),
                                       self.sigma * max_std) +
                   str(self.fitvals[0]))
             stdout.flush()
@@ -515,7 +499,7 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
             dat['iter'].append(es.counteval / es.params.lam)
             dat['stds'].append([es.C[i][i]**0.5
                                 for i in range(len(es.C))])
-            dat['D'].append(sorted(es.D))
+            dat['D'].append(sorted(es.C.D))
             dat['sig'].append(es.sigma)
             dat['fit'].append(es.fitvals[0] if hasattr(es, 'fitvals')
                               and es.fitvals
@@ -728,6 +712,38 @@ class Matrix(list):
         for i, row in enumerate(self):
             for j in range(len(row)):
                 row[j] += factor * b[i] * b[j]
+        return self
+
+class SymmetricMatrix(Matrix):
+    """symmetric matrix maintaining its own eigendecomposition. 
+    
+    If ``isinstance(C, SymmetricMatrix)``, the eigen decomposion is stored
+    in the attributes B:matrix and D:diagonal such that 
+    C = C.B x diag(C.D)^2 x C.B^T.
+    """
+    def __init__(self, dimension):
+        Matrix.__init__(self, dimension)
+        self.B = eye(dimension)
+        self.D = dimension * [1]
+        self.invsqrt = eye(dimension)
+        self.eigeneval = 0
+    def updateBD(self, current_eval, lazy_evals):
+        """execute eigendecomposition of self if necessary.
+
+        Depends on ``es.counteval`` and ``es.params`` to compute the
+        lazy gap.
+        """
+        if current_eval <= self.eigeneval + lazy_evals:
+            return self
+        self.eigeneval = current_eval
+        self.D, self.B = eig(self)  # eigen decomposition, B==normalized eigenvectors, O(N**3)
+        self.D = [d**0.5 for d in self.D]  # D contains standard deviations now
+        rg = range(len(self.invsqrt))
+        # this is O(n^3) and takes about half the time of eig
+        for i in rg:  # compute invsqrtC = C**(-1/2) = B D**(-1/2) B'
+            for j in rg:
+                self.invsqrt[i][j] = sum(self.B[i][k] * self.B[j][k]
+                                          / self.D[k] for k in rg)
         return self
 
 def eye(dimension):
