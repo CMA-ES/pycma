@@ -430,7 +430,7 @@ class GaussVksSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         wp /= np.sum(wp)
         mueff = 1.0 / np.sum(wp * wp)
         k = self.k
-        nelem = self.N * k
+        nelem = max(self.N, self.N * self.k - ((1 + self.k) * self.k) // 2)
         cone = min(1.0, self.lam / 6.0) / (nelem + 2.0 * math.sqrt(nelem) + mueff / self.N)
         cmu = min(1 - cone, (0.3 + mueff - 2.0 + 1.0 / mueff) / (nelem + 4.0 * math.sqrt(nelem) + mueff / 2.0))
         cc = math.sqrt(cone)
