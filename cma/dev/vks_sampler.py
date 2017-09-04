@@ -528,5 +528,6 @@ if __name__ == '__main__':
         'CMA_active': False, 'AdaptSigma': None,
         'CMA_sampler': GaussVksSampler,
         'ftarget': 1e-8,
+        'CMA_sampler_options': {},
         })
     es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=seedprob), iterations=None)    
