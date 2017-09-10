@@ -2,7 +2,7 @@
 """A minimalistic implemention of CMA-ES without using `numpy`.
 
 The Covariance Matrix Adaptation Evolution Strategy, CMA-ES, serves for
-nonlinear function minimization.
+numerical nonlinear function minimization.
 
 The **main functionality** is implemented in
 
@@ -15,7 +15,7 @@ This code has two **purposes**:
 
 1. for READING and UNDERSTANDING the basic flow and the details of the
    CMA-ES *algorithm*. The source code is meant to be read. For a quick
-   glance, study the doc string of the class `CMAES` and the code of the
+   glance, study the first few code lines of `fmin` and the code of
    method `CMAES.tell`, where all the real work is done in about 20 lines
    of code (search "def tell" in the source). Otherwise, reading from
    the top is a feasible option, where the codes of `fmin`,
@@ -48,20 +48,19 @@ use and modify it however you like).
 from __future__ import division  # such that 1/2 != 0
 from __future__ import print_function  # available since 2.6, not needed
 
-from sys import stdout  # not strictly necessary
+from sys import stdout as _stdout # not strictly necessary
 from math import log, exp
 from random import normalvariate as random_normalvariate
 
 try:
-    from .interfaces import OOOptimizer, BaseDataLogger
+    from .interfaces import OOOptimizer, BaseDataLogger as _BaseDataLogger
 except (ImportError, ValueError):
-    OOOptimizer, BaseDataLogger = object, object
+    OOOptimizer, _BaseDataLogger = object, object
 try:
     from .recombination_weights import RecombinationWeights
 except (ImportError, ValueError):
     RecombinationWeights = None
-
-# Optional imports, can be out-commented, if not available
+del division, print_function  #, absolute_import, unicode_literals, with_statement
 
 __version__ = '3.0.0'
 __author__ = 'Nikolaus Hansen'
@@ -112,26 +111,21 @@ def fmin(objective_fct, xstart, sigma,
     The following example minimizes the function `ff.elli`::
 
         >> from cma import purecma, ff
-        >> es = purecma.fmin(ff.elli, 10 * [0.5], 0.3, verb_disp=100)
+        >> res = purecma.fmin(ff.elli, 3 * [0.5], 0.3, verb_disp=100)
         evals: ax-ratio max(std)   f-value
-           10:     1.0  2.8e-01  198003.585517
-         1000:     8.4  5.5e-02  95.9162313173
-         2000:    40.5  3.6e-02  5.07618122556
-         3000:   149.1  8.5e-03  0.271537247667
-         4000:   302.2  4.2e-03  0.0623570374451
-         5000:   681.1  5.9e-03  0.000485971681802
-         6000:  1146.4  9.5e-06  5.26919100476e-10
-         6510:  1009.1  2.3e-07  3.34128914738e-13
+            7:     1.0  3.4e-01  240.2716966
+           14:     1.0  3.9e-01  2341.50170536
+          700:   247.9  2.4e-01  0.629102574062
+         1400:  1185.9  5.3e-07  4.83466373808e-13
+         1421:  1131.2  2.9e-07  5.50167024417e-14
         termination by {'tolfun': 1e-12}
-        best f-value = 3.34128914738e-13
-
-        >> print(es.result[0])
-        [2.1187532328944602e-07, 6.893386424102321e-08, -2.008255256456535e-09, 4.472078873398156e-09, -9.421306741003398e-09, 7.331265238205156e-09, 2.4804701814730273e-10, -6.030651566971234e-10, -6.063921614755129e-10, -1.066906137937511e-10]
-
-        >> print(es.result[1])
-        3.34128914738e-13
-
-        >> es.logger.plot()  # needs pylab/matplotlib to be installed
+        best f-value = 2.72976881789e-14
+        solution = [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
+        >> print(res[0])
+        [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
+        >> print(res[1].result[1])
+        2.72976881789e-14
+        >> res[1].logger.plot()  # needs pylab/matplotlib to be installed
 
     Details
     =======
@@ -396,7 +390,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         ### recombination, compute new weighted mean value
         self.xmean = dot(arx[0:par.mu], par.weights[:par.mu], transpose=True)
         #          = [sum(self.weights[k] * arx[k][i] for k in range(self.mu))
-        #                                             for i in iN]
+        #                                             for i in range(N)]
 
         ### Cumulation: update evolution paths
         y = minus(self.xmean, xold)
@@ -404,11 +398,11 @@ class CMAES(OOOptimizer):  # could also inherit from object
         csn = (par.cs * (2 - par.cs) * par.mueff)**0.5 / self.sigma
         for i in range(N):  # update evolution path ps
             self.ps[i] = (1 - par.cs) * self.ps[i] + csn * z[i]
+        ccn = (par.cc * (2 - par.cc) * par.mueff)**0.5 / self.sigma
         # turn off rank-one accumulation when sigma increases quickly
         hsig = (sum(x**2 for x in self.ps)  # squared length of ps
                 / (1-(1-par.cs)**(2*self.counteval/par.lam)) / N
                 < 2 + 4./(N+1))
-        ccn = (par.cc * (2 - par.cc) * par.mueff)**0.5 / self.sigma
         for i in range(N):  # update evolution path pc
             self.pc[i] = (1 - par.cc) * self.pc[i] + ccn * hsig * y[i]
 
@@ -418,10 +412,9 @@ class CMAES(OOOptimizer):  # could also inherit from object
         self.C.multiply_with(1 - c1a - par.cmu * sum(par.weights))  # C *= 1 - c1 - cmu * sum(w)
         self.C.addouter(self.pc, par.c1)  # C += c1 * pc * pc^T, so-called rank-one update
         for k, wk in enumerate(par.weights):  # so-called rank-mu update
-            # guaranty positive definiteness given appropriate negative weights
-            wk *= 1 if wk >= 0 else N * (self.sigma /
-                                         self.C.mahalanobis_norm(minus(arx[k], xold)))**2
-            self.C.addouter(minus(arx[k], xold),  # C += w * cmu * dx * dx^T
+            if wk < 0:  # guaranty positive definiteness
+                wk *= N * (self.sigma / self.C.mahalanobis_norm(minus(arx[k], xold)))**2
+            self.C.addouter(minus(arx[k], xold),  # C += wk * cmu * dx * dx^T
                             wk * par.cmu / self.sigma**2)
 
         ### Adapt step-size sigma
@@ -482,11 +475,11 @@ class CMAES(OOOptimizer):  # could also inherit from object
                   ' %6.1f %8.1e  ' % (self.C.condition_number**0.5,
                                       self.sigma * max(self.C.diag)**0.5) +
                   str(self.fitvals[0]))
-            stdout.flush()
+            _stdout.flush()
 
 
 # -----------------------------------------------
-class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
+class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
     """data logger for class `CMAES`, that can record and plot data.
 
     Examples
@@ -534,7 +527,7 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
         for each call to the method `add`
 
         """
-        # BaseDataLogger.__init__(self)  # not necessary
+        # _BaseDataLogger.__init__(self)  # not necessary
         self.filename = "_CMAESDataLogger_datadict.py"
         self.optim = None
         self.modulo = verb_modulo
@@ -667,7 +660,7 @@ class CMAESDataLogger(BaseDataLogger):  # could also inherit from object
         title_('Coordinate-wise STDs w/o sigma')
         grid(True)
         xlabel('iterations' + strpopsize)
-        stdout.flush()
+        _stdout.flush()
         tight_layout()
         draw()
         show()
