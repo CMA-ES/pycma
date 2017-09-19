@@ -280,7 +280,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         print('best solution =', es.result[0])
 
         print('potentially better solution xmean =', es.result[5])
-        print("let\'s check f(xmean) = ", pcma.ff.elli(es.result[5]))
+        print('check f(xmean) = ', pcma.ff.elli(es.result[5]))
         es.logger.plot()  # if matplotlib is available
 
     A very similar example which may also save the logged data within
