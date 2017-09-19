@@ -400,9 +400,9 @@ class CMAES(OOOptimizer):  # could also inherit from object
             self.ps[i] = (1 - par.cs) * self.ps[i] + csn * z[i]
         ccn = (par.cc * (2 - par.cc) * par.mueff)**0.5 / self.sigma
         # turn off rank-one accumulation when sigma increases quickly
-        hsig = (sum(x**2 for x in self.ps)  # squared length of ps
-                / (1-(1-par.cs)**(2*self.counteval/par.lam)) / N
-                < 2 + 4./(N+1))
+        hsig = (sum(x**2 for x in self.ps) / N  # ||ps||^2 / N is 1 in expectation
+                / (1-(1-par.cs)**(2*self.counteval/par.lam))  # account for initial value of ps
+                < 2 + 4./(N+1))  # should be smaller than 2 + ...
         for i in range(N):  # update evolution path pc
             self.pc[i] = (1 - par.cc) * self.pc[i] + ccn * hsig * y[i]
 
