@@ -280,7 +280,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         print('best solution =', es.result[0])
 
         print('potentially better solution xmean =', es.result[5])
-        print("let's check f(xmean) = ", pcma.ff.elli(es.result[5]))
+        print("let\'s check f(xmean) = ", pcma.ff.elli(es.result[5]))
         es.logger.plot()  # if matplotlib is available
 
     A very similar example which may also save the logged data within
@@ -399,7 +399,14 @@ class CMAES(OOOptimizer):  # could also inherit from object
         for i in range(N):  # update evolution path ps
             self.ps[i] = (1 - par.cs) * self.ps[i] + csn * z[i]
         ccn = (par.cc * (2 - par.cc) * par.mueff)**0.5 / self.sigma
-        # turn off rank-one accumulation when sigma increases quickly
+        ### turn off rank-one accumulation when sigma increases quickly
+        # squared_ps_len = sum(x**2 for x in self.ps)
+        # adjusted_squared_ps_len = squared_ps_len / (1-(1-par.cs)**(2*self.counteval/par.lam))
+        # adjusted_squared_ps_len /= N
+        # if adjusted_squared_ps_len < (2 + (4.0/(N+1))):
+        #     hsig = 1
+        # else:
+        #     hsig = 0
         hsig = (sum(x**2 for x in self.ps)  # squared length of ps
                 / (1-(1-par.cs)**(2*self.counteval/par.lam)) / N
                 < 2 + 4./(N+1))
