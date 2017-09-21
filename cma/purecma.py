@@ -674,7 +674,7 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         title_('Coordinate-wise STDs w/o sigma')
         grid(True)
         xlabel('iterations' + strpopsize)
-        _stdout.flush()
+        stdout.flush()
         tight_layout()
         draw()
         show()
@@ -890,6 +890,7 @@ def safe_str(s, known_words=None):
         ' int ( 3.1 )'
         >>> safe_str('int(n)', {'int': 'int', 'n': 3.1})  # unexpected
         ' i 3.1 t ( 3.1 )'
+
     """
     safe_chars = ' 0123456789.,+-*()[]e'
     if s != str(s):
