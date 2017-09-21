@@ -1090,18 +1090,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, {'seed':234})
     ...      # doctest: +ELLIPSIS
     (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 4 (seed=234...)
-    >>>
-    >>> # optimize the ellipsoid function
+
+    and optimize the ellipsoid function
+
     >>> es.optimize(cma.ff.elli, verb_disp=1)  # doctest: +ELLIPSIS
     Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]
         1      8 2.09...
-    >>>
     >>> assert len(es.result) == 7
     >>> assert es.result[1] < 1e-9
 
     The optimization loop can also be written explicitly:
 
-    >>> import cma
     >>> es = cma.CMAEvolutionStrategy(4 * [1], 1)  # doctest: +ELLIPSIS
     (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 4 (seed=...
     >>> while not es.stop():
@@ -1116,7 +1115,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     An example with lower bounds (at zero) and handling infeasible
     solutions:
 
-    >>> import cma
     >>> import numpy as np
     >>> es = cma.CMAEvolutionStrategy(10 * [0.2], 0.5,
     ...         {'bounds': [0, np.inf]})  #doctest: +ELLIPSIS
@@ -1143,7 +1141,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     An example with user-defined transformation, in this case to realize
     a lower bound of 2.
 
-    >>> import cma
     >>> es = cma.CMAEvolutionStrategy(5 * [3], 0.1,
     ...                 {"transformation": [lambda x: x**2+1.2, None],
     ...                  })
@@ -1162,7 +1159,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     (cave: files are overwritten when the logger is used with the same
     filename prefix):
 
-    >>> import cma
     >>> es = cma.CMAEvolutionStrategy(4 * [0.2], 0.5, {'verb_disp': 0})
     >>> es.logger.disp_header()  # annotate the print of disp
     Iterat Nfevals  function value    axis ratio maxstd  minstd
@@ -1178,9 +1174,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     Example implementing restarts with increasing popsize (IPOP):
 
-    >>> import cma, numpy as np
-    >>>
-    >>> # restart with increasing population size (IPOP)
     >>> bestever = cma.optimization_tools.BestSolution()
     >>> for lam in 10 * 2**np.arange(8):  # 10, 20, 40, 80, ..., 10 * 2**7
     ...     es = cma.CMAEvolutionStrategy('6 - 8 * np.random.rand(9)',  # 9-D
@@ -1214,26 +1207,23 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     Using the `multiprocessing` module, we can evaluate the function in
     parallel with a simple modification of the example (however
-    multiprocessing seems not always reliable)::
+    multiprocessing seems not always reliable):
 
-        try:
-            import multiprocessing as mp
-            import cma
-            es = cma.CMAEvolutionStrategy(22 * [0.0], 1.0, {'maxiter':10})
-            pool = mp.Pool(es.popsize)
-            while not es.stop():
-                X = es.ask()
-                f_values = pool.map_async(cma.felli, X).get()
-                # use chunksize parameter as es.popsize/len(pool)?
-                es.tell(X, f_values)
-                es.disp()
-                es.logger.add()
-        except ImportError:
-            pass
+    >>> from cma.fitness_functions import elli  # cannot be an instance method
+    >>> from cma.fitness_transformations import EvalParallel
+    >>> es = cma.CMAEvolutionStrategy(22 * [0.0], 1.0, {'maxiter':10})  # doctest:+ELLIPSIS
+    (6_w,13)-aCMA-ES (mu_w=...
+    >>> with EvalParallel(es.popsize + 1) as eval_all:
+    ...     while not es.stop():
+    ...         X = es.ask()
+    ...         es.tell(X, eval_all(elli, X))
+    ...         es.disp()
+    ...         # es.logger.add()  # doctest:+ELLIPSIS
+    Iterat...
 
     The final example shows how to resume:
 
-    >>> import cma, pickle
+    >>> import pickle
     >>>
     >>> es = cma.CMAEvolutionStrategy(12 * [0.1],  # a new instance, 12-D
     ...                               0.2)         # initial std sigma0
@@ -2309,17 +2299,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Example
         -------
-        ::
 
-            >>> import numpy as np, cma
-            >>> func = cma.ff.elli  # choose objective function
-            >>> es = cma.CMAEvolutionStrategy(np.random.rand(2), 1)
-            ... # doctest:+ELLIPSIS
-            (3_...
-            >>> while not es.stop():
-            ...    X = es.ask()
-            ...    es.tell(X, [func(x) for x in X])
-            >>> # es.result  # where the result can be found
+        >>> import numpy as np, cma
+        >>> func = cma.ff.elli  # choose objective function
+        >>> es = cma.CMAEvolutionStrategy(np.random.rand(2), 1)
+        ... # doctest:+ELLIPSIS
+        (3_...
+        >>> while not es.stop():
+        ...    X = es.ask()
+        ...    es.tell(X, [func(x) for x in X])
+        >>> es.result  # result is a `namedtuple` # doctest:+ELLIPSIS
+        CMAEvolutionStrategyResult(xbest=array([...
 
         :See: class `CMAEvolutionStrategy`, `ask`, `ask_and_eval`, `fmin`
 
