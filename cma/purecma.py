@@ -57,10 +57,10 @@ try:
 except (ImportError, ValueError):
     OOOptimizer, _BaseDataLogger = object, object
 try:
-    from .recombination_weights import RecombinationWeights
+    from .recombination_weights import RecombinationWeights # actually used except by caller?
 except (ImportError, ValueError):
     RecombinationWeights = None
-# XXX What is the below line doing?
+# Remove namespace clutter
 del division, print_function  #, absolute_import, unicode_literals, with_statement
 
 __version__ = '3.0.0'
@@ -175,7 +175,7 @@ def fmin(objective_fct, xstart, sigma,
         print('solution =', es.result[0])
     if verb_log:
         es.logger.add(es, force=True)
-        es.logger.save() if verb_save else None
+        if verb_save: es.logger.save()
     return [es.best.x if es.best.f < objective_fct(es.xmean) else
             es.xmean, es]
 
@@ -207,16 +207,17 @@ class CMAESParameters(object):
                         for i in range(self.lam)]
             w_sum = sum(_weights[:self.mu])
             self.weights = [w / w_sum for w in _weights]  # sum is one now
+            # variance-effectiveness of sum w_i x_i
             self.mueff = sum(self.weights[:self.mu])**2 / \
-                         sum(w**2 for w in self.weights[:self.mu])  # variance-effectiveness of sum w_i x_i
+                         sum(w**2 for w in self.weights[:self.mu])
 
         # Strategy parameter setting: Adaptation
-        self.cc = (4 + self.mueff/N) / (N+4 + 2 * self.mueff/N)  # time constant for cumulation for C
-        self.cs = (self.mueff + 2) / (N + self.mueff + 5)  # time constant for cumulation for sigma control
+        self.cc = (4 + self.mueff/N) / (N+4 + 2 * self.mueff/N) # time constant for C cumulation
+        self.cs = (self.mueff + 2) / (N + self.mueff + 5) # time constant for sigma control cumulation
         self.c1 = 2 / ((N + 1.3)**2 + self.mueff)  # learning rate for rank-one update of C
         self.cmu = min([1 - self.c1, # and for rank-mu update
                         2 * (self.mueff - 2 + 1/self.mueff) / ((N + 2)**2 + self.mueff)])
-        self.damps = 2 * self.mueff/self.lam + 0.3 + self.cs  # damping for sigma, usually close to 1
+        self.damps = 2 * self.mueff/self.lam + 0.3 + self.cs # damping for sigma, usually close to 1
 
         if RecombinationWeights:
             self.weights.finalize_negative_weights(N, self.c1, self.cmu)
@@ -414,8 +415,8 @@ class CMAES(OOOptimizer):  # could also inherit from object
         hsig = (sum_square_ps  # squared length of ps
                 / (1-(1-par.cs)**(2*self.counteval/par.lam)) / N
                 < 2 + 4./(N+1))
-        for i in range(N):  # update evolution path pc
-            self.pc[i] = (1 - par.cc) * self.pc[i] + ccn * hsig * y[i] # should this be done at all if hsig == 0?
+        for i in range(N):  # update evolution path pc; should this be done at all if hsig == 0?
+            self.pc[i] = (1 - par.cc) * self.pc[i] + ccn * hsig * y[i]
 
         ### Adapt covariance matrix C
         # minor adjustment for the variance loss from hsig
@@ -444,7 +445,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
             return res
         if self.counteval >= self.maxfevals:
             res['maxfevals'] = self.maxfevals
-        if self.ftarget is not None and len(self.fitvals) > 0 \
+        if self.ftarget is not None and self.fitvals \
                 and self.fitvals[0] <= self.ftarget:
             res['ftarget'] = self.ftarget
         if self.C.condition_number > 1e14:
@@ -851,14 +852,13 @@ def eye(dimension):
 def dot(A, b, transpose=False):
     """
     Usual dot product of "matrix" A with "vector" b.
-    ``A[i]`` is the i-th row of A. Uses transposed A if ``transpose=True``.
+    ``A[i]`` is the i-th row of A. Uses transposed A if ``transpose`` is ``True``.
     """
-    if not transpose:
-        return [sum(A[i][j] * b[j] for j in range(len(b)))
-                for i in range(len(A))]
-    else:
+    if transpose:
         return [sum(A[j][i] * b[j] for j in range(len(b)))
                 for i in range(len(A[0]))]
+    return [sum(A[i][j] * b[j] for j in range(len(b)))
+            for i in range(len(A))]
 
 def plus(a, b):
     """Add vectors, return a + b"""
@@ -970,7 +970,7 @@ def eig(C):
         num_opt = False
 
     #  private void tred2 (int n, double V[][], double d[], double e[]) {
-    def tred2(n, V, d, e):
+    def _tred2(n, V, d, e):
         #  This is derived from the Algol procedures tred2 by
         #  Bowdler, Martin, Reinsch, and Wilkinson, Handbook for
         #  Auto. Comp., Vol.ii-Linear Algebra, and the corresponding
@@ -1116,7 +1116,7 @@ def eig(C):
     # Symmetric tridiagonal QL algorithm, taken from JAMA package.
     # private void tql2 (int n, double d[], double e[], double V[][]) {
     # needs roughly 3N^3 operations
-    def tql2(n, d, e, V):
+    def _tql2(n, d, e, V):
         #  This is derived from the Algol procedures tql2, by
         #  Bowdler, Martin, Reinsch, and Wilkinson, Handbook for
         #  Auto. Comp., Vol.ii-Linear Algebra, and the corresponding
@@ -1247,8 +1247,8 @@ def eig(C):
     V = [C[i][:] for i in range(N)]
     d = N * [0]
     e = N * [0]
-    tred2(N, V, d, e)
-    tql2(N, d, e, V)
+    _tred2(N, V, d, e)
+    _tql2(N, d, e, V)
     return d, V  # sorting of V-columns in place is non-trivial
 
 def test():
