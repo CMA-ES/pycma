@@ -73,8 +73,7 @@ def fmin(objective_fct, xstart, sigma,
          maxfevals='1e3 * N**2', ftarget=None,
          verb_disp=100, verb_log=1, verb_save=1000):
     """
-    Non-linear non-convex minimization procedure, a functional
-    interface to CMA-ES.
+    Non-linear non-convex minimization procedure; functional CMA-ES interface.
 
     Parameters
     ==========
@@ -87,18 +86,18 @@ def fmin(objective_fct, xstart, sigma,
             list of numbers (like `[3.2, 2, 1]`), initial solution vector
         `sigma`: `float`
             initial step-size, standard deviation in any coordinate
-        `args`: `tuple` or sequence
+        `args`: `tuple` or sequence, optional
             arguments to `objective_fct`
-        `ftarget`: `float`
+        `ftarget`: `float`, optional
             target function value
-        `maxfevals`: `int` or `str`
-            maximal number of function evaluations, a string
+        `maxfevals`: `int` or `str`, optional
+            maximal number of function evaluations; a string
             is evaluated with ``N`` being the search space dimension
-        `verb_disp`: `int`
+        `verb_disp`: `int`, optional
             display on console every `verb_disp` iteration, 0 for never
-        `verb_log`: `int`
+        `verb_log`: `int`, optional
             data logging every `verb_log` iteration, 0 for never
-        `verb_save`: `int`
+        `verb_save`: `int`, optional
             save logged data every ``verb_save * verb_log`` iteration
 
     Return
@@ -106,7 +105,7 @@ def fmin(objective_fct, xstart, sigma,
     The `tuple` (``xmin``:`list`, ``es``:`CMAES`), where ``xmin`` is the
     best seen (evaluated) solution and ``es`` is the correspoding `CMAES`
     instance. Consult ``help(es.result)`` of property `result` for further
-    results.
+    information.
 
     Example
     =======
@@ -143,7 +142,7 @@ def fmin(objective_fct, xstart, sigma,
         >> pcma.CMAES(10 * [0.5], 0.3).optimize(pcma.ff.elli,
         ...                                     callback=es.logger.add)
 
-    do pretty much the same. The `verb_save` parameter to `fmin` adds
+    do pretty much the same thing. The `verb_save` parameter to `fmin` adds
     the possibility to plot the saved data *during* the execution from a
     different Python shell like ``pcma.CMAESDataLogger().load().plot()``.
     For example, with ``verb_save == 3`` every third time the logger
@@ -168,7 +167,7 @@ def fmin(objective_fct, xstart, sigma,
                               % (verb_save * verb_log) < 1):
                 es.logger.save()
 
-    if verb_disp:  # do not print by default to allow silent verbosity
+    if verb_disp:  # do not print by default to allow non-console verbosity
         es.disp(1)
         print('termination by', es.stop())
         print('best f-value =', es.result[1])
@@ -181,7 +180,8 @@ def fmin(objective_fct, xstart, sigma,
 
 
 class CMAESParameters(object):
-    """Static "internal" parameter setting for `CMAES`"""
+    """Static "internal" parameter setting for `CMAES`."""
+
     default_popsize = '4 + int(3 * log(N))'
     def __init__(self, N, popsize=None,
                  RecombinationWeights=None):
@@ -207,13 +207,14 @@ class CMAESParameters(object):
                         for i in range(self.lam)]
             w_sum = sum(_weights[:self.mu])
             self.weights = [w / w_sum for w in _weights]  # sum is one now
-            # variance-effectiveness of sum w_i x_i
+            # self.mueff: variance-effectiveness of sum w_i x_i
             self.mueff = sum(self.weights[:self.mu])**2 / \
                          sum(w**2 for w in self.weights[:self.mu])
 
         # Strategy parameter setting: Adaptation
         self.cc = (4 + self.mueff/N) / (N+4 + 2 * self.mueff/N) # time constant for C cumulation
-        self.cs = (self.mueff + 2) / (N + self.mueff + 5) # time constant for sigma control cumulation
+        # self.cs: time constant for sigma control cumulation
+        self.cs = (self.mueff + 2) / (N + self.mueff + 5)
         self.c1 = 2 / ((N + 1.3)**2 + self.mueff)  # learning rate for rank-one update of C
         self.cmu = min([1 - self.c1, # and for rank-mu update
                         2 * (self.mueff - 2 + 1/self.mueff) / ((N + 2)**2 + self.mueff)])
@@ -225,7 +226,7 @@ class CMAESParameters(object):
         # 0.5 is chosen such that eig takes 2 times the time of tell in >=20-D
         self.lazy_gap_evals = 0.5 * N * self.lam * (self.c1 + self.cmu)**-1 / N**2
 
-class CMAES(OOOptimizer):  # could also inherit from object
+class CMAES(OOOptimizer):  # could also inherit from object (fallback if not available)
     """
     Class for non-linear non-convex numerical minimization with CMA-ES.
 
@@ -263,7 +264,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         es.logger.plot()  # if matplotlib is available
 
     Virtually the same example can be written with an explicit loop
-    instead of using `optimize`, see also `fmin`. This gives insight
+    instead of using `optimize`; see also `fmin`. This gives insight
     into the `CMAES` class interface and full control over the
     iteration loop::
 
@@ -297,6 +298,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
 
     :See: `fmin`, `OOOptimizer.optimize`
     """
+
     def __init__(self, xstart, sigma,  # mandatory
                  popsize=CMAESParameters.default_popsize,
                  ftarget=None,
@@ -314,7 +316,8 @@ class CMAES(OOOptimizer):  # could also inherit from object
             `sigma`: `float`
                 initial step-size (standard deviation in each coordinate)
             `popsize`: `int` or `str`, optional
-                population size, number of candidate samples per iteration
+                population size, number of candidate samples per iteration;
+                a string is evaluated with ``N`` as search space dimension.
             `maxfevals`: `int` or `str`, optional
                 maximal number of function evaluations; a string is
                 evaluated with ``N`` as search space dimension
@@ -349,13 +352,12 @@ class CMAES(OOOptimizer):  # could also inherit from object
 
     def ask(self):
         """
-        Sample lambda candidate solutions
-        distributed according to::
+        Sample lambda candidate solutions and return a `list` of the sampled "vectors".
+
+        The sampled solutions are distributed according to::
 
             m + sigma * Normal(0,C) = m + sigma * B * D * Normal(0,I)
                                     = m + B * D * sigma * Normal(0,I)
-
-        and return a `list` of the sampled "vectors".
         """
         self.C.update_eigensystem(self.counteval,
                                   self.params.lazy_gap_evals)
@@ -369,8 +371,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
 
     def tell(self, arx, fitvals):
         """
-        Update the evolution paths and the distribution parameters m,
-        sigma, and C within CMA-ES.
+        Update evolution paths and the internal distribution parameters m, sigma, and C.
 
         Parameters
         ----------
@@ -437,8 +438,9 @@ class CMAES(OOOptimizer):  # could also inherit from object
 
     def stop(self):
         """
-        Return satisfied termination conditions (if any) in a dictionary,
-        in the format ``{'termination_reason':value, ...}``;
+        Return any satisfied termination conditions in a dictionary.
+
+        The format is either ``{'termination_reason':value, ...}``,
         for example, ``{'tolfun':1e-12}``, or the empty `dict` ``{}``.
         """
         res = {}
@@ -463,7 +465,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
     def result(self):
         """
         The `tuple` ``(xbest, f(xbest), evaluations_xbest, evaluations,
-        iterations, xmean, stds)``
+        iterations, xmean, stds)``.
         """
         return (self.best.x,
                 self.best.f,
@@ -474,7 +476,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
                 [self.sigma * C_ii**0.5 for C_ii in self.C.diag])
 
     def disp(self, verb_modulo=1):
-        """`print` some iteration info to `stdout`"""
+        """`print` some iteration info (to `stdout`)."""
         if verb_modulo is None:
             verb_modulo = 20
         if not verb_modulo:
@@ -534,12 +536,14 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
     """
 
     plotted = 0
-    """Plot count for all instances"""
+    """Plot count for all instances."""
 
     def __init__(self, verb_modulo=1):
         """
-        `verb_modulo` controls whether and when logging takes place
-        for each call to the method `add`
+        Initialize logging and set verbosity.
+
+        ``verb_modulo`` controls whether and when logging takes place
+        upon calls to the method `add`.
         """
         # _BaseDataLogger.__init__(self)  # not necessary
         self.filename = "_CMAESDataLogger_datadict.py"
@@ -551,8 +555,11 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
 
     def add(self, es=None, force=False, more_data=None):
         """
-        Append some logging data from CMAES class instance `es`,
-        if ``number_of_times_called modulo verb_modulo`` equals zero
+        Possibly append some logging data from CMAES class instance `es`.
+
+        Only logs if ``verb_modulo`` was set; if so, logs when
+        ``number_of_times_called modulo verb_modulo`` equals zero,
+        when ``force`` is `True`, or when has been called less than 4 times.
         """
         es = es or self.optim
         if not isinstance(es, CMAES):
@@ -623,15 +630,15 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
             dat['fit'][0] = dat['fit'][1]  # tations need numbers
             # should be reverted later, but let's be lazy
         assert dat['fit'].count(None) == 0
-        fmin = min(dat['fit'])
-        imin = dat['fit'].index(fmin)
+        fmin1 = min(dat['fit'])
+        imin = dat['fit'].index(fmin1)
         dat['fit'][imin] = max(dat['fit']) + 1
         fmin2 = min(dat['fit'])
-        dat['fit'][imin] = fmin
-        semilogy(dat['iter'], [f - fmin if f - fmin > 1e-19 else None
+        dat['fit'][imin] = fmin1
+        semilogy(dat['iter'], [f - fmin1 if f - fmin1 > 1e-19 else None
                                for f in dat['fit']],
                  'c', linewidth=1, label='f-min(f)')
-        semilogy(dat['iter'], [max((fmin2 - fmin, 1e-19)) if f - fmin <= 1e-19 else None
+        semilogy(dat['iter'], [max((fmin2 - fmin1, 1e-19)) if f - fmin1 <= 1e-19 else None
                                for f in dat['fit']], 'C1*')
 
         semilogy(dat['iter'], [abs(f) for f in dat['fit']], 'b',
@@ -683,12 +690,12 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         CMAESDataLogger.plotted += 1
 
     def save(self, name=None):
-        """Save data to file `name` or ``self.filename``"""
+        """Save data to file `name` or ``self.filename``."""
         with open(name or self.filename, 'w') as f:
             f.write(repr(self._data))
 
     def load(self, name=None):
-        """Load data from file `name` or ``self.filename``"""
+        """Load data from file `name` or ``self.filename``."""
         from ast import literal_eval
         with open(name or self.filename, 'r') as f:
             self._data = literal_eval(f.read())
@@ -698,28 +705,28 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
 #_________________ Fitness (Objective) Functions _____________________
 
 class ff(object):  # instead of a submodule
-    """Versatile collection of test functions in static methods"""
+    """Versatile collection of test functions as static methods."""
 
     @staticmethod  # syntax available since 2.4
     def elli(x):
-        """Ellipsoid test objective function"""
+        """Ellipsoid test objective function."""
         n = len(x)
         aratio = 1e3
         return sum(x[i]**2 * aratio**(2.*i/(n-1)) for i in range(n))
 
     @staticmethod
     def sphere(x):
-        """Sphere, ``sum(x**2)``, test objective function"""
+        """Sphere (``sum(x**2)``) test objective function."""
         return sum(x[i]**2 for i in range(len(x)))
 
     @staticmethod
     def tablet(x):
-        """Discus test objective function"""
+        """Discus test objective function."""
         return sum(xi**2 for xi in x) + (1e6-1) * x[0]**2
 
     @staticmethod
     def rosenbrock(x):
-        """Rosenbrock test objective function"""
+        """Rosenbrock test objective function."""
         n = len(x)
         if n < 2:
             raise ValueError('dimension must be greater than one')
@@ -730,13 +737,14 @@ class ff(object):  # instead of a submodule
 #_______________________ Helper Class&Functions ______________________
 #
 class BestSolution(object):
-    """Container to keep track of the best solution seen"""
+    """Container to keep track of the best solution seen."""
+
     def __init__(self, x=None, f=None, evals=None):
-        """take `x`, `f`, and `evals` to initialize the best solution"""
+        """Initialize the best solution, optionally using `x`, `f`, and `evals`."""
         self.x, self.f, self.evals = x, f, evals
 
     def update(self, x, f, evals=None):
-        """Update the best solution if ``f < self.f``"""
+        """Update the best solution if ``f < self.f``."""
         if self.f is None or f < self.f:
             self.x = x
             self.f = f
@@ -745,19 +753,20 @@ class BestSolution(object):
 
     @property
     def all(self):
-        """``(x, f, evals)`` of the best seen solution"""
+        """``(x, f, evals)`` of the best seen solution."""
         return self.x, self.f, self.evals
 
 class SquareMatrix(list):  # inheritance from numpy.ndarray is not recommended
-    """Rudimentary square matrix class"""
+    """Rudimentary square matrix class."""
+
     def __init__(self, dimension):
-        """Initialize with identity matrix"""
+        """Initialize with identity matrix."""
         for i in range(dimension):
             self.append(dimension * [0])
             self[i][i] = 1
 
     def multiply_with(self, factor):
-        """Multiply matrix in place by `factor`"""
+        """Multiply matrix in place by ``factor``."""
         for row in self:
             for j in range(len(row)):
                 row[j] *= factor
@@ -765,16 +774,18 @@ class SquareMatrix(list):  # inheritance from numpy.ndarray is not recommended
 
     def addouter(self, b, factor=1):
         """
-        Add in place `factor` times outer product of vector `b`,
-        without any dimensional consistency checks.
+        Add in place ``factor`` times outer product of vector ``b``.
+
+        Note: Does not do any dimensional consistency checks.
         """
         for i, row in enumerate(self):
             for j in range(len(row)):
                 row[j] += factor * b[i] * b[j]
         return self
+
     @property
     def diag(self):
-        """Diagonal of the matrix as a copy (save to change)"""
+        """Diagonal of the matrix as a copy (save to change)."""
         return [self[i][i] for i in range(len(self)) if i < len(self[i])]
 
 class DecomposingPositiveMatrix(SquareMatrix):
@@ -792,7 +803,10 @@ class DecomposingPositiveMatrix(SquareMatrix):
     with eigenvalue ``C.eigenvalues[i]`` and hence::
 
         C = C.eigenbasis x diag(C.eigenvalues) x C.eigenbasis^T
+
+    Extends SquareMatrix.
     """
+
     def __init__(self, dimension):
         SquareMatrix.__init__(self, dimension)
         self.eigenbasis = eye(dimension)
@@ -803,10 +817,12 @@ class DecomposingPositiveMatrix(SquareMatrix):
 
     def update_eigensystem(self, current_eval, lazy_gap_evals):
         """
-        Execute eigendecomposition of `self` if
+        Execute eigendecomposition of `self` if needed.
+
+        Determines that is needed if
         ``current_eval > lazy_gap_evals + last_updated_eval``.
 
-        Assumes (for sake of simplicity) that `self` is positive
+        Assumes (for the sake of simplicity) that `self` is positive
         definite and hence raises a `RuntimeError` otherwise.
         """
         if current_eval <= self.updated_eval + lazy_gap_evals:
@@ -831,8 +847,9 @@ class DecomposingPositiveMatrix(SquareMatrix):
 
     def mahalanobis_norm(self, dx):
         """
-        Normalizes distance measures dx using estimated covariance
-        matrix. Returns ``(dx^T * C^-1 * dx)**0.5``
+        Normalize distance measures dx using the estimated covariance matrix.
+
+        Returns ``(dx^T * C^-1 * dx)**0.5``
         """
         return sum(xi**2 for xi in dot(self.invsqrt, dx))**0.5
 
@@ -843,7 +860,7 @@ class DecomposingPositiveMatrix(SquareMatrix):
         return self
 
 def eye(dimension):
-    """Return identity matrix as `list` of "vectors" (lists themselves)"""
+    """Return identity matrix as `list` of "vectors" (lists themselves)."""
     m = [dimension * [0] for i in range(dimension)]
     # m = N * [N * [0]] fails because it gives N times the same reference
     for i in range(dimension):
@@ -853,7 +870,9 @@ def eye(dimension):
 def dot(A, b, transpose=False):
     """
     Usual dot product of "matrix" A with "vector" b.
-    ``A[i]`` is the i-th row of A. Uses transposed A if ``transpose`` is ``True``.
+
+    Uses transposed A if ``transpose`` is ``True``.
+    ``A[i]`` is the i-th row of A.
     """
     if transpose:
         return [sum(A[j][i] * b[j] for j in range(len(b)))
@@ -862,17 +881,18 @@ def dot(A, b, transpose=False):
             for i in range(len(A))]
 
 def plus(a, b):
-    """Add vectors, return a + b"""
+    """Add vectors and return a + b."""
     return [a[i] + b[i] for i in range(len(a))]
 
 def minus(a, b):
-    """Subtract vectors, return a - b"""
+    """Subtract vectors and return a - b."""
     return [a[i] - b[i] for i in range(len(a))]
 
 def argsort(a):
     """
-    Return index list to get `a` in order, i.e.
-    ``a[argsort(a)[i]] == sorted(a)[i]``
+    Return index list that would order `a`.
+
+    I.e., ``a[argsort(a)[i]] == sorted(a)[i].``.
     """
     return sorted(range(len(a)), key=a.__getitem__)  # a.__getitem__(i) is a[i]
 
@@ -884,7 +904,7 @@ def safe_str(s, known_words=None):
     surrounded with a space, which the caller considers safe to evaluate
     with `eval` afterwards.
 
-    Known issues::
+    Known issue::
 
         >>> from cma.purecma import safe_str
         >>> safe_str('int(p)', {'int': 'int', 'p': 3.1})  # fine
@@ -1115,8 +1135,8 @@ def eig(C):
         e[0] = 0.0
 
     # Symmetric tridiagonal QL algorithm, taken from JAMA package.
+    # Needs roughly 3N^3 operations.
     # private void tql2 (int n, double d[], double e[], double V[][]) {
-    # needs roughly 3N^3 operations
     def _tql2(n, d, e, V):
         #  This is derived from the Algol procedures tql2, by
         #  Bowdler, Martin, Reinsch, and Wilkinson, Handbook for
