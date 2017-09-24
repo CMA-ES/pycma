@@ -313,14 +313,15 @@ class CMAES(OOOptimizer):  # could also inherit from object
                 solution vector
             `sigma`: `float`
                 initial step-size (standard deviation in each coordinate)
-            `popsize`: `int` or `str`
+            `popsize`: `int` or `str`, optional
                 population size, number of candidate samples per iteration
-            `maxfevals`: `int` or `str`
-                maximal number of function evaluations, a string is
+            `maxfevals`: `int` or `str`, optional
+                maximal number of function evaluations; a string is
                 evaluated with ``N`` as search space dimension
-            `ftarget`: `float`
+                (and ``popsize`` as population size)
+            `ftarget`: `float`, optional
                 target function value
-            `randn`: `callable`
+            `randn`: `callable`, optional
                 normal random number generator, by default
                 `random.normalvariate`
 
