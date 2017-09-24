@@ -503,7 +503,8 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
 
     Load and plot previously generated data::
 
-        >>> import cma.purecma as pcma
+        >>> try: import cma.purecma as pcma
+        ... except ImportError: import purecma as pcma
         >>> logger = pcma.CMAESDataLogger().load()
         >>> logger.filename == "_CMAESDataLogger_datadict.py"
         True
@@ -515,7 +516,8 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
 
     Use the default logger from `CMAES`::
 
-        >>> import cma.purecma as pcma
+        >>> try: import cma.purecma as pcma
+        ... except ImportError: import purecma as pcma
         >>> es = pcma.CMAES(3 * [0.1], 1)
         >>> isinstance(es.logger, pcma.CMAESDataLogger)  # type(es.logger)
         True
@@ -523,7 +525,7 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         ...     X = es.ask()
         ...     es.tell(X, [pcma.ff.elli(x) for x in X])
         ...     es.logger.add(es)  # doctest: +ELLIPSIS
-        <cma...
+        <...cma.CMAESDataLogger...
 
          >> es.logger.plot()
 
@@ -906,7 +908,8 @@ def safe_str(s, known_words=None):
 
     Known issue::
 
-        >>> from cma.purecma import safe_str
+        >>> try: from cma.purecma import safe_str
+        ... except ImportError: from purecma import safe_str
         >>> safe_str('int(p)', {'int': 'int', 'p': 3.1})  # fine
         ' int ( 3.1 )'
         >>> safe_str('int(n)', {'int': 'int', 'n': 3.1})  # unexpected
