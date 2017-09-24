@@ -6,32 +6,32 @@
 The optimisation test functions are represented as classes `F1` to
 `F24` (and `F101` to `F130`).
 
-This module implements the class :py:class:`BBOBFunction` and
+This module implements the class `BBOBFunction` and
 sub-classes:
 
-* :py:class:`BBOBNfreeFunction` which have all the methods common to the
-  classes :py:class:`F1` to :py:class:`F24`
-* :py:class:`BBOBGaussFunction`, :py:class:`BBOBCauchyFunction`,
-  :py:class:`BBOBUniformFunction` which have methods in classes from
-  :py:class:`F101` to :py:class:`F130`
+* class `BBOBNfreeFunction` which have all the methods common to the
+  classes `F1` to `F24`
+* classes `BBOBGaussFunction`, `BBOBCauchyFunction`,
+  `BBOBUniformFunction` which have methods in classes from
+  `F101` to `F130`
 
 Module attributes:
 
-* :py:data:`dictbbob` is a dictionary such that dictbbob[2] contains
+* `dictbbob` is a dictionary such that dictbbob[2] contains
   the test function class F2 and f2 = dictbbob[2]() returns
   the instance 0 of the test function that can be
   called as f2([1,2,3]).
-* :py:data:`nfreeIDs` == range(1,25) indices for the noiseless functions that can be
+* `nfreeIDs` == range(1,25) indices for the noiseless functions that can be
   found in dictbbob
-* :py:data:`noisyIDs` == range(101, 131) indices for the noisy functions that can be
+* `noisyIDs` == range(101, 131) indices for the noisy functions that can be
   found in dictbbob. We have nfreeIDs + noisyIDs == sorted(dictbbob.keys())
-* :py:data:`nfreeinfos` function infos
+* `nfreeinfos` function infos
 
 Examples:
 
->>> import bbobbenchmarks as bn
+>>> from cma import bbobbenchmarks as bn
 >>> for s in bn.nfreeinfos:
-...    print s
+...    print(s)
 1: Noise-free Sphere function
 2: Separable ellipsoid with monotone transformation
 <BLANKLINE>
@@ -65,21 +65,49 @@ Examples:
 <BLANKLINE>
 <BLANKLINE>
 >>> f3 = bn.F3(13)  # instantiate instance 13 of function f3
->>> f3([0, 1, 2]) # short-cut for f3.evaluate([0, 1, 2])
-59.87335291
->>> print bn.instantiate(5)[1]  # returns function instance and optimal f-value
+>>> f3([0, 1, 2]) # short-cut for f3.evaluate([0, 1, 2]) # doctest:+ELLIPSIS
+59.8733529...
+>>> print(bn.instantiate(5)[1])  # returns function instance and optimal f-value
 51.53
->>> print bn.nfreeIDs # list noise-free functions
+>>> print(bn.nfreeIDs) # list noise-free functions
 [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 >>> for i in bn.nfreeIDs: # evaluate all noiseless functions once
-...    print bn.instantiate(i)[0]([0., 0., 0., 0.]),
--77.27454592 6180022.82173 92.9877507529 92.9877507529 140.510117618 70877.9554128 -72.5505202195 33355.7924722 -339.94 4374717.49343 15631566.3487 4715481.0865 550.599783901 -17.2991756229 27.3633128519 -227.827833529 -24.3305918781 131.420159348 40.7103737427 6160.81782924 376.746889545 107.830426761 220.482266557 106.094767386
+...    print(bn.instantiate(i)[0]([0., 0., 0., 0.]))
+-77.27454592
+6180022.82173
+92.9877507529
+92.9877507529
+140.510117618
+70877.9554128
+-72.5505202195
+33355.7924722
+-339.94
+4374717.49343
+15631566.3487
+4715481.0865
+550.599783901
+-17.2991756229
+27.3633128519
+-227.827833529
+-24.3305918781
+131.420159348
+40.7103737427
+6160.81782924
+376.746889545
+107.830426761
+220.482266557
+106.094767386
 
 """
 
 # TODO: define interface for this module.
 # TODO: funId is expected to be a number since it is used as rseed.
 
+from __future__ import print_function
+try:
+    xrange
+except NameError:
+    xrange = range
 import warnings
 from pdb import set_trace
 import numpy as np
@@ -361,10 +389,10 @@ class AbstractTestFunction(object):
 
         Example:
 
-            >>> import bbobbenchmarks as bn
+            >>> from cma import bbobbenchmarks as bn
             >>> f3 = bn.F3(13) # instantiate function 3 on instance 13
-            >>> f3([0, 1, 2])  # call f3, same as f3.evaluate([0, 1, 2])
-            59.87335291
+            >>> 59.8733529 < f3([0, 1, 2]) < 59.87335292 # call f3, same as f3.evaluate([0, 1, 2])
+            True
 
         """
         return self.evaluate(x)
@@ -440,7 +468,7 @@ class BBOBFunction(AbstractTestFunction):
         self.dim = None
         self.lastshape = None
         self.param = param
-        for i, v in kwargs.iteritems():
+        for i, v in kwargs.items():
             setattr(self, i, v)
         self._xopt = None
 

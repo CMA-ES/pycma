@@ -36,7 +36,8 @@ import os, sys
 import doctest
 del absolute_import, division, print_function  #, unicode_literals
 
-files_for_doctest = ['constraints_handler.py',
+files_for_doctest = ['bbobbenchmarks.py',
+                     'constraints_handler.py',
                      'evolution_strategy.py',
                      'fitness_functions.py',
                      'fitness_transformations.py',
