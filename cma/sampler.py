@@ -127,7 +127,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         the O(n^3) updates of the sampler. All values <=1 behave
         identically.
 
-    :param constant_trace='None': 'arithmetic'/'aeigen' or 'geometric'
+    :param constant_trace='': 'arithmetic'/'aeigen' or 'geometric'
         or 'geigen' (geometric mean of eigenvalues) are available to be
         constant.
 
@@ -167,7 +167,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     """
     def __init__(self, dimension,
                  lazy_update_gap=0,
-                 constant_trace='None',
+                 constant_trace='',
                  randn=np.random.randn,
                  eigenmethod=np.linalg.eigh):
         try:
@@ -324,18 +324,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         state variables can get into an inconsistent state.
 
         """
-        if self.constant_trace.startswith(('arith', 'mean')):
-            s = np.mean(self.dC)
-        elif self.constant_trace.startswith(('geom')):
-            s = np.exp(np.mean(np.log(self.dC)))
-        elif self.constant_trace.startswith('aeigen'):
-            s = np.mean(self.D**2)
-        elif self.constant_trace.startswith('geigen'):
-            s = np.exp(2 * np.mean(np.log(self.D)))
-        else:
-            s = 1
-        self.C = (self.C + self.C.T) / (2 * s)
-        self.dC = np.diag(self.C)
+        self.C = (self.C + self.C.T) / 2
         D_old = self.D
         try:
             self.D, self.B = self.eigenmethod(self.C)
@@ -358,13 +347,28 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self._decompose_C()
         else:
             assert all(np.isfinite(self.D))
+            if self.constant_trace.startswith(('arith', 'mean')):
+                s = sum(self.dC)
+            elif self.constant_trace.startswith(('geom')):
+                s = np.exp(np.mean(np.log(self.dC)))
+            elif self.constant_trace.startswith('aeigen'):
+                s = np.mean(self.D)  # same as arith
+            elif self.constant_trace.startswith('geigen'):
+                s = np.exp(2 * np.mean(np.log(self.D)))
+            else:
+                s = 1
+            if s != 1:
+                self.C /= s
+                self.dC /= s
+                self.D /= s
             self.D **= 0.5
-            idx = np.argsort(self.D)
-            self.D = self.D[idx]
-            # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
-            self.B = self.B[:, idx]
-            assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
-            if 11 < 3:  # not needed for now
+            if 1 < 3:  # is only n*log(n) compared to n**3 of eig right above
+                idx = np.argsort(self.D)
+                self.D = self.D[idx]
+                # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
+                self.B = self.B[:, idx]
+                assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
+            if 11 < 3:  # see transform_inverse
                 self.inverse_root_C = np.dot(self.B / self.D, self.B.T)
                 self.inverse_root_C = (self.inverse_root_C + self.inverse_root_C.T) / 2
             self.count_eigen += 1

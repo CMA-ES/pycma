@@ -47,9 +47,11 @@ except ImportError:
     BBOB = """Call::
         cma.ff.fetch_bbob_fcts()
     to download and extract `bbobbenchmarks.py` and thereby setting
-    cma.FF.BBOB to these benchmarks; then, e.g., `F12 = cma.FF.BBOB.F12()`
+    cma.ff.BBOB to these benchmarks; then, e.g., `F12 = cma.ff.BBOB.F12()`
     returns an instance of F12 Bent Cigar.
 
+    CAVEAT: in the downloaded `bbobbenchmarks.py` file in L987
+    ``np.negative(idx)`` needs to be replaced by ``~idx``.
     """
 from .fitness_transformations import rotate  #, ComposedFunction, Function
 
@@ -58,6 +60,8 @@ def elli(x):
     as the other test functions are defined within a class and
     only accessable via the class instance"""
     return sum(1e6**(np.arange(len(x)) / (len(x) - 1 + 1e-9)) * np.asarray(x)**2)
+def sphere(x):
+    return sum(np.asarray(x)**2)
 
 def _iqr(x):
     x = sorted(x)

@@ -6,7 +6,7 @@ CMA-ES is a stochastic optimizer for robust non-linear non-convex
 derivative- and function-value-free numerical optimization.
 
 This implementation can be used with Python versions >= 2.6, namely
-2.6, 2.7, 3.3, 3.4, 3.5.
+2.6, 2.7, 3.3, 3.4, 3.5, 3.6.
 
 CMA-ES searches for a minimizer (a solution x in :math:`R^n`) of an
 objective function f (cost function), such that f(x) is minimal.
@@ -16,27 +16,26 @@ itself, nor the gradient of f need to be available or do matter (like
 in the downhill simplex Nelder-Mead algorithm). Some termination
 criteria however depend on actual f-values.
 
-Two interfaces are provided:
+The `cma` module provides two independent implementations of the
+CMA-ES algorithm in the classes `cma.CMAEvolutionStrategy` and
+`cma.purecma.CMAES`.
 
-- function `fmin`:
-    runs a complete minimization of the objective function func with
-    CMA-ES. Provides optional restarts and noise handling.
+In each implementation two interfaces are provided:
 
-- class `CMAEvolutionStrategy`:
-    allows for minimization such that the control of the iteration
+- functions `fmin` and `purecma.fmin`:
+    run a complete minimization of the passed objective function with
+    CMA-ES. `fmin` also provides optional restarts and noise handling.
+
+- class `CMAEvolutionStrategy` and `purecma.CMAES`:
+    allow for minimization such that the control of the iteration
     loop remains with the user.
 
-The package root provides shortcuts to these and other frequently used
-classes and functions.
+The `cma` package root provides shortcuts to these and other classes and
+functions.
 
-Used external packages:
-
-- unavoidable: `numpy` (see `barecmaes2.py` if `numpy` is not
-  available),
-- avoidable with small changes: `time`, `sys`
-- optional: `matplotlib.pyplot` (for `plot` etc., highly
-  recommended), `pprint` (pretty print), `pickle` (in class
-  `Sections`), `doctest`, `inspect`, `pygsl` (never by default)
+Used external packages are `numpy` (only `purecma` does not depend on
+`numpy`) and `matplotlib.pyplot` (for `plot` etc., optional but highly
+recommended).
 
 Install
 =======
@@ -143,7 +142,7 @@ del division, print_function, absolute_import, with_statement  #, unicode_litera
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
 __author__ = 'Nikolaus Hansen'
-__version__ = "2.3.0  $Revision: 4402 $ $Date: 2017-08-20 14:50:15 +0200 (Sun, 20 Aug 2017) $"
+__version__ = "2.3.1  $Revision: 4404 $ $Date: 2017-09-10 13:00:32 +0200 (Sun, 10 Sep 2017) $"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
-# $Id: __init__.py 4402 2017-08-20 12:50:15Z hansen $
+# $Id: __init__.py 4404 2017-09-10 11:00:32Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py

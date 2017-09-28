@@ -403,7 +403,7 @@ cma_default_options = {
     'CMA_cmean': '1  # learning rate for the mean value',
     'CMA_const_trace': 'False  # normalize trace, value CMA_const_trace=2 normalizes sum log eigenvalues to zero',
     'CMA_diagonal': '0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
-    'CMA_eigenmethod': 'np.linalg.eigh  # 0=numpy-s eigh, -1=pygsl, otherwise cma.utils.eig (slower)',
+    'CMA_eigenmethod': 'np.linalg.eigh  # or cma.utils.eig or pygsl.eigen.eigenvectors',
     'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
     'CMA_mirrors': 'popsize < 6  # values <0.5 are interpreted as fraction, values >1 as numbers (rounded), otherwise about 0.16 is used',
     'CMA_mirrormethod': '2  # 0=unconditional, 1=selective, 2=selective with delay',
@@ -1529,7 +1529,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 p = self.sm.parameters(mueff=self.sp.weights.mueff,
                                        lam=self.sp.weights.lambda_)
                 self.sp.weights.finalize_negative_weights(N, p['c1'], p['cmu'])
-            elif isinstance(self.opts['CMA_sampler'], type):  # type(...) is type, inspect.isclass(.)
+            elif isinstance(self.opts['CMA_sampler'], type):
                 try:
                     self.sm = self.opts['CMA_sampler'](
                                 stds * np.ones(N),
