@@ -110,7 +110,7 @@ class BoundaryHandlerBase(object):
     def has_bounds(self):
         """return `True` if any variable is bounded"""
         bounds = self.bounds
-        if bounds in (None, [None, None]):
+        if bounds is None or all(b is None for b in bounds):
             return False
         for ib, bound in enumerate(bounds):
             if bound is not None:
