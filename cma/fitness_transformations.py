@@ -33,23 +33,23 @@ class EvalParallel(object):
     `multiprocessing.pool.ApplyResult.get` method which raises
     `multiprocessing.TimeoutError` in case.
 
-    Examples::
+    Examples:
 
-        >>> import cma
-        >>> from cma.fitness_transformations import EvalParallel
-        >>> # class usage, don't forget to call terminate
-        >>> ep = EvalParallel()
-        >>> ep(cma.fitness_functions.elli, [[1,2], [3,4], [4, 5]])  # doctest:+ELLIPSIS
-        [4000000.944...
-        >>> ep.terminate()
-        ...
-        >>> # use with `with` statement (context manager)
-        >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, dict(verbose=-9))
-        >>> with EvalParallel(12) as eval_all:
-        ...     while not es.stop():
-        ...         X = es.ask()
-        ...         es.tell(X, eval_all(cma.fitness_functions.elli, X))
-        >>> assert es.result[1] < 1e-13 and es.result[2] < 1500
+    >>> import cma
+    >>> from cma.fitness_transformations import EvalParallel
+    >>> # class usage, don't forget to call terminate
+    >>> ep = EvalParallel()
+    >>> ep(cma.fitness_functions.elli, [[1,2], [3,4], [4, 5]])  # doctest:+ELLIPSIS
+    [4000000.944...
+    >>> ep.terminate()
+    ...
+    >>> # use with `with` statement (context manager)
+    >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, dict(verbose=-9))
+    >>> with EvalParallel(12) as eval_all:
+    ...     while not es.stop():
+    ...         X = es.ask()
+    ...         es.tell(X, eval_all(cma.fitness_functions.elli, X))
+    >>> assert es.result[1] < 1e-13 and es.result[2] < 1500
 
     Parameters: the `EvalParallel` constructor takes the number of
     processes as optional input argument, which is by default
@@ -78,8 +78,8 @@ class EvalParallel(object):
                        " `multiprocessing`")
         if isinstance(fitness_function, type(self.__init__)):
             print(warning_str)
-        jobs = [self.pool.apply_async(fitness_function,
-                                      (x,) + args) for x in solutions]
+        jobs = [self.pool.apply_async(fitness_function, (x,) + args)
+                for x in solutions]
         try:
             return [job.get(timeout) for job in jobs]
         except:
