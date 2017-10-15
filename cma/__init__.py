@@ -132,7 +132,7 @@ else:
     from . import s
     from .fitness_functions import ff
     from .fitness_transformations import GlueArguments, ScaleCoordinates
-    from .evolution_strategy import fmin, CMAEvolutionStrategy, CMAOptions, CMADataLogger
+    from .evolution_strategy import fmin, fmin2, CMAEvolutionStrategy, CMAOptions, CMADataLogger
     from .evolution_strategy import disp, plot
     from .optimization_tools import NoiseHandler
     from .constraints_handler import BoundPenalty, BoundTransform
@@ -142,7 +142,7 @@ del division, print_function, absolute_import, with_statement  #, unicode_litera
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
 __author__ = 'Nikolaus Hansen'
-__version__ = "2.4.1  $Revision: 4408 $ $Date: 2017-10-07 16:12:32 +0200 (Sat, 07 Oct 2017) $"
+__version__ = "2.4.2  $Revision: 4409 $ $Date: 2017-10-16 17:30:09 +0200 (Mon, 16 Oct 2017) $"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
-# $Id: __init__.py 4408 2017-10-07 14:12:32Z hansen $
+# $Id: __init__.py 4409 2017-10-16 15:30:09Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py

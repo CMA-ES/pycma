@@ -8,7 +8,7 @@ All classes are supposed to follow the base class
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 from .utilities.python3for2 import range
 import numpy as np
-from .utilities.utils import rglen
+from .utilities.utils import rglen, print_warning
 from .interfaces import StatisticalModelSamplerWithZeroMeanBaseClass
 del absolute_import, division, print_function  #, unicode_literals
 
@@ -196,6 +196,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.D = self.D[idx]
         self.B = self.B[:, idx]
         "axis lengths, roots of eigenvalues, sorted"
+        self._inverse_root_C = None  # see transform_inv...
         self.last_update = 0
         self.count_tell = 0
         self.count_eigen = 0
@@ -331,18 +332,18 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             if any(self.D <= 0):
                 raise ValueError(
                     "covariance matrix was not positive definite"
-                    " with a minimal eigenvalue of %f."
-                    " This must be considered as a bug"
-                      % min(self.D))
+                    " with a minimal eigenvalue of %e." % min(self.D))
         except Exception as e:  # "as" is available since Python 2.6
-            raise RuntimeWarning(
+            # raise RuntimeWarning(  # raise doesn't recover
+            print_warning(
                 "covariance matrix eigen decomposition failed with \n"
-                + str(e))
+                + str(e) +
+                "\nConsider to reformulate the objective function")
             # try again with diag(C) = diag(C) + min(eigenvalues(C_old))
             min_di2 = min(D_old)**2
             for i in range(self.dimension):
                 self.C[i][i] += min_di2
-            self.dC += min_di2
+            self.dC = np.diag(self.C)
             self.D = (D_old**2 + min_di2)**0.5
             self._decompose_C()
         else:
@@ -368,9 +369,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
                 self.B = self.B[:, idx]
                 assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
-            if 11 < 3:  # see transform_inverse
-                self.inverse_root_C = np.dot(self.B / self.D, self.B.T)
-                self.inverse_root_C = (self.inverse_root_C + self.inverse_root_C.T) / 2
+            self._inverse_root_C = None
             self.count_eigen += 1
 
     def multiply_C(self, factor):
@@ -414,7 +413,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
         If ``B = sm.to_linear_transformation()`` and z ~ N(0, I), then
         np.dot(B, z) ~ Normal(0, sm.C) and sm.C and B have the same
-        eigenvectors. With `reset=True`, also ``np.dot(B, sm.sample(1)[0])``
+        eigenvectors. With `reset=True`, ``np.dot(B, sm.sample(1)[0])``
         obeys the same distribution after the call.
 
         See also: `to_unit_matrix`
@@ -478,6 +477,12 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     def transform_inverse(self, x):
         """apply inverse linear transformation ``C**-0.5`` to `x`."""
+        if 22 < 3:
+            if self._inverse_root_C is None:
+                # is O(N^3)
+                self._inverse_root_C = np.dot(self.B / self.D, self.B.T)
+                self._inverse_root_C = (self._inverse_root_C + self._inverse_root_C.T) / 2
+            return self._inverse_root_C
         return np.dot(self.B, np.dot(self.B.T, x) / self.D)
 
     @property
@@ -717,7 +722,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     def correlation_matrix(self):
         """return correlation matrix of the distribution.
         """
-        return np.diag(self.C**0.5)
+        return np.eye(self.dimension)
 
     def to_correlation_matrix(self):
         """"re-scale" C to a correlation matrix and return the scaling

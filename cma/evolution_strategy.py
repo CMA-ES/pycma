@@ -1851,7 +1851,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # update distribution, might change self.mean
 
         if not self.opts['tolconditioncov'] or not np.isfinite(self.opts['tolconditioncov']):
-            self.alleviate_conditioning_in_coordinates(1e8)
+            self.alleviate_conditioning_in_coordinates(1e7)
             self.alleviate_conditioning(1e12)
 
         xmean_arg = xmean
@@ -2819,10 +2819,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if max(self.dC) / min(self.dC) > condition:
             # allows for much larger condition numbers, if axis-parallel
             if hasattr(self, 'sm') and isinstance(self.sm, sampler.GaussFullSampler):
-                self.sigma_vec *= self.sm.to_correlation_matrix()
+                old_coordinate_condition = max(self.dC) / min(self.dC)
+                old_condition = self.sm.condition_number
+                factors = self.sm.to_correlation_matrix()
+                self.sigma_vec *= factors
+                self.pc /= factors
                 self._updateBDfromSM(self.sm)
-                utils.print_message('condition in coordinate system exceeded'
-                                    + ' 1e8, rescaled to 1')
+                utils.print_message('\ncondition in coordinate system exceeded'
+                                    ' %.1e, rescaled to %.1e, '
+                                    '\ncondition changed from %.1e to %.1e'
+                                      % (old_coordinate_condition, max(self.dC) / min(self.dC),
+                                         old_condition, self.sm.condition_number),
+                                    iteration=self.countiter)
 
     def alleviate_conditioning(self, condition=1e12):
         """pass conditioning of `C` to linear transformation in `self.gp`.
@@ -2838,29 +2846,55 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if not self.gp.isidentity or self.condition_number < condition:
             return
         try:
+            old_condition_number = self.condition_number
             tf_inv = self.sm.to_linear_transformation_inverse()
             tf = self.sm.to_linear_transformation(reset=True)
+            self.pc = np.dot(tf_inv, self.pc)
+            old_C_scales = self.dC**0.5
+            self._updateBDfromSM(self.sm)
         except NotImplementedError:
+            utils.print_warning("Not Implemented",
+                                method_name="alleviate_conditioning")
             return
         self._updateBDfromSM(self.sm)
         # dmean_prev = np.dot(self.B, (1. / self.D) * np.dot(self.B.T, (self.mean - 0*self.mean_old) / self.sigma_vec))
-        self.gp._tf_matrix = (self.sigma_vec * tf.T).T
-        self.gp._tf_matrix_inv = (tf_inv.T / self.sigma_vec).T
+
+        # we may like to traverse tf through sigma_vec such that
+        #       gp.tf * sigma_vec == sigma_vec * tf
+        # but including sigma_vec shouldn't pose a problem even for
+        # a large scaling which essentially just changes the exponents
+        # uniformly in the rows of tf
+        self.gp._tf_matrix = (self.sigma_vec * tf.T).T  # sig*tf.T .*-multiplies each column of tf with sig
+        self.gp._tf_matrix_inv = tf_inv / self.sigma_vec  # here was the bug
+        self.sigma_vec = transformations.DiagonalDecoding(1)
+
+        # TODO: refactor old_scales * old_sigma_vec into sigma_vec0 to prevent tolfacupx stopping
+
         self.gp.tf_pheno = lambda x: np.dot(self.gp._tf_matrix, x)
         self.gp.tf_geno = lambda x: np.dot(self.gp._tf_matrix_inv, x)  # not really necessary
         self.gp.isidentity = False
         assert self.mean is not self.mean_old
-        self.mean = self.gp.geno(self.mean)  # same as tf_geno
-        self.mean_old = self.gp.geno(self.mean_old)  # not needed!?
-        self.pc = self.gp.geno(self.pc)
-        self.sigma_vec = transformations.DiagonalDecoding(1)
+
+        # transform current mean and injected solutions accordingly
+        self.mean = self.gp.tf_geno(self.mean)  # same as gp.geno()
+        for i, x in enumerate(self.pop_injection_solutions):
+            self.pop_injection_solutions[i] = self.gp.tf_geno(x)
+        for i, x in enumerate(self.pop_injection_directions):
+            self.pop_injection_directions[i] = self.gp.tf_geno(x)
+
+        self.mean_old = self.gp.tf_geno(self.mean_old)  # not needed!?
+
+        # self.pc = self.gp.geno(self.pc)  # now done above, which is a better place
+
         # dmean_now = np.dot(self.B, (1. / self.D) * np.dot(self.B.T, (self.mean - 0*self.mean_old) / self.sigma_vec))
         # assert Mh.vequals_approximately(dmean_now, dmean_prev)
-        utils.print_warning('''geno-pheno transformation introduced based
-        on the current covariance matrix, injected solutions become
-        "invalid" in this iteration''',
-                       'alleviate_conditioning', 'CMAEvolutionStrategy',
-                            self.countiter)
+        utils.print_warning('''
+        geno-pheno transformation introduced based on the
+        current covariance matrix with condition %.1e -> %.1e,
+        injected solutions become "invalid" in this iteration'''
+                        % (old_condition_number, self.condition_number),
+            'alleviate_conditioning', 'CMAEvolutionStrategy',
+            self.countiter)
 
     def _updateBDfromSM(self, sm_=None):
         """helper function for a smooth transition to sampling classes.
@@ -3498,6 +3532,45 @@ class _CMAParameters(object):
 
     def disp(self):
         pprint(self.__dict__)
+
+
+def fmin2(*args, **kwargs):
+    """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``.
+
+    Hence a typical calling pattern may be::
+
+        x, es = cma.fmin2(...)
+        es = cma.fmin2(...)[1]  # `es` still contains all information
+        x = cma.fmin2(...)[0]   # get only the best evaluated solution
+
+    `fmin2` is an alias for::
+
+        res = fmin(...)
+        return res[0], res[-2]
+
+    `fmin` from `fmin2` is::
+
+        es = fmin2(...)[1]  # fmin2(...)[0] is es.result[0]
+        return es.result + (es.stop(), es, es.logger)
+
+    The best found solution is equally available under::
+
+        fmin(...)[0]
+        fmin2(...)[0]
+        fmin2(...)[1].result[0]
+        fmin2(...)[1].result.xbest
+        fmin2(...)[1].best.x
+
+    The incumbent, current estimate for the optimum is available under::
+
+        fmin(...)[5]
+        fmin2(...)[1].result[5]
+        fmin2(...)[1].result.xfavorite
+
+    """
+    res = fmin(*args, **kwargs)
+    return res[0], res[-2]
+
 
 def fmin(objective_function, x0, sigma0,
          options=None,
