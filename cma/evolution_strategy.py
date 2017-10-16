@@ -1310,7 +1310,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         del self.inputargs['self']  # otherwise the instance self has a cyclic reference
         self.inopts = inopts
         opts = CMAOptions(inopts).complement()  # CMAOptions() == fmin([],[]) == defaultOptions()
-        global_verbosity = opts.eval('verbose')
+        utils.global_verbosity = global_verbosity = opts.eval('verbose')
         if global_verbosity < -8:
             opts['verb_disp'] = 0
             opts['verb_log'] = 0
