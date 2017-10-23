@@ -1616,10 +1616,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 print(type(x0), x0)
             x0 = eval(x0)
         self.x0 = array(x0, dtype=float, copy=True)  # should not have column or row, is just 1-D
-        if self.x0.ndim == 2:
-            if self.opts.eval('verbose') >= 0:
-                utils.print_warning('input x0 should be a list or 1-D array, trying to flatten ' +
-                                    str(self.x0.shape) + '-array')
+        if self.x0.ndim == 2 and 1 in self.x0.shape:
+            utils.print_warning('input x0 should be a list or 1-D array, trying to flatten ' +
+                                str(self.x0.shape) + '-array')
             if self.x0.shape[0] == 1:
                 self.x0 = self.x0[0]
             elif self.x0.shape[1] == 1:
