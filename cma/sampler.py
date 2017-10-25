@@ -146,7 +146,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     >>> g.update([[4., 0., 0.,0]], [.5])
     >>> g.update_now()
     >>> g *= 2
-    >>> assert cma.utilities.math.Mh.equals_approximately(g.dC[0], 17)
+    >>> assert cma.utilities.math.Mh.equals_approximately(g.variances[0], 17)
     >>> assert cma.utilities.math.Mh.equals_approximately(g.D[-1]**2, 17)
 
     TODO
@@ -187,11 +187,9 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.constant_trace = constant_trace
         self.randn = randn
         self.eigenmethod = eigenmethod
-        self.dC = np.diag(self.C)
-        "diagonal of the covariance matrix"
         self.B = np.eye(self.dimension)
         "columns, B.T[i] == B[:, i], are eigenvectors of C"
-        self.D = self.dC**0.5  # we assume that C is diagonal
+        self.D = np.diag(self.C)**0.5  # we assume that C is yet diagonal
         idx = self.D.argsort()
         self.D = self.D[idx]
         self.B = self.B[:, idx]
@@ -217,7 +215,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def variances(self):
-        return self.dC
+        return np.diag(self.C)
 
     def sample(self, number, lazy_update_gap=None, same_length=False):
         self.update_now(lazy_update_gap)
@@ -270,7 +268,6 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             weights[k] *= len(vectors[k]) / (1e-9 + self.norm(vectors[k])**2)
 
         self.C += np.dot(weights * vectors.T, vectors)
-        self.dC = np.diag(self.C)  # for output and termination checking
 
         self.count_tell += 1
 
@@ -343,15 +340,14 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             min_di2 = min(D_old)**2
             for i in range(self.dimension):
                 self.C[i][i] += min_di2
-            self.dC = np.diag(self.C)
             self.D = (D_old**2 + min_di2)**0.5
             self._decompose_C()
         else:
             assert all(np.isfinite(self.D))
             if self.constant_trace.startswith(('arith', 'mean')):
-                s = sum(self.dC)
+                s = sum(self.variances)
             elif self.constant_trace.startswith(('geom')):
-                s = np.exp(np.mean(np.log(self.dC)))
+                s = np.exp(np.mean(np.log(self.variances)))
             elif self.constant_trace.startswith('aeigen'):
                 s = np.mean(self.D)  # same as arith
             elif self.constant_trace.startswith('geigen'):
@@ -360,7 +356,6 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 s = 1
             if s != 1:
                 self.C /= s
-                self.dC /= s
                 self.D /= s
             self.D **= 0.5
             if 1 < 3:  # is only n*log(n) compared to n**3 of eig right above
@@ -385,7 +380,6 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         if np.isscalar(factor):
             self.C *= factor
             self.D *= factor**0.5
-            self.dC = np.diag(self.C)
             try:
                 self.inverse_root_C /= factor**0.5
             except AttributeError:
@@ -482,7 +476,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 # is O(N^3)
                 self._inverse_root_C = np.dot(self.B / self.D, self.B.T)
                 self._inverse_root_C = (self._inverse_root_C + self._inverse_root_C.T) / 2
-            return self._inverse_root_C
+            return np.dot(self._inverse_root_C, x)
         return np.dot(self.B, np.dot(self.B.T, x) / self.D)
 
     @property
@@ -539,6 +533,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         X = [mean - fac * sigma * self.D[0] * self.B[0], mean,
              mean + fac * sigma * self.D[0] * self.B[0]]
         F = [f(x) for x in X]
+        raise NotImplementedError
 
 class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     """Multi-variate normal distribution with zero mean and diagonal

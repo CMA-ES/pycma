@@ -114,9 +114,10 @@ def various_doctests():
     finds the local optimum, which happens in about 20% of the cases.
 
         >>> import cma
-        >>> res = cma.fmin(cma.ff.rosen, 4*[-1], 1,
-        ...                options={'ftarget':1e-6, 'verb_time':0,
-        ...                    'verb_disp':500, 'seed':3},
+        >>> res = cma.fmin(cma.ff.rosen, 4 * [-1], 0.01,
+        ...                options={'ftarget':1e-6,
+        ...                     'verb_time':0, 'verb_disp':500,
+        ...                     'seed':3},
         ...                restarts=3)
         ...                # doctest: +ELLIPSIS
         (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 4 (seed=3,...)
@@ -130,9 +131,9 @@ def various_doctests():
 
         >>> import cma
         >>> opts = cma.CMAOptions()
-        >>> opts['seed'] = 456
+        >>> opts['seed'] = 4567
         >>> opts['verb_disp'] = 0
-        >>> opts['CMA_active'] = 1  # is default
+        >>> opts['CMA_const_trace'] = True
         >>> # rescaling of third variable: for searching in  roughly
         >>> #   x0 plus/minus 1e3*sigma0 (instead of plus/minus sigma0)
         >>> opts['scaling_of_variables'] = [1, 1, 1e3, 1]
