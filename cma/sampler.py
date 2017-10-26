@@ -344,19 +344,23 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self._decompose_C()
         else:
             assert all(np.isfinite(self.D))
-            if self.constant_trace.startswith(('arith', 'mean')):
-                s = sum(self.variances)
-            elif self.constant_trace.startswith(('geom')):
-                s = np.exp(np.mean(np.log(self.variances)))
-            elif self.constant_trace.startswith('aeigen'):
-                s = np.mean(self.D)  # same as arith
-            elif self.constant_trace.startswith('geigen'):
-                s = np.exp(2 * np.mean(np.log(self.D)))
+            if not self.constant_trace:
+                s = 1
+            elif self.constant_trace in (1, True) or self.constant_trace.startswith(('ar', 'mean')):
+                s = 1 / np.mean(self.variances)
+            elif self.constant_trace.startswith(('geo')):
+                s = np.exp(-np.mean(np.log(self.variances)))
+            elif self.constant_trace.startswith('aeig'):
+                s = 1 / np.mean(self.D)  # same as arith
+            elif self.constant_trace.startswith('geig'):
+                s = np.exp(-np.mean(np.log(self.D)))
             else:
+                print_warning("trace normalization option '%s' not recognized (further warnings will be surpressed)" % str(self.constant_trace),
+                              class_name='GaussFullSampler', maxwarns=1, iteration=self.count_eigen + 1)
                 s = 1
             if s != 1:
-                self.C /= s
-                self.D /= s
+                self.C *= s
+                self.D *= s
             self.D **= 0.5
             if 1 < 3:  # is only n*log(n) compared to n**3 of eig right above
                 idx = np.argsort(self.D)
@@ -477,7 +481,10 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 self._inverse_root_C = np.dot(self.B / self.D, self.B.T)
                 self._inverse_root_C = (self._inverse_root_C + self._inverse_root_C.T) / 2
             return np.dot(self._inverse_root_C, x)
+        # works only if x is a vector:
         return np.dot(self.B, np.dot(self.B.T, x) / self.D)
+        # should work regardless:
+        # return np.dot(np.dot(self.B, (self.B / self.D).T, x))
 
     @property
     def condition_number(self):

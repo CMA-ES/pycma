@@ -401,7 +401,7 @@ cma_default_options = {
     'CMA_active': 'True  # negative update, conducted after the original update',
 #    'CMA_activefac': '1  # learning rate multiplier for active update',
     'CMA_cmean': '1  # learning rate for the mean value',
-    'CMA_const_trace': 'False  # normalize trace, value CMA_const_trace=2 normalizes sum log eigenvalues to zero',
+    'CMA_const_trace': 'False  # normalize trace, 1, True, arithm, geom, aeig, geig are valid',
     'CMA_diagonal': '0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
     'CMA_eigenmethod': 'np.linalg.eigh  # or cma.utils.eig or pygsl.eigen.eigenvectors',
     'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
@@ -1510,9 +1510,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         1. / (self.sp.c1 + self.sp.cmu + 1e-23) / self.N / 10
                         if self.opts['updatecovwait'] is None
                         else self.opts['updatecovwait']),
-                    constant_trace={0:'None',
-                                    1:'mean',
-                                    2:'geig'}[self.opts['CMA_const_trace']],
+                    constant_trace=self.opts['CMA_const_trace'],
                     randn=self.opts['randn'],
                     eigenmethod=self.opts['CMA_eigenmethod'],
                     )
