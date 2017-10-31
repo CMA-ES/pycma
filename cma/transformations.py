@@ -172,6 +172,13 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     """implement a bijective, monotonous transformation between
     ``[lb - al, ub + au]`` and ``[lb, ub]``.
 
+    Generally speaking, this transformation aims to resemble ``sin`` to
+    be a smooth (ie. in C^\inf) transformation over R into a bounded
+    interval; then, it also aims to improve over ``sin`` in the
+    following two ways: (i) resemble the identity over an interval as
+    large possible while keeping the second derivative in reasonable
+    limits, and (ii) numerical stability in "pathological" corner cases.
+
     The transformation is the identity (and therefore linear) in ``[lb
     + al, ub - au]`` (typically about 90% of the interval) and
     quadratic in ``[lb - 3*al, lb + al]`` and in ``[ub - au,
@@ -184,10 +191,11 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
 
     Partly due to numerical considerations depend the values ``al`` and
     ``au`` on ``abs(lb)`` and ``abs(ub)`` which makes the
-    transformation non-translation invariant. In particular increases the
-    interval In contrast to ``sin(.)``,
-    the transformation is robust to "arbitrary" values for boundaries,
-    e.g. a lower bound of ``-1e99`` or ``np.Inf`` or ``None``.
+    transformation non-translation invariant. In particular, the linear
+    proportion decreases to zero when ``ub-lb`` becomes small. In
+    contrast to ``sin(.)``, the transformation is also robust to
+    "arbitrary" large values for boundaries, e.g. a lower bound of
+    ``-1e99`` or upper bound of ``np.Inf`` or bound ``None``.
 
     Examples
     ========

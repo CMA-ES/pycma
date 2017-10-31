@@ -233,8 +233,8 @@ def various_doctests():
         >>> while not es.stop():
         ...    X = es.ask()
         ...    es.tell(X, [ftabletrot(x, cond=1e32) for x in X])  # doctest:+ELLIPSIS
-        WARNING ...iteration=257...
-        >>> assert es.countiter < 300 and 'ftarget' in es.stop(), "transformation bug in alleviate_condition?"
+        WARNING ...iteration=2...
+        >>> assert es.countiter < 303 and 'ftarget' in es.stop(), "transformation bug in alleviate_condition?"
 
     Integer handling:
 

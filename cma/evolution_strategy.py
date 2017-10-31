@@ -2550,6 +2550,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         pop_zero = pop - mold
         if c1a + cmu > 0:
             # TODO: make sure cc is 1 / N**0.5 rather than 1 / N
+            # TODO: simplify code: split the c1 and cmu update and call self.sm.update twice
+            #       caveat: for this the decay factor ``c1_times_delta_hsigma - sum(weights)`` should be zero in the second update
             sampler_weights = [c1a] + [cmu * w for w in sp.weights]
             if len(pop_zero) > len(sp.weights):
                 sampler_weights = (
@@ -3285,10 +3287,10 @@ class _CMAStopDict(dict):
             if 1 < 3:  # warn, in case
                 if es.fit.fit[0] == es.fit.fit[-1] == es.best.last.f:
                     utils.print_warning(
-                    """flat fitness (sigma=%.2e).
+                    """flat fitness (f=%f, sigma=%.2e).
                     For small sigma, this could indicate numerical convergence.
                     Otherwise, please (re)consider how to compute the fitness more elaborately.""" %
-                    (es.sigma), iteration=es.countiter)
+                    (es.fit.fit[0], es.sigma), iteration=es.countiter)
             if 1 < 3:  # add stop condition, in case
                 self._addstop('flat fitness',  # message via stopdict
                          len(es.fit.hist) > 9 and

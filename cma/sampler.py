@@ -265,7 +265,14 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.C *= 1 + c1_times_delta_hsigma - sum(weights)
 
         for k in np.nonzero(weights < 0)[0]:
-            weights[k] *= len(vectors[k]) / (1e-9 + self.norm(vectors[k])**2)
+            # normalize and hence limit ||weight * vector|| to a
+            # weight-dependent constant; prevents harm if `vector` is
+            # very long while no real harm is done even if `vector` is
+            # very short (hence divided by a small number)
+            norm = self.norm(vectors[k])
+            assert np.isfinite(norm)  # otherwise we later compute 0 * inf
+            weights[k] *= len(vectors[k]) / (norm + 1e-9)**2
+            assert np.isfinite(weights[k])
 
         self.C += np.dot(weights * vectors.T, vectors)
 
@@ -344,20 +351,24 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self._decompose_C()
         else:
             assert all(np.isfinite(self.D))
-            if not self.constant_trace:
-                s = 1
-            elif self.constant_trace in (1, True) or self.constant_trace.startswith(('ar', 'mean')):
-                s = 1 / np.mean(self.variances)
-            elif self.constant_trace.startswith(('geo')):
-                s = np.exp(-np.mean(np.log(self.variances)))
-            elif self.constant_trace.startswith('aeig'):
-                s = 1 / np.mean(self.D)  # same as arith
-            elif self.constant_trace.startswith('geig'):
-                s = np.exp(-np.mean(np.log(self.D)))
-            else:
-                print_warning("trace normalization option '%s' not recognized (further warnings will be surpressed)" % str(self.constant_trace),
-                              class_name='GaussFullSampler', maxwarns=1, iteration=self.count_eigen + 1)
-                s = 1
+            try:
+                if not self.constant_trace:
+                    s = 1
+                elif self.constant_trace in (1, True) or self.constant_trace.startswith(('ar', 'mean')):
+                    s = 1 / np.mean(self.variances)
+                elif self.constant_trace.startswith(('geo')):
+                    s = np.exp(-np.mean(np.log(self.variances)))
+                elif self.constant_trace.startswith('aeig'):
+                    s = 1 / np.mean(self.D)  # same as arith
+                elif self.constant_trace.startswith('geig'):
+                    s = np.exp(-np.mean(np.log(self.D)))
+                else:
+                    print_warning("trace normalization option setting '%s' not recognized (further warnings will be surpressed)" %
+                                  repr(self.constant_trace),
+                                  class_name='GaussFullSampler', maxwarns=1, iteration=self.count_eigen + 1)
+                    s = 1
+            except AttributeError:
+                raise ValueError("Value '%s' not allowed for constant trace setting" % repr(self.constant_trace))
             if s != 1:
                 self.C *= s
                 self.D *= s
@@ -642,14 +653,10 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     def update(self, vectors, weights, c1_times_delta_hsigma=0):
         """update/learn by natural gradient ascent.
 
-        The natural gradient used for the update is::
+        The natural gradient used for the update of the coordinate-wise
+        variances is::
 
-            np.dot(weights * vectors.T, vectors)
-
-        and equivalently::
-
-            sum([outer(weights[i] * vec, vec)
-                 for i, vec in enumerate(vectors)], axis=0)
+            np.dot(weights, vectors**2)
 
         Details: The weights include the learning rate and
         ``-1 <= sum(weights[idx]) <= 1`` must be `True` for
@@ -664,7 +671,14 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.C *= 1 + c1_times_delta_hsigma - sum(weights)
 
         for k in np.nonzero(weights < 0)[0]:
-            weights[k] *= len(vectors[k]) / self.norm(vectors[k])**2
+            # normalize and hence limit ||weight * vector|| to a
+            # weight-dependent constant; prevents harm if `vector` is
+            # very long while no real harm is done even if `vector` is
+            # very short (hence divided by a small number)
+            norm = self.norm(vectors[k])
+            assert np.isfinite(norm)  # otherwise we later compute 0 * inf
+            weights[k] *= len(vectors[k]) / (norm + 1e-9)**2
+            assert np.isfinite(weights[k])
 
         self.C += np.dot(weights, vectors**2)
 
