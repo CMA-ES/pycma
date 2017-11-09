@@ -36,7 +36,8 @@ import os, sys
 import doctest
 del absolute_import, division, print_function  #, unicode_literals
 
-files_for_doctest = ['constraints_handler.py',
+files_for_doctest = ['bbobbenchmarks.py',
+                     'constraints_handler.py',
                      'evolution_strategy.py',
                      'fitness_functions.py',
                      'fitness_transformations.py',
@@ -113,9 +114,10 @@ def various_doctests():
     finds the local optimum, which happens in about 20% of the cases.
 
         >>> import cma
-        >>> res = cma.fmin(cma.ff.rosen, 4*[-1], 1,
-        ...                options={'ftarget':1e-6, 'verb_time':0,
-        ...                    'verb_disp':500, 'seed':3},
+        >>> res = cma.fmin(cma.ff.rosen, 4 * [-1], 0.01,
+        ...                options={'ftarget':1e-6,
+        ...                     'verb_time':0, 'verb_disp':500,
+        ...                     'seed':3},
         ...                restarts=3)
         ...                # doctest: +ELLIPSIS
         (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 4 (seed=3,...)
@@ -129,9 +131,9 @@ def various_doctests():
 
         >>> import cma
         >>> opts = cma.CMAOptions()
-        >>> opts['seed'] = 456
+        >>> opts['seed'] = 4567
         >>> opts['verb_disp'] = 0
-        >>> opts['CMA_active'] = 1  # is default
+        >>> opts['CMA_const_trace'] = True
         >>> # rescaling of third variable: for searching in  roughly
         >>> #   x0 plus/minus 1e3*sigma0 (instead of plus/minus sigma0)
         >>> opts['scaling_of_variables'] = [1, 1, 1e3, 1]
@@ -212,6 +214,27 @@ def various_doctests():
         ...                  #doctest: +ELLIPSIS
         (3_w,7)-...
         >>> assert res_rot[3] < 2 * res_elli[3]
+
+    Both condition alleviation transformations are applied during this
+    test, first in iteration 62, second in iteration 257:
+
+        >>> import cma
+        >>> ftabletrot = cma.fitness_transformations.Rotated(cma.ff.tablet, seed=10)
+        >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, {
+        ...                                   'tolconditioncov':False,
+        ...                                   'seed': 8,
+        ...                                   'ftarget': 1e-12,
+        ...                                })  # doctest:+ELLIPSIS
+        (4_w...
+        >>> while not es.stop() and es.countiter < 80:
+        ...    X = es.ask()
+        ...    es.tell(X, [cma.ff.elli(x, cond=1e22) for x in X])  # doctest:+ELLIPSIS
+        NOTE ...iteration=62...
+        >>> while not es.stop():
+        ...    X = es.ask()
+        ...    es.tell(X, [ftabletrot(x, cond=1e32) for x in X])  # doctest:+ELLIPSIS
+        WARNING ...iteration=257...
+        >>> assert es.countiter < 300 and 'ftarget' in es.stop(), "transformation bug in alleviate_condition?"
 
     Integer handling:
 

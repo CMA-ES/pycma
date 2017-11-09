@@ -41,8 +41,7 @@ del (division, print_function, absolute_import,
 # bash $: svn propset svn:keywords 'Date Revision Id' fitness_functions.py
 
 try:
-    import bbobbenchmarks
-    BBOB = bbobbenchmarks
+    from . import bbobbenchmarks as BBOB
 except ImportError:
     BBOB = """Call::
         cma.ff.fetch_bbob_fcts()
@@ -69,11 +68,13 @@ def _iqr(x):
     i3 = int(3*len(x) / 4)
     return x[i3] - x[i1]
 
-class FitnessFunctions(object):  # TODO: this class is not necessary anymore? But some is needed to change it
+class FitnessFunctions(object):  # TODO: this class is not necessary anymore? But some effort is needed to change it
     """collection of objective functions.
 
     """
     evaluations = 0  # number of calls or any other practical use
+    def __init__(self):
+        self.BBOB = BBOB
     def rot(self, x, fun, rot=1, args=()):
         """returns ``fun(rotation(x), *args)``, ie. `fun` applied to a rotated argument"""
         if len(np.shape(array(x))) > 1:  # parallelized
@@ -451,14 +452,14 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
             s += 100 * np.abs(y - 0.01 * z**2)**0.5 + 0.01 * np.abs(z + 10)
         return s
 
-    def fetch_bbob_fcts(self):
+    def _fetch_bbob_fcts(self):
         """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
 
         Side effects in the current folder: two files are added and folder
         "._tmp_" is removed.
         """
         # fetch http://coco.lri.fr/downloads/download15.02/bbobpproc.tar.gz
-        bbob_version, fname = '15.02', 'bbobpproc.tar.gz'
+        bbob_version, fname = '15.03', 'bbobpproc.tar.gz'
         url = 'http://coco.lri.fr/downloads/download'+bbob_version+'/'+fname # 3MB
         print('downloading %s ...' % url, end=''); sys.stdout.flush()
         utils.download_file(url)
@@ -471,4 +472,10 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         import bbobbenchmarks
         self.BBOB = bbobbenchmarks
         print("BBOB set and ready to go. Example: `f11 = cma.FF.BBOB.F11()`")
+
+    def fetch_bbob_fcts(self):
+        """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
+        """
+        url = "http://coco.gforge.inria.fr/python/bbobbenchmarks.py"
+
 ff = FitnessFunctions()

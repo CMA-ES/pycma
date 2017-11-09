@@ -401,7 +401,7 @@ cma_default_options = {
     'CMA_active': 'True  # negative update, conducted after the original update',
 #    'CMA_activefac': '1  # learning rate multiplier for active update',
     'CMA_cmean': '1  # learning rate for the mean value',
-    'CMA_const_trace': 'False  # normalize trace, value CMA_const_trace=2 normalizes sum log eigenvalues to zero',
+    'CMA_const_trace': 'False  # normalize trace, 1, True, arithm, geom, aeig, geig are valid',
     'CMA_diagonal': '0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
     'CMA_eigenmethod': 'np.linalg.eigh  # or cma.utils.eig or pygsl.eigen.eigenvectors',
     'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
@@ -1090,18 +1090,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, {'seed':234})
     ...      # doctest: +ELLIPSIS
     (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 4 (seed=234...)
-    >>>
-    >>> # optimize the ellipsoid function
+
+    and optimize the ellipsoid function
+
     >>> es.optimize(cma.ff.elli, verb_disp=1)  # doctest: +ELLIPSIS
     Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]
         1      8 2.09...
-    >>>
     >>> assert len(es.result) == 7
     >>> assert es.result[1] < 1e-9
 
     The optimization loop can also be written explicitly:
 
-    >>> import cma
     >>> es = cma.CMAEvolutionStrategy(4 * [1], 1)  # doctest: +ELLIPSIS
     (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 4 (seed=...
     >>> while not es.stop():
@@ -1116,7 +1115,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     An example with lower bounds (at zero) and handling infeasible
     solutions:
 
-    >>> import cma
     >>> import numpy as np
     >>> es = cma.CMAEvolutionStrategy(10 * [0.2], 0.5,
     ...         {'bounds': [0, np.inf]})  #doctest: +ELLIPSIS
@@ -1143,7 +1141,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     An example with user-defined transformation, in this case to realize
     a lower bound of 2.
 
-    >>> import cma
     >>> es = cma.CMAEvolutionStrategy(5 * [3], 0.1,
     ...                 {"transformation": [lambda x: x**2+1.2, None],
     ...                  })
@@ -1162,7 +1159,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     (cave: files are overwritten when the logger is used with the same
     filename prefix):
 
-    >>> import cma
     >>> es = cma.CMAEvolutionStrategy(4 * [0.2], 0.5, {'verb_disp': 0})
     >>> es.logger.disp_header()  # annotate the print of disp
     Iterat Nfevals  function value    axis ratio maxstd  minstd
@@ -1178,9 +1174,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     Example implementing restarts with increasing popsize (IPOP):
 
-    >>> import cma, numpy as np
-    >>>
-    >>> # restart with increasing population size (IPOP)
     >>> bestever = cma.optimization_tools.BestSolution()
     >>> for lam in 10 * 2**np.arange(8):  # 10, 20, 40, 80, ..., 10 * 2**7
     ...     es = cma.CMAEvolutionStrategy('6 - 8 * np.random.rand(9)',  # 9-D
@@ -1214,26 +1207,23 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     Using the `multiprocessing` module, we can evaluate the function in
     parallel with a simple modification of the example (however
-    multiprocessing seems not always reliable)::
+    multiprocessing seems not always reliable):
 
-        try:
-            import multiprocessing as mp
-            import cma
-            es = cma.CMAEvolutionStrategy(22 * [0.0], 1.0, {'maxiter':10})
-            pool = mp.Pool(es.popsize)
-            while not es.stop():
-                X = es.ask()
-                f_values = pool.map_async(cma.felli, X).get()
-                # use chunksize parameter as es.popsize/len(pool)?
-                es.tell(X, f_values)
-                es.disp()
-                es.logger.add()
-        except ImportError:
-            pass
+    >>> from cma.fitness_functions import elli  # cannot be an instance method
+    >>> from cma.fitness_transformations import EvalParallel
+    >>> es = cma.CMAEvolutionStrategy(22 * [0.0], 1.0, {'maxiter':10})  # doctest:+ELLIPSIS
+    (6_w,13)-aCMA-ES (mu_w=...
+    >>> with EvalParallel(es.popsize + 1) as eval_all:
+    ...     while not es.stop():
+    ...         X = es.ask()
+    ...         es.tell(X, eval_all(elli, X))
+    ...         es.disp()
+    ...         # es.logger.add()  # doctest:+ELLIPSIS
+    Iterat...
 
     The final example shows how to resume:
 
-    >>> import cma, pickle
+    >>> import pickle
     >>>
     >>> es = cma.CMAEvolutionStrategy(12 * [0.1],  # a new instance, 12-D
     ...                               0.2)         # initial std sigma0
@@ -1320,7 +1310,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         del self.inputargs['self']  # otherwise the instance self has a cyclic reference
         self.inopts = inopts
         opts = CMAOptions(inopts).complement()  # CMAOptions() == fmin([],[]) == defaultOptions()
-        global_verbosity = opts.eval('verbose')
+        utils.global_verbosity = global_verbosity = opts.eval('verbose')
         if global_verbosity < -8:
             opts['verb_disp'] = 0
             opts['verb_log'] = 0
@@ -1520,9 +1510,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         1. / (self.sp.c1 + self.sp.cmu + 1e-23) / self.N / 10
                         if self.opts['updatecovwait'] is None
                         else self.opts['updatecovwait']),
-                    constant_trace={0:'None',
-                                    1:'mean',
-                                    2:'geig'}[self.opts['CMA_const_trace']],
+                    constant_trace=self.opts['CMA_const_trace'],
                     randn=self.opts['randn'],
                     eigenmethod=self.opts['CMA_eigenmethod'],
                     )
@@ -1626,10 +1614,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 print(type(x0), x0)
             x0 = eval(x0)
         self.x0 = array(x0, dtype=float, copy=True)  # should not have column or row, is just 1-D
-        if self.x0.ndim == 2:
-            if self.opts.eval('verbose') >= 0:
-                utils.print_warning('input x0 should be a list or 1-D array, trying to flatten ' +
-                                    str(self.x0.shape) + '-array')
+        if self.x0.ndim == 2 and 1 in self.x0.shape:
+            utils.print_warning('input x0 should be a list or 1-D array, trying to flatten ' +
+                                str(self.x0.shape) + '-array')
             if self.x0.shape[0] == 1:
                 self.x0 = self.x0[0]
             elif self.x0.shape[1] == 1:
@@ -1861,7 +1848,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # update distribution, might change self.mean
 
         if not self.opts['tolconditioncov'] or not np.isfinite(self.opts['tolconditioncov']):
-            self.alleviate_conditioning_in_coordinates(1e8)
+            self.alleviate_conditioning_in_coordinates(1e7)
             self.alleviate_conditioning(1e12)
 
         xmean_arg = xmean
@@ -2309,17 +2296,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Example
         -------
-        ::
 
-            >>> import numpy as np, cma
-            >>> func = cma.ff.elli  # choose objective function
-            >>> es = cma.CMAEvolutionStrategy(np.random.rand(2), 1)
-            ... # doctest:+ELLIPSIS
-            (3_...
-            >>> while not es.stop():
-            ...    X = es.ask()
-            ...    es.tell(X, [func(x) for x in X])
-            >>> # es.result  # where the result can be found
+        >>> import numpy as np, cma
+        >>> func = cma.ff.elli  # choose objective function
+        >>> es = cma.CMAEvolutionStrategy(np.random.rand(2), 1)
+        ... # doctest:+ELLIPSIS
+        (3_...
+        >>> while not es.stop():
+        ...    X = es.ask()
+        ...    es.tell(X, [func(x) for x in X])
+        >>> es.result  # result is a `namedtuple` # doctest:+ELLIPSIS
+        CMAEvolutionStrategyResult(xbest=array([...
 
         :See: class `CMAEvolutionStrategy`, `ask`, `ask_and_eval`, `fmin`
 
@@ -2829,10 +2816,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if max(self.dC) / min(self.dC) > condition:
             # allows for much larger condition numbers, if axis-parallel
             if hasattr(self, 'sm') and isinstance(self.sm, sampler.GaussFullSampler):
-                self.sigma_vec *= self.sm.to_correlation_matrix()
+                old_coordinate_condition = max(self.dC) / min(self.dC)
+                old_condition = self.sm.condition_number
+                factors = self.sm.to_correlation_matrix()
+                self.sigma_vec *= factors
+                self.pc /= factors
                 self._updateBDfromSM(self.sm)
-                utils.print_message('condition in coordinate system exceeded'
-                                    + ' 1e8, rescaled to 1')
+                utils.print_message('\ncondition in coordinate system exceeded'
+                                    ' %.1e, rescaled to %.1e, '
+                                    '\ncondition changed from %.1e to %.1e'
+                                      % (old_coordinate_condition, max(self.dC) / min(self.dC),
+                                         old_condition, self.sm.condition_number),
+                                    iteration=self.countiter)
 
     def alleviate_conditioning(self, condition=1e12):
         """pass conditioning of `C` to linear transformation in `self.gp`.
@@ -2848,29 +2843,55 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if not self.gp.isidentity or self.condition_number < condition:
             return
         try:
+            old_condition_number = self.condition_number
             tf_inv = self.sm.to_linear_transformation_inverse()
             tf = self.sm.to_linear_transformation(reset=True)
+            self.pc = np.dot(tf_inv, self.pc)
+            old_C_scales = self.dC**0.5
+            self._updateBDfromSM(self.sm)
         except NotImplementedError:
+            utils.print_warning("Not Implemented",
+                                method_name="alleviate_conditioning")
             return
         self._updateBDfromSM(self.sm)
         # dmean_prev = np.dot(self.B, (1. / self.D) * np.dot(self.B.T, (self.mean - 0*self.mean_old) / self.sigma_vec))
-        self.gp._tf_matrix = (self.sigma_vec * tf.T).T
-        self.gp._tf_matrix_inv = (tf_inv.T / self.sigma_vec).T
+
+        # we may like to traverse tf through sigma_vec such that
+        #       gp.tf * sigma_vec == sigma_vec * tf
+        # but including sigma_vec shouldn't pose a problem even for
+        # a large scaling which essentially just changes the exponents
+        # uniformly in the rows of tf
+        self.gp._tf_matrix = (self.sigma_vec * tf.T).T  # sig*tf.T .*-multiplies each column of tf with sig
+        self.gp._tf_matrix_inv = tf_inv / self.sigma_vec  # here was the bug
+        self.sigma_vec = transformations.DiagonalDecoding(1)
+
+        # TODO: refactor old_scales * old_sigma_vec into sigma_vec0 to prevent tolfacupx stopping
+
         self.gp.tf_pheno = lambda x: np.dot(self.gp._tf_matrix, x)
         self.gp.tf_geno = lambda x: np.dot(self.gp._tf_matrix_inv, x)  # not really necessary
         self.gp.isidentity = False
         assert self.mean is not self.mean_old
-        self.mean = self.gp.geno(self.mean)  # same as tf_geno
-        self.mean_old = self.gp.geno(self.mean_old)  # not needed!?
-        self.pc = self.gp.geno(self.pc)
-        self.sigma_vec = transformations.DiagonalDecoding(1)
+
+        # transform current mean and injected solutions accordingly
+        self.mean = self.gp.tf_geno(self.mean)  # same as gp.geno()
+        for i, x in enumerate(self.pop_injection_solutions):
+            self.pop_injection_solutions[i] = self.gp.tf_geno(x)
+        for i, x in enumerate(self.pop_injection_directions):
+            self.pop_injection_directions[i] = self.gp.tf_geno(x)
+
+        self.mean_old = self.gp.tf_geno(self.mean_old)  # not needed!?
+
+        # self.pc = self.gp.geno(self.pc)  # now done above, which is a better place
+
         # dmean_now = np.dot(self.B, (1. / self.D) * np.dot(self.B.T, (self.mean - 0*self.mean_old) / self.sigma_vec))
         # assert Mh.vequals_approximately(dmean_now, dmean_prev)
-        utils.print_warning('''geno-pheno transformation introduced based
-        on the current covariance matrix, injected solutions become
-        "invalid" in this iteration''',
-                       'alleviate_conditioning', 'CMAEvolutionStrategy',
-                            self.countiter)
+        utils.print_warning('''
+        geno-pheno transformation introduced based on the
+        current covariance matrix with condition %.1e -> %.1e,
+        injected solutions become "invalid" in this iteration'''
+                        % (old_condition_number, self.condition_number),
+            'alleviate_conditioning', 'CMAEvolutionStrategy',
+            self.countiter)
 
     def _updateBDfromSM(self, sm_=None):
         """helper function for a smooth transition to sampling classes.
@@ -3508,6 +3529,45 @@ class _CMAParameters(object):
 
     def disp(self):
         pprint(self.__dict__)
+
+
+def fmin2(*args, **kwargs):
+    """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``.
+
+    Hence a typical calling pattern may be::
+
+        x, es = cma.fmin2(...)
+        es = cma.fmin2(...)[1]  # `es` still contains all information
+        x = cma.fmin2(...)[0]   # get only the best evaluated solution
+
+    `fmin2` is an alias for::
+
+        res = fmin(...)
+        return res[0], res[-2]
+
+    `fmin` from `fmin2` is::
+
+        es = fmin2(...)[1]  # fmin2(...)[0] is es.result[0]
+        return es.result + (es.stop(), es, es.logger)
+
+    The best found solution is equally available under::
+
+        fmin(...)[0]
+        fmin2(...)[0]
+        fmin2(...)[1].result[0]
+        fmin2(...)[1].result.xbest
+        fmin2(...)[1].best.x
+
+    The incumbent, current estimate for the optimum is available under::
+
+        fmin(...)[5]
+        fmin2(...)[1].result[5]
+        fmin2(...)[1].result.xfavorite
+
+    """
+    res = fmin(*args, **kwargs)
+    return res[0], res[-2]
+
 
 def fmin(objective_function, x0, sigma0,
          options=None,
