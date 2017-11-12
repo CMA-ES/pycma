@@ -223,6 +223,7 @@ def various_doctests():
         >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, {
         ...                                   'tolconditioncov':False,
         ...                                   'seed': 8,
+        ...                                   'CMA_mirrors': 0,
         ...                                   'ftarget': 1e-12,
         ...                                })  # doctest:+ELLIPSIS
         (4_w...
