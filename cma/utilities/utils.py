@@ -147,6 +147,18 @@ def recycled(vec, dim=None, as_=None):
     elif dim > len_:
         return np.asarray(list(vec) + (dim - len_) * [vec[-1]])
 
+def argsort(a, reverse=False):
+    """return index list to get `a` in order, ie
+    ``a[argsort(a)[i]] == sorted(a)[i]``
+    """
+    return sorted(range(len(a)), key=a.__getitem__, reverse=reverse)  # a.__getitem__(i) is a[i]
+
+def ranks(a, reverse=False):
+    """return ranks of entries starting with zero"""
+    idx = argsort(a)
+    return [len(idx) - 1 - idx.index(i) if reverse else idx.index(i)
+            for i in range(len(idx))]
+
 def pprint(to_be_printed):
     """nicely formated print"""
     try:

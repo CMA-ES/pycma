@@ -173,11 +173,12 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     ``[lb - al, ub + au]`` and ``[lb, ub]``.
 
     Generally speaking, this transformation aims to resemble ``sin`` to
-    be a smooth (ie. in C^\inf) transformation over R into a bounded
-    interval; then, it also aims to improve over ``sin`` in the
-    following two ways: (i) resemble the identity over an interval as
-    large possible while keeping the second derivative in reasonable
-    limits, and (ii) numerical stability in "pathological" corner cases.
+    be a continuous differentiable (ie. C^1) transformation over R into
+    a bounded interval; then, it also aims to improve over ``sin`` in
+    the following two ways: (i) resemble the identity over an interval
+    as large possible while keeping the second derivative in reasonable
+    limits, and (ii) numerical stability in "pathological" corner cases
+    of the boundary limit values.
 
     The transformation is the identity (and therefore linear) in ``[lb
     + al, ub - au]`` (typically about 90% of the interval) and

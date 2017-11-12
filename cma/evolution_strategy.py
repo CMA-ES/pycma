@@ -1506,7 +1506,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         else:
             if 11 < 3:
                 if hasattr(self.opts['vv'], '__getitem__') and \
-                        self.opts['vv'][0].startswith('sweep_ccov'):
+                        'sweep_ccov' in self.opts['vv']:
                     self.opts['CMA_const_trace'] = True
             if self.opts['CMA_sampler'] is None:
                 self.sm = sampler.GaussFullSampler(stds * np.ones(N),
@@ -2421,6 +2421,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pop = pop  # used in check_consistency of CMAAdaptSigmaTPA
         self.adapt_sigma.check_consistency(self)
 
+        if self.countiter > 1:
+            self.mean_old_old = self.mean_old
         self.mean_old = self.mean
         mold = self.mean_old  # just an alias
 
@@ -3444,11 +3446,11 @@ class _CMAParameters(object):
         sp.cc_sep = (1 + 1 / N + mueff / N) / \
                     (N**0.5 + 1 / N + 2 * mueff / N)
         if hasattr(opts['vv'], '__getitem__'):
-            if opts['vv'][0] == 'sweep_ccov1':
+            if 'sweep_ccov1' in opts['vv']:
                 sp.cc = 1.0 * (4 + mueff / N)**0.5 / ((N + 4)**0.5 +
                                                     (2 * mueff / N)**0.5)
-            if opts['vv'][0] == 'sweep_cc':
-                sp.cc = opts['vv'][1]
+            if 'sweep_cc' in opts['vv']:
+                sp.cc = opts['vv']['sweep_cc']
                 sp.cc_sep = sp.cc
                 print('cc is %f' % sp.cc)
 
@@ -3470,8 +3472,8 @@ class _CMAParameters(object):
             rankmu_offset = 0.25
             # the influence of rankmu_offset in [0, 1] on performance is
             # barely visible
-            if hasattr(opts['vv'], '__getitem__') and opts['vv'][0] == 'sweep_rankmu_offset':
-                rankmu_offset = opts['vv'][1]
+            if hasattr(opts['vv'], '__getitem__') and 'sweep_rankmu_offset' in opts['vv']:
+                rankmu_offset = opts['vv']['sweep_rankmu_offset']
                 print("rankmu_offset = %.2f" % rankmu_offset)
             mu = mueff
             sp.cmu = min(1 - sp.c1,
@@ -3483,13 +3485,13 @@ class _CMAParameters(object):
                          # ((N + 2)** 1.5 + alphacov * mu / 2))  # TODO
                          # ((N + 2)** 1.75 + alphacov * mu / 2))  # TODO
                          # cmu -> 1 for mu -> N**2 * (2 / alphacov)
-            if hasattr(opts['vv'], '__getitem__') and opts['vv'][0] == 'sweep_ccov':
-                sp.cmu = opts['vv'][1]
+            if hasattr(opts['vv'], '__getitem__') and 'sweep_ccov' in opts['vv']:
+                sp.cmu = opts['vv']['sweep_ccov']
             sp.cmu_sep = min(1 - sp.c1_sep, ccovfac * cmudf(N, mueff, rankmu_offset))
         else:
             sp.cmu = sp.cmu_sep = 0
-        if hasattr(opts['vv'], '__getitem__') and opts['vv'][0] == 'sweep_ccov1':
-            sp.c1 = opts['vv'][1]
+        if hasattr(opts['vv'], '__getitem__') and 'sweep_ccov1' in opts['vv']:
+            sp.c1 = opts['vv']['sweep_ccov1']
 
         if any(w < 0 for w in sp.weights):
             if opts['CMA_active'] and opts['CMA_on'] and opts['CMA_rankmu']:
