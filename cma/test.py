@@ -243,7 +243,9 @@ def various_doctests():
         ...    X = es.ask()
         ...    es.tell(X, [ftabletrot(x, cond=1e32) for x in X])  # doctest:+ELLIPSIS
         WARNING ...iteration=2...
-        >>> assert es.countiter < 333 and 'ftarget' in es.stop(), "transformation bug in alleviate_condition? iter=%d, stop=%s" % (es.countiter, str(es.stop()))
+        >>> assert es.countiter < 333 and 'ftarget' in es.stop(), (
+        ...             "transformation bug in alleviate_condition?",
+        ...             es.countiter, es.stop())
 
     Integer handling:
 
