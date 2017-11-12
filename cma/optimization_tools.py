@@ -71,6 +71,18 @@ class BestSolution(object):
         """return ``(x, f, evals)`` """
         return self.x, self.f, self.evals  # , self.x_geno
 
+class EvolutionPath(object):
+    """"""
+    def __init__(self, p0, time_constant=None):
+        self.path = np.asarray(p0)
+        self.time_constant = time_constant
+        if time_constant is None:
+            self.time_constant = 1 + len(p0)**0.5
+    def update(self, v):
+        c = 1. / self.time_constant
+        self.path *= 1 - c
+        self.path += (c * (2 - c))**0.5 * v
+
 class NoiseHandler(object):
     """Noise handling according to [Hansen et al 2009, A Method for
     Handling Uncertainty in Evolutionary Optimization...]
