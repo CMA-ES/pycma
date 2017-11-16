@@ -21,6 +21,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
     """
     def __init__(self, dimension,
                  randn=np.random.randn,
+                 quadratic=False,
                  **kwargs):
         try:
             self.dimension = len(dimension)
@@ -28,6 +29,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
         except TypeError:
             self.dimension = dimension
         self.randn = randn
+        self.quadratic = quadratic
 
     @property
     def variances(self):
@@ -83,6 +85,8 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
+        if not self.quadratic:
+            return None
         try:
             return np.diag(self.standard_deviations**2)
         except AttributeError:
@@ -90,7 +94,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        return np.diag(np.ones(self.dimension))
+        return np.diag(np.ones(self.dimension)) if self.quadratic else None
 
     @property
     def chin(self):
@@ -606,6 +610,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     def __init__(self, dimension,
                  constant_trace='None',
                  randn=np.random.randn,
+                 quadratic=False,
                  **kwargs):
         try:
             self.dimension = len(dimension)
@@ -620,6 +625,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         "covariance matrix diagonal"
         self.constant_trace = constant_trace
         self.randn = randn
+        self.quadratic = quadratic
         self.count_tell = 0
 
     def reset(self):
@@ -627,7 +633,8 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """
         self.__init__(self.dimension,
                       constant_trace=self.constant_trace,
-                      randn=self.randn)
+                      randn=self.randn,
+                      quadratic=self.quadratic)
 
     @property
     def variances(self):
@@ -732,13 +739,13 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        return np.diag(self.C)
+        return np.diag(self.C) if self.quadratic else None
 
     @property
     def correlation_matrix(self):
         """return correlation matrix of the distribution.
         """
-        return np.eye(self.dimension)
+        return np.eye(self.dimension) if self.quadratic else None
 
     def to_correlation_matrix(self):
         """"re-scale" C to a correlation matrix and return the scaling
@@ -746,7 +753,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
          See also: `to_linear_transformation`.
         """
-        sigma_vec = np.diag(self.C)**0.5
+        sigma_vec = self.C**0.5
         self.C = np.ones(self.dimension)
         return sigma_vec
 
