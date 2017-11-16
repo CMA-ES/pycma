@@ -1342,6 +1342,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if isinstance(opts['fixed_variables'], dict):
             N = self.N_pheno - len(opts['fixed_variables'])
         opts.evalall(locals())  # using only N
+        if np.isinf(opts['CMA_diagonal']):
+            opts['CMA_diagonal'] = True
         self.opts = opts
         if not opts['seed']:
             np.random.seed()
@@ -1496,9 +1498,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.sigma_vec = transformations.DiagonalDecoding(stds * np.ones(N))
             self.sm = sampler.GaussStandardConstant(N)
             self._updateBDfromSM(self.sm)
-            if self.opts['CMA_diagonal'] == 1:
-                utils.print_warning("""Option 'CMA_diagonal' set to 1
-                which is (very) different from setting to `True`""")
+            if self.opts['CMA_diagonal'] is 1:
+                raise ValueError("""Option 'CMA_diagonal' == 1 is disallowed.
+                Use either `True` or an iteration number > 1 up to which C should be diagonal.
+                Only `True` has linear memory demand.""")
         else:
             if 11 < 3:
                 if hasattr(self.opts['vv'], '__getitem__') and \
@@ -4360,17 +4363,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except:
             xrecent = None
         diagC = es.sigma * es.sigma_vec.scaling * es.sm.variances**0.5
-        if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
+        if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
+            maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
+            minD = min(es.sigma_vec * es.sm.variances**0.5)
+            diagD = diagC
+        else:
             try:
                 diagD = es.sm.D
             except:
                 diagD = [1]
             maxD = max(diagD)
             minD = min(diagD)
-        else:
-            maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
-            minD = min(es.sigma_vec * es.sm.variances**0.5)
-            diagD = diagC
         more_to_write = es.more_to_write
         if 11 < 3:  # and len(more_to_write) > 1:
             more_to_write = []  # [more_to_write[0], more_to_write[1]]

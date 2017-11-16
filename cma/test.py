@@ -110,6 +110,14 @@ def various_doctests():
         >>> assert res[1] < 1e-6
         >>> assert res[2] < 2000
 
+    Testing output file consistency with diagonal option:
+
+        >>> import cma
+        >>> for val in (0, True, 2, 3):
+        ...     _ = cma.fmin(cma.ff.sphere, 3 * [1], 1,
+        ...                  {'verb_disp':0, 'CMA_diagonal':val, 'maxiter':5})
+        ...     _ = cma.CMADataLogger().load()
+
     Test on the Rosenbrock function with 3 restarts. The first trial only
     finds the local optimum, which happens in about 20% of the cases.
 
@@ -235,7 +243,7 @@ def various_doctests():
         ...    X = es.ask()
         ...    es.tell(X, [ftabletrot(x, cond=1e32) for x in X])  # doctest:+ELLIPSIS
         WARNING ...iteration=2...
-        >>> assert es.countiter < 303 and 'ftarget' in es.stop(), "transformation bug in alleviate_condition?"
+        >>> assert es.countiter < 333 and 'ftarget' in es.stop(), "transformation bug in alleviate_condition? iter=%d, stop=%s" % (es.countiter, str(es.stop()))
 
     Integer handling:
 
