@@ -174,6 +174,7 @@ from .utilities.python3for2 import range  # redefine range in Python 2
 
 import sys
 import time  # not really essential
+import warnings  # catch numpy warnings
 import ast  # for literal_eval
 try:
     import collections  # not available in Python 2.5
@@ -4270,15 +4271,19 @@ class CMADataLogger(interfaces.BaseDataLogger):
             fn = filenameprefix + self.file_names[i] + '.dat'
             try:
                 # list of rows to append another row latter
-                try:
-                    self.__dict__[self.key_names[i]] = list(
-                            np.loadtxt(fn, comments=['%', '#']))
-                except:
-                    self.__dict__[self.key_names[i]] = list(
-                            np.loadtxt(fn, comments='%'))
+                with warnings.catch_warnings():
+                    if self.file_names[i] == 'axlencorr':
+                        warnings.simplefilter("ignore")
+                    try:
+                        self.__dict__[self.key_names[i]] = list(
+                                np.loadtxt(fn, comments=['%', '#']))
+                    except:
+                        self.__dict__[self.key_names[i]] = list(
+                                np.loadtxt(fn, comments='%'))
                 # read dict from <python> tag in first line
-                self.persistent_communication_dict.update(
-                            string_=open(fn).readline())
+                with open(fn) as file:
+                    self.persistent_communication_dict.update(
+                                string_=file.readline())
             except IOError:
                 utils.print_warning('reading from file "' + fn + '" failed',
                                'load', 'CMADataLogger')
