@@ -468,7 +468,7 @@ cma_default_options = {
     'verb_log': '1  #v verbosity: write data to files every verb_log iteration, writing can be time critical on fast to evaluate functions',
     'verb_plot': '0  #v in fmin(): plot() is called every verb_plot iteration',
     'verb_time': 'True  #v output timings on console',
-    'vv': '0  #? versatile variable for hacking purposes, value found in self.opts["vv"]'
+    'vv': '{}  #? versatile set or dictionary for hacking purposes, value found in self.opts["vv"]'
 }
 
 class CMAOptions(dict):

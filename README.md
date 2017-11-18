@@ -27,7 +27,11 @@ release link also provides more installation hints and a quick start guide.
 
 ## Installation of the current master branch
 
-Download and unzip the code (see green button above) or 
+The quick way (requires git to be installed):
+
+     pip install git+https://github.com/CMA-ES/pycma.git@master
+
+The long version: download and unzip the code (see green button above) or
 ``git clone https://github.com/CMA-ES/pycma.git``. 
 
 - Either, copy (or move) the ``cma`` source code folder into a folder visible to Python, 
@@ -37,11 +41,13 @@ Download and unzip the code (see green button above) or
 - Or, install the ``cma`` package by typing within the folder, where the ``cma`` source 
   code folder is visible,
 
-      python -m pip install -e cma
+      pip install -e cma
 
-  Typing ``pip`` instead of ``python -m pip`` may be sufficient, prefixing with ``sudo`` 
-  may be necessary. Moving the ``cma`` folder away from this location would invalidate the 
+  Moving the ``cma`` folder away from its location would invalidate the
   installation.
+
+It may be necessary to replace ``pip`` with ``python -m pip``, and/or prefixing
+either of these with ``sudo``.
 
 ## Version History
 

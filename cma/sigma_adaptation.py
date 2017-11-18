@@ -191,7 +191,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             # divided by 2 to have the derivative d/dx (x**2 / N - 1) for x**2=N equal to 1
         else:
             s = sum(self.ps**2)**0.5 / es.const.chiN - 1
-            if es.opts['vv'] == 'pc for ps':
+            if 'pc for ps' in es.opts['vv']:
                 # s = sum((es.D**-1 * np.dot(es.B.T, es.pc))**2)**0.5 / es.const.chiN - 1
                 s = (sum((es.D**-1 * np.dot(es.B.T, es.pc))**2) / es.N - 1) / 2
         s *= self.cs / self.damps
