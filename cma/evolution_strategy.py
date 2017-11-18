@@ -1912,6 +1912,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     break
                 # TODO: if len(arinj) > number, ask doesn't fulfill the contract
                 y = self.pop_injection_directions.pop(0)
+                # TODO: sigma_vec must be taken into account here
                 if self.opts['CMA_sample_on_sphere_surface']:
                     y *= (self.N**0.5 if self.opts['CSA_squared'] else
                           self.const.chiN) / self.mahalanobis_norm(y) / self.sigma
@@ -4349,10 +4350,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         iteration = es.countiter
         eigen_decompositions = es.count_eigen
         sigma = es.sigma
-        if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
-            axratio = es.D.max() / es.D.min()
+        if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
+            stds = es.sigma_vec.scaling * es.sm.variances**0.5
+            axratio = max(stds) / min(stds)
         else:
-            axratio = max(es.sigma_vec * 1) / min(es.sigma_vec * 1)
+            axratio = es.D.max() / es.D.min()
         xmean = es.mean  # TODO: should be optionally phenotype?
         fmean_noise_free = 0  # es.fmean_noise_free  # meaningless as
         fmean = 0  # es.fmean                        # only inialized
@@ -4373,7 +4375,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
             maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
             minD = min(es.sigma_vec * es.sm.variances**0.5)
-            diagD = diagC
+            diagD = [1] if es.opts['CMA_diagonal'] is True else diagC
         else:
             try:
                 diagD = es.sm.D
@@ -4787,6 +4789,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if not hasattr(self, 'D'):
             self.load()
         dat = self
+        if np.max(dat.D[:, 5:]) == np.min(dat.D[:, 5:]):
+            pyplot.text(0, dat.D[-1, 5],
+                        'all axes scaling values equal to %s'
+                        % str(dat.D[-1, 5]),
+                        verticalalignment='center')
+            return self  # nothing interesting to plot
         self._enter_plotting()
         pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, 5:], '-b')
         # pyplot.hold(True)
