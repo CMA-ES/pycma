@@ -5203,7 +5203,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 iline = 0
                 cwritten = 0
                 for line in open(self.name_prefix + name + '.dat'):
-                    if iline < first or iline % factor == 0:
+                    if iline < first or iline % factor < 1:
                         f.write(line)
                         cwritten += 1
                     iline += 1

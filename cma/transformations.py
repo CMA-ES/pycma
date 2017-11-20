@@ -639,14 +639,15 @@ class DiagonalDecoding(AdaptiveDecoding):
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
         facs = np.exp(log(2) * (z2_average - sum(weights)))
-        # log(2) => w=-1: exp(log(2) w (0 - 1)) = 2 = 1 + w (0 - 1)
+        # z2=0, w=-1, d=log(2) => exp(d w (0 - 1)) = 2 = 1 + w (0 - 1)
+        # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
         # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
         # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
         #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
         # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
         # remark: for z^2 \to+ 1, eta_max |to- log z^2 / (z^2 - 1) = 1
         if 1 < 3:  # bound increment to observed value
-            idx = weights > 0
+            idx = weights > 0  # for negative weights w (z^2 - 1) <= w
             # TODO: the criterion should be sign(weights*(z2 - 1)) ?
             # however z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
             eta = sum(abs(weights[idx]))
