@@ -317,7 +317,9 @@ def is_feasible(x, f):
 
     :See also: CMAOptions, ``CMAOptions('feas')``.
     """
-    return f is not None and f is not np.NaN
+    #return f is not None and f is not np.NaN # 2017/11/21
+    print(np.isnan(f), f)
+    return f is not None and not np.isnan(f)
 
 
 if use_archives:
