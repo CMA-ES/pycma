@@ -646,6 +646,16 @@ class DiagonalDecoding(AdaptiveDecoding):
         #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
         # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
         # remark: for z^2 \to+ 1, eta_max |to- log z^2 / (z^2 - 1) = 1
+
+        #if np.any(facs > 10):
+            #print(np.sum(z2, axis=1))
+            #print(weights)
+            #rint(facs)
+        # idxx = np.argmax(z2.flatten())
+        # idxxx = (idxx // z2.shape[1], idxx - (idxx // z2.shape[1]) * z2.shape[1])
+        # print(idxxx, z2[idxxx])
+
+        
         if 1 < 3:  # bound increment to observed value
             idx = weights > 0  # for negative weights w (z^2 - 1) <= w
             # TODO: the criterion should be sign(weights*(z2 - 1)) ?
@@ -659,7 +669,7 @@ class DiagonalDecoding(AdaptiveDecoding):
                     eta_max = max(np.log(z2_large_pos) /
                                     (z2_large_pos - 1))
                     if eta > eta_max:
-                        facs**(eta_max / eta)
+                        facs **= (eta_max / eta) 
                 elif 1 < 3:
                     raise NotImplementedError("this was never tested")
                     correction = max(log(z2) / log(facs))
