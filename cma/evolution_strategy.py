@@ -2440,11 +2440,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             for k in idx:
                 self.repair_genotype(pop[k])
 
-        # only arrays can be multiple indexed
-        pop = array(pop, copy=False)
-
-        # sort pop
-        pop = pop[fit.idx]
+        # sort pop for practicability, now pop != self.pop, which is unsorted
+        pop = np.asarray(pop)[fit.idx]
 
         # prepend best-ever solution to population, in case
         # note that pop and fit.fit do not agree anymore in this case
@@ -2476,7 +2473,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 utils.print_warning('genotype for elitist not found', 'tell')
             # self.clip_or_fit_solutions(xp, [0])
             self.random_rescale_to_mahalanobis(xp[0])
-            pop = array([xp[0]] + list(pop), copy=False)
+            pop = np.asarray([xp[0]] + list(pop))
 
         self.pop_sorted = pop
         # compute new mean

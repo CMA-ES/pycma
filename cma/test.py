@@ -331,6 +331,7 @@ def doctest_files(file_list=files_for_doctest, **kwargs):
     verbosity_here = kwargs.get('verbose', 0)
     if verbosity_here < 0:
         kwargs['verbose'] = 0
+    failures = 0
     for file_ in file_list:
         file_ = file_.strip().strip(os.path.sep)
         if file_.startswith('cma' + os.path.sep):
@@ -346,8 +347,10 @@ def doctest_files(file_list=files_for_doctest, **kwargs):
                                   package=__package__,  # 'cma', # sys.modules[__name__],
                                   **kwargs)
         _clean_up('.', _files_written, protected_files)
+        failures += report[0]
         if verbosity_here >= 0:
             print(report)
+    return failures
 
 def get_version():
     try:
@@ -384,7 +387,7 @@ def main(*args, **kwargs):
         v = get_version()
         print("doctesting `cma` package%s by calling `doctest_files`:"
               % ((" (v%s)" % v) if v else ""))
-    doctest_files(args if args else files_for_doctest, **kwargs)
+    return doctest_files(args if args else files_for_doctest, **kwargs)
 
 if __name__ == "__main__":
-    main(*sys.argv[1:])
+    exit(main(*sys.argv[1:]) > 0)  # 0 if failures == 0 else 1
