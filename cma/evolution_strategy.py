@@ -317,8 +317,6 @@ def is_feasible(x, f):
 
     :See also: CMAOptions, ``CMAOptions('feas')``.
     """
-    #return f is not None and f is not np.NaN # 2017/11/21
-    print(np.isnan(f), f)
     return f is not None and not np.isnan(f)
 
 
@@ -1843,7 +1841,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         :See: `ask`, `ask_and_eval`
 
         """
-
         if number is None or number < 1:
             number = self.sp.popsize
         if self.number_of_solutions_asked == 0:
@@ -2226,34 +2223,34 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     self.opts['CMA_mirrormethod'] == 1 and ( # replacement for direct selective mirrors
                         not hasattr(self, '_mirrormethod1_done') or
                         self._mirrormethod1_done < self.countiter - 1))):
-            mirrors = self.get_selective_mirrors()
-            if mirrors:
-                ary += mirrors
-            else:
-                utils.print_warning('mirrors omitted (pop_sorted attribute not found?)',
-                               '_prepare_injection_directions',
-                                    iteration=self.countiter)
+            i0 = len(ary)
+            ary += self.get_selective_mirrors()
+            self._indices_of_selective_mirrors = range(i0, len(ary))
         self.pop_injection_directions = ary
         return ary
 
-    def get_selective_mirrors(self, number=None, pop_sorted=None):
+    def get_selective_mirrors(self, number=None):
         """get mirror genotypic directions from worst solutions.
 
         Details:
-        Takes the last ``number=sp.lam_mirr`` entries in
-        ``pop_sorted=self.pop_sorted`` as solutions to be mirrored.
 
+        To be called after the mean has been updated.
+
+        Takes the last ``number=sp.lam_mirr`` entries in the
+        ``self.pop[self.fit.idx]`` as solutions to be mirrored.
+
+        Do not take a mirror if it is suspected to stem from a
+        previous mirror in order to not go endlessly back and forth.
         """
-        if pop_sorted is None:
-            try:
-                pop_sorted = self.pop_sorted
-            except AttributeError:
-                return None
         if number is None:
             number = self.sp.lam_mirr
+        if not hasattr(self, '_indices_of_selective_mirrors'):
+            self._indices_of_selective_mirrors = []
         res = []
         for i in range(1, number + 1):
-            res.append(self.mean_old - pop_sorted[-i])
+            if self.fit.idx[-i] not in self._indices_of_selective_mirrors:
+                res.append(self.mean_old - self.pop[self.fit.idx[-i]])
+        assert len(res) >= number - len(self._indices_of_selective_mirrors)
         return res
 
     # ____________________________________________________________
@@ -2396,7 +2393,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # TODO: clean up inconsistency when an unrepaired solution is available and used
         # now get the genotypes
-        pop = self.pop_sorted = []  # create pop from input argument solutions
+        self.pop_sorted = None
+        pop = []  # create pop from input argument solutions
         for k, s in enumerate(solutions):  # use phenotype before Solution.repair()
             if 1 < 3:
                 pop += [self.gp.geno(s,
@@ -2572,7 +2570,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     [self.sm.transform_inverse(self.pc)] +
                     list(self.sm.transform_inverse(pop_zero /
                                         (self.sigma * self.sigma_vec.scaling))),
-                    array(sampler_weights) / 2)
+                    array(sampler_weights) / 2)  # TODO: put the 1/2 into update function!?
             else:
                 self.sm.update([(c1 / (c1a + 1e-23))**0.5 * self.pc] +  # c1a * pc**2 gets c1 * pc**2
                               list(pop_zero / (self.sigma * self.sigma_vec.scaling)),

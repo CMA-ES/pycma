@@ -43,10 +43,10 @@ The long version: download and unzip the code (see green button above) or
 
       pip install -e cma
 
-  Moving the ``cma`` folder away from its location would invalidate the
+  Moving the ``cma`` folder away from its location would invalidate this
   installation.
 
-It may be necessary to replace ``pip`` with ``python -m pip``, and/or prefixing
+It may be necessary to replace ``pip`` with ``python -m pip`` and/or prefixing
 either of these with ``sudo``.
 
 ## Version History

@@ -636,9 +636,12 @@ class DiagonalDecoding(AdaptiveDecoding):
                              % (sum(weights[weights>0]),
                                 -sum(weights[weights<0])))
         z2 = np.asarray(vectors)**2  # popsize x dim array
+        if 11 < 3 and np.max(z2) > 50:
+            print(np.max(z2))
+        # z2 = 1.96 * np.tanh(np.asarray(vectors) / 1.4)**2  # popsize x dim array
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
-        facs = np.exp(log(2) * (z2_average - sum(weights)))
+        facs = np.exp(np.log(2) * (z2_average - sum(weights)))
         # z2=0, w=-1, d=log(2) => exp(d w (0 - 1)) = 2 = 1 + w (0 - 1)
         # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
         # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
@@ -658,18 +661,16 @@ class DiagonalDecoding(AdaptiveDecoding):
         
         if 1 < 3:  # bound increment to observed value
             idx = weights > 0  # for negative weights w (z^2 - 1) <= w
-            # TODO: the criterion should be sign(weights*(z2 - 1)) ?
-            # however z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
+            # Remark: z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
             eta = sum(abs(weights[idx]))
             z2_pos_average = np.dot(weights[idx], z2[idx]) / eta
-            idx = z2_pos_average > 1
-            z2_large_pos = z2_pos_average[idx]
+            z2_large_pos = z2_pos_average[z2_pos_average > 1]
             if np.size(z2_large_pos):
                 if 1 < 3:
-                    eta_max = max(np.log(z2_large_pos) /
+                    eta_max = max(np.log(z2_large_pos) /  # TODO: review/approve this
                                     (z2_large_pos - 1))
                     if eta > eta_max:
-                        facs **= (eta_max / eta) 
+                        facs **= (eta_max / eta)
                 elif 1 < 3:
                     raise NotImplementedError("this was never tested")
                     correction = max(log(z2) / log(facs))
@@ -682,6 +683,7 @@ class DiagonalDecoding(AdaptiveDecoding):
                     if any(idx):
                         facs[idx] = z2_pos_average[idx]
         self.scaling *= facs
+        # print(facs)
 
     @property
     def condition_number(self):

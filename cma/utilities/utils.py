@@ -375,6 +375,14 @@ class SolutionDict(DerivedDictBase):
                     del self[k]
                     # deletes one item with k as key, better delete all?
 
+class ExclusionListOfVectors(list):
+    """For delayed selective mirrored sampling"""
+    def __contains__(self, vec):
+        for v in self:
+            if 1 - 1e-9 < np.dot(v, vec) / (sum(np.asarray(v)**2) * sum(np.asarray(vec)**2))**0.5 < 1 + 1e-9:
+                return True
+        return False
+
 class ElapsedWCTime(object):
     """measure elapsed cumulative time while not paused and elapsed time
     since last tic.
