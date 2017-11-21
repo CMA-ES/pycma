@@ -174,6 +174,7 @@ from .utilities.python3for2 import range  # redefine range in Python 2
 
 import sys
 import time  # not really essential
+import warnings  # catch numpy warnings
 import ast  # for literal_eval
 try:
     import collections  # not available in Python 2.5
@@ -467,7 +468,7 @@ cma_default_options = {
     'verb_log': '1  #v verbosity: write data to files every verb_log iteration, writing can be time critical on fast to evaluate functions',
     'verb_plot': '0  #v in fmin(): plot() is called every verb_plot iteration',
     'verb_time': 'True  #v output timings on console',
-    'vv': '0  #? versatile variable for hacking purposes, value found in self.opts["vv"]'
+    'vv': '{}  #? versatile set or dictionary for hacking purposes, value found in self.opts["vv"]'
 }
 
 class CMAOptions(dict):
@@ -1342,6 +1343,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if isinstance(opts['fixed_variables'], dict):
             N = self.N_pheno - len(opts['fixed_variables'])
         opts.evalall(locals())  # using only N
+        if np.isinf(opts['CMA_diagonal']):
+            opts['CMA_diagonal'] = True
         self.opts = opts
         if not opts['seed']:
             np.random.seed()
@@ -1496,13 +1499,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.sigma_vec = transformations.DiagonalDecoding(stds * np.ones(N))
             self.sm = sampler.GaussStandardConstant(N)
             self._updateBDfromSM(self.sm)
-            if self.opts['CMA_diagonal'] == 1:
-                utils.print_warning("""Option 'CMA_diagonal' set to 1
-                which is (very) different from setting to `True`""")
+            if self.opts['CMA_diagonal'] is 1:
+                raise ValueError("""Option 'CMA_diagonal' == 1 is disallowed.
+                Use either `True` or an iteration number > 1 up to which C should be diagonal.
+                Only `True` has linear memory demand.""")
         else:
             if 11 < 3:
                 if hasattr(self.opts['vv'], '__getitem__') and \
-                        self.opts['vv'][0].startswith('sweep_ccov'):
+                        'sweep_ccov' in self.opts['vv']:
                     self.opts['CMA_const_trace'] = True
             if self.opts['CMA_sampler'] is None:
                 self.sm = sampler.GaussFullSampler(stds * np.ones(N),
@@ -1908,6 +1912,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     break
                 # TODO: if len(arinj) > number, ask doesn't fulfill the contract
                 y = self.pop_injection_directions.pop(0)
+                # TODO: sigma_vec must be taken into account here
                 if self.opts['CMA_sample_on_sphere_surface']:
                     y *= (self.N**0.5 if self.opts['CSA_squared'] else
                           self.const.chiN) / self.mahalanobis_norm(y) / self.sigma
@@ -2417,6 +2422,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pop = pop  # used in check_consistency of CMAAdaptSigmaTPA
         self.adapt_sigma.check_consistency(self)
 
+        if self.countiter > 1:
+            self.mean_old_old = self.mean_old
         self.mean_old = self.mean
         mold = self.mean_old  # just an alias
 
@@ -2550,6 +2557,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         pop_zero = pop - mold
         if c1a + cmu > 0:
             # TODO: make sure cc is 1 / N**0.5 rather than 1 / N
+            # TODO: simplify code: split the c1 and cmu update and call self.sm.update twice
+            #       caveat: for this the decay factor ``c1_times_delta_hsigma - sum(weights)`` should be zero in the second update
             sampler_weights = [c1a] + [cmu * w for w in sp.weights]
             if len(pop_zero) > len(sp.weights):
                 sampler_weights = (
@@ -3285,10 +3294,10 @@ class _CMAStopDict(dict):
             if 1 < 3:  # warn, in case
                 if es.fit.fit[0] == es.fit.fit[-1] == es.best.last.f:
                     utils.print_warning(
-                    """flat fitness (sigma=%.2e).
+                    """flat fitness (f=%f, sigma=%.2e).
                     For small sigma, this could indicate numerical convergence.
                     Otherwise, please (re)consider how to compute the fitness more elaborately.""" %
-                    (es.sigma), iteration=es.countiter)
+                    (es.fit.fit[0], es.sigma), iteration=es.countiter)
             if 1 < 3:  # add stop condition, in case
                 self._addstop('flat fitness',  # message via stopdict
                          len(es.fit.hist) > 9 and
@@ -3438,11 +3447,11 @@ class _CMAParameters(object):
         sp.cc_sep = (1 + 1 / N + mueff / N) / \
                     (N**0.5 + 1 / N + 2 * mueff / N)
         if hasattr(opts['vv'], '__getitem__'):
-            if opts['vv'][0] == 'sweep_ccov1':
+            if 'sweep_ccov1' in opts['vv']:
                 sp.cc = 1.0 * (4 + mueff / N)**0.5 / ((N + 4)**0.5 +
                                                     (2 * mueff / N)**0.5)
-            if opts['vv'][0] == 'sweep_cc':
-                sp.cc = opts['vv'][1]
+            if 'sweep_cc' in opts['vv']:
+                sp.cc = opts['vv']['sweep_cc']
                 sp.cc_sep = sp.cc
                 print('cc is %f' % sp.cc)
 
@@ -3464,8 +3473,8 @@ class _CMAParameters(object):
             rankmu_offset = 0.25
             # the influence of rankmu_offset in [0, 1] on performance is
             # barely visible
-            if hasattr(opts['vv'], '__getitem__') and opts['vv'][0] == 'sweep_rankmu_offset':
-                rankmu_offset = opts['vv'][1]
+            if hasattr(opts['vv'], '__getitem__') and 'sweep_rankmu_offset' in opts['vv']:
+                rankmu_offset = opts['vv']['sweep_rankmu_offset']
                 print("rankmu_offset = %.2f" % rankmu_offset)
             mu = mueff
             sp.cmu = min(1 - sp.c1,
@@ -3477,13 +3486,13 @@ class _CMAParameters(object):
                          # ((N + 2)** 1.5 + alphacov * mu / 2))  # TODO
                          # ((N + 2)** 1.75 + alphacov * mu / 2))  # TODO
                          # cmu -> 1 for mu -> N**2 * (2 / alphacov)
-            if hasattr(opts['vv'], '__getitem__') and opts['vv'][0] == 'sweep_ccov':
-                sp.cmu = opts['vv'][1]
+            if hasattr(opts['vv'], '__getitem__') and 'sweep_ccov' in opts['vv']:
+                sp.cmu = opts['vv']['sweep_ccov']
             sp.cmu_sep = min(1 - sp.c1_sep, ccovfac * cmudf(N, mueff, rankmu_offset))
         else:
             sp.cmu = sp.cmu_sep = 0
-        if hasattr(opts['vv'], '__getitem__') and opts['vv'][0] == 'sweep_ccov1':
-            sp.c1 = opts['vv'][1]
+        if hasattr(opts['vv'], '__getitem__') and 'sweep_ccov1' in opts['vv']:
+            sp.c1 = opts['vv']['sweep_ccov1']
 
         if any(w < 0 for w in sp.weights):
             if opts['CMA_active'] and opts['CMA_on'] and opts['CMA_rankmu']:
@@ -4265,15 +4274,19 @@ class CMADataLogger(interfaces.BaseDataLogger):
             fn = filenameprefix + self.file_names[i] + '.dat'
             try:
                 # list of rows to append another row latter
-                try:
-                    self.__dict__[self.key_names[i]] = list(
-                            np.loadtxt(fn, comments=['%', '#']))
-                except:
-                    self.__dict__[self.key_names[i]] = list(
-                            np.loadtxt(fn, comments='%'))
+                with warnings.catch_warnings():
+                    if self.file_names[i] == 'axlencorr':
+                        warnings.simplefilter("ignore")
+                    try:
+                        self.__dict__[self.key_names[i]] = list(
+                                np.loadtxt(fn, comments=['%', '#']))
+                    except:
+                        self.__dict__[self.key_names[i]] = list(
+                                np.loadtxt(fn, comments='%'))
                 # read dict from <python> tag in first line
-                self.persistent_communication_dict.update(
-                            string_=open(fn).readline())
+                with open(fn) as file:
+                    self.persistent_communication_dict.update(
+                                string_=file.readline())
             except IOError:
                 utils.print_warning('reading from file "' + fn + '" failed',
                                'load', 'CMADataLogger')
@@ -4337,10 +4350,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         iteration = es.countiter
         eigen_decompositions = es.count_eigen
         sigma = es.sigma
-        if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
-            axratio = es.D.max() / es.D.min()
+        if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
+            stds = es.sigma_vec.scaling * es.sm.variances**0.5
+            axratio = max(stds) / min(stds)
         else:
-            axratio = max(es.sigma_vec * 1) / min(es.sigma_vec * 1)
+            axratio = es.D.max() / es.D.min()
         xmean = es.mean  # TODO: should be optionally phenotype?
         fmean_noise_free = 0  # es.fmean_noise_free  # meaningless as
         fmean = 0  # es.fmean                        # only inialized
@@ -4358,17 +4372,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except:
             xrecent = None
         diagC = es.sigma * es.sigma_vec.scaling * es.sm.variances**0.5
-        if not es.opts['CMA_diagonal'] or es.countiter > es.opts['CMA_diagonal']:
+        if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
+            maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
+            minD = min(es.sigma_vec * es.sm.variances**0.5)
+            diagD = [1] if es.opts['CMA_diagonal'] is True else diagC
+        else:
             try:
                 diagD = es.sm.D
             except:
                 diagD = [1]
             maxD = max(diagD)
             minD = min(diagD)
-        else:
-            maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
-            minD = min(es.sigma_vec * es.sm.variances**0.5)
-            diagD = diagC
         more_to_write = es.more_to_write
         if 11 < 3:  # and len(more_to_write) > 1:
             more_to_write = []  # [more_to_write[0], more_to_write[1]]
@@ -4775,6 +4789,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if not hasattr(self, 'D'):
             self.load()
         dat = self
+        if np.max(dat.D[:, 5:]) == np.min(dat.D[:, 5:]):
+            pyplot.text(0, dat.D[-1, 5],
+                        'all axes scaling values equal to %s'
+                        % str(dat.D[-1, 5]),
+                        verticalalignment='center')
+            return self  # nothing interesting to plot
         self._enter_plotting()
         pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, 5:], '-b')
         # pyplot.hold(True)
@@ -5183,7 +5203,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 iline = 0
                 cwritten = 0
                 for line in open(self.name_prefix + name + '.dat'):
-                    if iline < first or iline % factor == 0:
+                    if iline < first or iline % factor < 1:
                         f.write(line)
                         cwritten += 1
                     iline += 1

@@ -21,6 +21,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
     """
     def __init__(self, dimension,
                  randn=np.random.randn,
+                 quadratic=False,
                  **kwargs):
         try:
             self.dimension = len(dimension)
@@ -28,6 +29,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
         except TypeError:
             self.dimension = dimension
         self.randn = randn
+        self.quadratic = quadratic
 
     @property
     def variances(self):
@@ -83,6 +85,8 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
+        if not self.quadratic:
+            return None
         try:
             return np.diag(self.standard_deviations**2)
         except AttributeError:
@@ -90,7 +94,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def correlation_matrix(self):
-        return np.diag(np.ones(self.dimension))
+        return np.diag(np.ones(self.dimension)) if self.quadratic else None
 
     @property
     def chin(self):
@@ -265,7 +269,14 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.C *= 1 + c1_times_delta_hsigma - sum(weights)
 
         for k in np.nonzero(weights < 0)[0]:
-            weights[k] *= len(vectors[k]) / (1e-9 + self.norm(vectors[k])**2)
+            # normalize and hence limit ||weight * vector|| to a
+            # weight-dependent constant; prevents harm if `vector` is
+            # very long while no real harm is done even if `vector` is
+            # very short (hence divided by a small number)
+            norm = self.norm(vectors[k])
+            assert np.isfinite(norm)  # otherwise we later compute 0 * inf
+            weights[k] *= len(vectors[k]) / (norm + 1e-9)**2
+            assert np.isfinite(weights[k])
 
         self.C += np.dot(weights * vectors.T, vectors)
 
@@ -344,20 +355,24 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self._decompose_C()
         else:
             assert all(np.isfinite(self.D))
-            if not self.constant_trace:
-                s = 1
-            elif self.constant_trace in (1, True) or self.constant_trace.startswith(('ar', 'mean')):
-                s = 1 / np.mean(self.variances)
-            elif self.constant_trace.startswith(('geo')):
-                s = np.exp(-np.mean(np.log(self.variances)))
-            elif self.constant_trace.startswith('aeig'):
-                s = 1 / np.mean(self.D)  # same as arith
-            elif self.constant_trace.startswith('geig'):
-                s = np.exp(-np.mean(np.log(self.D)))
-            else:
-                print_warning("trace normalization option '%s' not recognized (further warnings will be surpressed)" % str(self.constant_trace),
-                              class_name='GaussFullSampler', maxwarns=1, iteration=self.count_eigen + 1)
-                s = 1
+            try:
+                if not self.constant_trace:
+                    s = 1
+                elif self.constant_trace in (1, True) or self.constant_trace.startswith(('ar', 'mean')):
+                    s = 1 / np.mean(self.variances)
+                elif self.constant_trace.startswith(('geo')):
+                    s = np.exp(-np.mean(np.log(self.variances)))
+                elif self.constant_trace.startswith('aeig'):
+                    s = 1 / np.mean(self.D)  # same as arith
+                elif self.constant_trace.startswith('geig'):
+                    s = np.exp(-np.mean(np.log(self.D)))
+                else:
+                    print_warning("trace normalization option setting '%s' not recognized (further warnings will be surpressed)" %
+                                  repr(self.constant_trace),
+                                  class_name='GaussFullSampler', maxwarns=1, iteration=self.count_eigen + 1)
+                    s = 1
+            except AttributeError:
+                raise ValueError("Value '%s' not allowed for constant trace setting" % repr(self.constant_trace))
             if s != 1:
                 self.C *= s
                 self.D *= s
@@ -595,6 +610,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     def __init__(self, dimension,
                  constant_trace='None',
                  randn=np.random.randn,
+                 quadratic=False,
                  **kwargs):
         try:
             self.dimension = len(dimension)
@@ -609,6 +625,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         "covariance matrix diagonal"
         self.constant_trace = constant_trace
         self.randn = randn
+        self.quadratic = quadratic
         self.count_tell = 0
 
     def reset(self):
@@ -616,7 +633,8 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """
         self.__init__(self.dimension,
                       constant_trace=self.constant_trace,
-                      randn=self.randn)
+                      randn=self.randn,
+                      quadratic=self.quadratic)
 
     @property
     def variances(self):
@@ -642,14 +660,10 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     def update(self, vectors, weights, c1_times_delta_hsigma=0):
         """update/learn by natural gradient ascent.
 
-        The natural gradient used for the update is::
+        The natural gradient used for the update of the coordinate-wise
+        variances is::
 
-            np.dot(weights * vectors.T, vectors)
-
-        and equivalently::
-
-            sum([outer(weights[i] * vec, vec)
-                 for i, vec in enumerate(vectors)], axis=0)
+            np.dot(weights, vectors**2)
 
         Details: The weights include the learning rate and
         ``-1 <= sum(weights[idx]) <= 1`` must be `True` for
@@ -664,7 +678,14 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self.C *= 1 + c1_times_delta_hsigma - sum(weights)
 
         for k in np.nonzero(weights < 0)[0]:
-            weights[k] *= len(vectors[k]) / self.norm(vectors[k])**2
+            # normalize and hence limit ||weight * vector|| to a
+            # weight-dependent constant; prevents harm if `vector` is
+            # very long while no real harm is done even if `vector` is
+            # very short (hence divided by a small number)
+            norm = self.norm(vectors[k])
+            assert np.isfinite(norm)  # otherwise we later compute 0 * inf
+            weights[k] *= len(vectors[k]) / (norm + 1e-9)**2
+            assert np.isfinite(weights[k])
 
         self.C += np.dot(weights, vectors**2)
 
@@ -718,13 +739,13 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def covariance_matrix(self):
-        return np.diag(self.C)
+        return np.diag(self.C) if self.quadratic else None
 
     @property
     def correlation_matrix(self):
         """return correlation matrix of the distribution.
         """
-        return np.eye(self.dimension)
+        return np.eye(self.dimension) if self.quadratic else None
 
     def to_correlation_matrix(self):
         """"re-scale" C to a correlation matrix and return the scaling
@@ -732,7 +753,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
          See also: `to_linear_transformation`.
         """
-        sigma_vec = np.diag(self.C)**0.5
+        sigma_vec = self.C**0.5
         self.C = np.ones(self.dimension)
         return sigma_vec
 

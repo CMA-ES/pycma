@@ -172,6 +172,14 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     """implement a bijective, monotonous transformation between
     ``[lb - al, ub + au]`` and ``[lb, ub]``.
 
+    Generally speaking, this transformation aims to resemble ``sin`` to
+    be a continuous differentiable (ie. C^1) transformation over R into
+    a bounded interval; then, it also aims to improve over ``sin`` in
+    the following two ways: (i) resemble the identity over an interval
+    as large possible while keeping the second derivative in reasonable
+    limits, and (ii) numerical stability in "pathological" corner cases
+    of the boundary limit values.
+
     The transformation is the identity (and therefore linear) in ``[lb
     + al, ub - au]`` (typically about 90% of the interval) and
     quadratic in ``[lb - 3*al, lb + al]`` and in ``[ub - au,
@@ -184,10 +192,11 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
 
     Partly due to numerical considerations depend the values ``al`` and
     ``au`` on ``abs(lb)`` and ``abs(ub)`` which makes the
-    transformation non-translation invariant. In particular increases the
-    interval In contrast to ``sin(.)``,
-    the transformation is robust to "arbitrary" values for boundaries,
-    e.g. a lower bound of ``-1e99`` or ``np.Inf`` or ``None``.
+    transformation non-translation invariant. In particular, the linear
+    proportion decreases to zero when ``ub-lb`` becomes small. In
+    contrast to ``sin(.)``, the transformation is also robust to
+    "arbitrary" large values for boundaries, e.g. a lower bound of
+    ``-1e99`` or upper bound of ``np.Inf`` or bound ``None``.
 
     Examples
     ========
@@ -630,14 +639,15 @@ class DiagonalDecoding(AdaptiveDecoding):
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
         facs = np.exp(log(2) * (z2_average - sum(weights)))
-        # log(2) => w=-1: exp(log(2) w (0 - 1)) = 2 = 1 + w (0 - 1)
+        # z2=0, w=-1, d=log(2) => exp(d w (0 - 1)) = 2 = 1 + w (0 - 1)
+        # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
         # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
         # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
         #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
         # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
         # remark: for z^2 \to+ 1, eta_max |to- log z^2 / (z^2 - 1) = 1
         if 1 < 3:  # bound increment to observed value
-            idx = weights > 0
+            idx = weights > 0  # for negative weights w (z^2 - 1) <= w
             # TODO: the criterion should be sign(weights*(z2 - 1)) ?
             # however z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
             eta = sum(abs(weights[idx]))

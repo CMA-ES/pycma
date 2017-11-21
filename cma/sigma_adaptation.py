@@ -191,7 +191,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             # divided by 2 to have the derivative d/dx (x**2 / N - 1) for x**2=N equal to 1
         else:
             s = sum(self.ps**2)**0.5 / es.const.chiN - 1
-            if es.opts['vv'] == 'pc for ps':
+            if 'pc for ps' in es.opts['vv']:
                 # s = sum((es.D**-1 * np.dot(es.B.T, es.pc))**2)**0.5 / es.const.chiN - 1
                 s = (sum((es.D**-1 * np.dot(es.B.T, es.pc))**2) / es.N - 1) / 2
         s *= self.cs / self.damps
@@ -334,10 +334,9 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             self.sp.damp = 4  # or 1 + np.log(10)
             self.initialized = 1/2
         try:
-            if opts['vv'][0] == 'TPA_damp':
-                self.sp.damp = opts['vv'][1]
-                print('damp set to %d' % self.sp.damp)
-        except TypeError:
+            self.sp.damp = opts['vv']['TPA_damp']
+            print('damp set to %d' % self.sp.damp)
+        except (KeyError, TypeError):
             pass
 
         self.sp.dampup = 0.5**0.0 * 1.0 * self.sp.damp  # 0.5 fails to converge on the Rastrigin function
@@ -381,16 +380,6 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             # damp = 5 should be fine
             z = np.nonzero(es.fit.idx == 1)[0][0] - np.nonzero(es.fit.idx == 0)[0][0]
             z /= es.popsize - 1  # z in [-1, 1]
-        else:
-            pass
-            # use Kendall tau between fitness rank and C^1/2-scalar product
-            # CAVE: this should be worse in large dimension, because very noisy data are added by adding more offspring,
-            #       it should still work though as for large lambda the correlation should remain visible
-            # therefore, rather use the Pearson correlation between
-            # cos(C^-1/2 * y_i, C^-1/2 * (mean - mean_old)) and fitness rank of y_i? Probably doesn't help.
-            #
-            #   compute scalar product between ary[i] and mean - mean_old for all i
-            #   compute Kendall tau
         self.s = (1 - self.sp.c) * self.s + self.sp.c * np.sign(z) * np.abs(z)**self.sp.z_exponent
         if self.s > 0:
             es.sigma *= np.exp(self.s / self.sp.dampup)
