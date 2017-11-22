@@ -159,6 +159,14 @@ def ranks(a, reverse=False):
     return [len(idx) - 1 - idx.index(i) if reverse else idx.index(i)
             for i in range(len(idx))]
 
+def randhss(n, dim, norm_=lambda x: len(x)**0.5):
+    """`n` iid vectors uniformly distributed on the hypersphere surface
+    """
+    arv = np.random.randn(n, dim)
+    for i, v in enumerate(arv):
+        arv[i] *= norm_(v) / np.sum(v**2)**0.5
+    return arv
+
 def pprint(to_be_printed):
     """nicely formated print"""
     try:
