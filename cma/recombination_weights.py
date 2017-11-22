@@ -185,7 +185,7 @@ class RecombinationWeights(list):
         not do_asserts or self.do_asserts()
         return self
 
-    def finalize_negative_weights(self, dimension, c1, cmu):
+    def finalize_negative_weights(self, dimension, c1, cmu, pos_def=True):
         """finalize negative weights using ``dimension`` and learning
         rates ``c1`` and ``cmu``.
 
@@ -196,11 +196,11 @@ class RecombinationWeights(list):
         1. zero decay, i.e. ``c1 + cmu * sum w == 0``,
         2. a learning rate respecting mueff, i.e. ``sum |w|^- / sum |w|^+
            <= 1 + 2 * self.mueffminus / (self.mueff + 2)``,
-        3. guaranty positive definiteness, assuming sum w^+ = 1 and
-           all negative input vectors used later have at most dimension
-           as squared Mahalanobis norm, by guarantying
-           ``(dimension-1) * cmu * sum |w|^- < 1 - c1 - cmu`` setting
-           ``sum |w|^- <= (1 - c1 -cmu) / dimension / cmu``.
+        3. if `pos_def` guaranty positive definiteness when sum w^+ = 1
+           and all negative input vectors used later have at most their
+           dimension as squared Mahalanobis norm. This is accomplished by
+           guarantying ``(dimension-1) * cmu * sum |w|^- < 1 - c1 - cmu``
+           via setting ``sum |w|^- <= (1 - c1 -cmu) / dimension / cmu``.
 
         The latter two conditions do not change the weights with default
         population size.
@@ -226,12 +226,14 @@ class RecombinationWeights(list):
             if cmu > 0:
                 if c1 > 10 * cmu:
                     print("""WARNING: c1/cmu = %f/%f seems to assume a
-                    too large value""" % (c1, cmu))
+                    too large value for negative weights setting"""
+                          % (c1, cmu))
                 self._negative_weights_set_sum(1 + c1 / cmu)
-                self._negative_weights_limit_sum((1 - c1 - cmu) / cmu /
-                                                 dimension)
-            self._negative_weights_limit_sum(1 + 2 * self.mueffminus /
-                                             (self.mueff + 2))
+                if pos_def:
+                    self._negative_weights_limit_sum((1 - c1 - cmu) / cmu
+                                                     / dimension)
+            self._negative_weights_limit_sum(1 + 2 * self.mueffminus
+                                             / (self.mueff + 2))
         self.do_asserts()
         self.finalized = True
 

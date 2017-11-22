@@ -1303,12 +1303,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         return self._stopdict(self, check)  # update the stopdict and return a Dict
 
-    def __init__(self, x0, sigma0, inopts={}):
+    def __init__(self, x0, sigma0, inopts=None):
         """see class `CMAEvolutionStrategy`
 
         """
         self.inputargs = dict(locals())  # for the record
         del self.inputargs['self']  # otherwise the instance self has a cyclic reference
+        if inopts is None:
+            inopts = {}
         self.inopts = inopts
         opts = CMAOptions(inopts).complement()  # CMAOptions() == fmin([],[]) == defaultOptions()
         utils.global_verbosity = global_verbosity = opts.eval('verbose')
@@ -1497,8 +1499,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.opts['CMA_diagonal']:  # is True or > 0
             # linear time and space complexity
             self.sigma_vec = transformations.DiagonalDecoding(stds * np.ones(N))
-            self.sm = sampler.GaussStandardConstant(N)
+            self.sm = sampler.GaussStandardConstant(N, randn=self.opts['randn'])
             self._updateBDfromSM(self.sm)
+            if self.opts['CMA_diagonal'] is True:
+                self.sp.weights.finalize_negative_weights(N,
+                                                      self.sp.c1_sep,
+                                                      self.sp.cmu_sep,
+                                                      pos_def=False)
+            else:  # would ideally be done when switching
+                self.sp.weights.finalize_negative_weights(N,
+                                                      self.sp.c1,
+                                                      self.sp.cmu)
             if self.opts['CMA_diagonal'] is 1:
                 raise ValueError("""Option 'CMA_diagonal' == 1 is disallowed.
                 Use either `True` or an iteration number > 1 up to which C should be diagonal.
@@ -1992,7 +2003,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """change `x` like for injection, all on genotypic level"""
         x = x - self.mean  # -= fails if dtypes don't agree
         if any(x):
-            x *= sum(self.randn(len(x))**2)**0.5 / self.mahalanobis_norm(x)
+            x *= sum(self.randn(1, len(x))[0]**2)**0.5 / self.mahalanobis_norm(x)
         x += self.mean
         return x
     def _random_rescaling_factor_to_mahalanobis_size(self, y):
@@ -2006,7 +2017,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                            "_random_rescaling_factor_to_mahalanobis_size",
                                 iteration=self.countiter)
             return 1.0
-        return sum(self.randn(len(y))**2)**0.5 / self.mahalanobis_norm(y)
+        return sum(self.randn(1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
 
 
     def get_mirror(self, x, preserve_length=False):
@@ -2042,7 +2053,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                               copy=True) - self.mean
 
         if not preserve_length:
-            # dx *= sum(self.randn(self.N)**2)**0.5 / self.mahalanobis_norm(dx)
+            # dx *= sum(self.randn(1, self.N)[0]**2)**0.5 / self.mahalanobis_norm(dx)
             dx *= self._random_rescaling_factor_to_mahalanobis_size(dx)
         x = self.mean - dx
         y = self.gp.pheno(x, into_bounds=self.boundary_handler.repair)
@@ -2248,7 +2259,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self._indices_of_selective_mirrors = []
         res = []
         for i in range(1, number + 1):
-            if self.fit.idx[-i] not in self._indices_of_selective_mirrors:
+            if 'all-selective-mirrors' in self.opts['vv'] or self.fit.idx[-i] not in self._indices_of_selective_mirrors:
                 res.append(self.mean_old - self.pop[self.fit.idx[-i]])
         assert len(res) >= number - len(self._indices_of_selective_mirrors)
         return res
@@ -3886,6 +3897,7 @@ def fmin(objective_function, x0, sigma0,
                     es = CMAEvolutionStrategy(best.x, sigma_factor * sigma0, opts)
                 else:
                     es = CMAEvolutionStrategy(x0, sigma_factor * sigma0, opts)
+                # return opts, es
                 if eval_initial_x or es.opts['CMA_elitist'] == 'initial' \
                    or (es.opts['CMA_elitist'] and eval_initial_x is None):
                     x = es.gp.pheno(es.mean,
