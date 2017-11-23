@@ -485,15 +485,6 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
     Examples
     ========
 
-    Load and plot previously generated data::
-
-        >>> import cma.purecma as pcma
-        >>> logger = pcma.CMAESDataLogger().load()
-        >>> logger.filename == "_CMAESDataLogger_datadict.py"
-        True
-
-         >> logger.plot()
-
     The data may come from `fmin` or `CMAES` and the simulation may
     still be running in a different Python shell.
 
@@ -508,8 +499,17 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         ...     es.tell(X, [pcma.ff.elli(x) for x in X])
         ...     es.logger.add(es)  # doctest: +ELLIPSIS
         <cma...
+        >>> es.logger.save()
 
          >> es.logger.plot()
+
+    Load and plot previously generated data::
+
+        >>> logger = pcma.CMAESDataLogger().load()
+        >>> logger.filename == "_CMAESDataLogger_datadict.py"
+        True
+
+         >> logger.plot()
 
     TODO: the recorded data are kept in memory and keep growing, which
     may well lead to performance issues for (very?) long runs. Ideally,
