@@ -618,8 +618,7 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
 
     @property
     def condition_number(self):
-        """Condition number of the inside matrix (I + VV')"""
-        return self.S
+        raise NotImplementedError
 
     @property
     def covariance_matrix(self):
