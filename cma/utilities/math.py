@@ -10,6 +10,35 @@ from .utils import rglen
 from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
+def randhss(n, dim, norm_=lambda x: len(x)**0.5, randn=np.random.randn):
+    """`n` iid vectors uniformly distributed on the hypersphere surface.
+
+    >>> from cma.utilities.math import randhss
+    >>> dim = 3
+    >>> assert dim - 1e-7 < sum(randhss(1, dim)[0]**2) < dim + 1e-7
+
+    """
+    arv = randn(n, dim)
+    for v in arv:
+        v *= norm_(v) / np.sum(v**2)**0.5
+    return arv
+
+def randhss_mixin(n, dim, norm_=lambda x: len(x)**0.5,
+                  c=lambda d: 1. / d, randn=np.random.randn):
+    """`n` iid vectors uniformly distributed on the hypersphere surface with
+    mixing in of normal distribution, which can be beneficial in smaller
+    dimension.
+    """
+    arv = randhss(n, dim, norm_, randn)
+    c = min((1, c(dim)))
+    if c > 0:
+        if c > 1:  # can never happen
+            raise ValueError("c(dim)=%f should be <=1" % c)
+        for v in arv:
+            v *= (1 - c**2)**0.5 # has 2 / c longer time horizon than 1 - c
+            v += c * randn(1, dim)[0]  # c is sqrt(2/c) times smaller than sqrt(c * (2 - c))
+    return arv
+
 # ____________________________________________________________
 # ____________________________________________________________
 #
