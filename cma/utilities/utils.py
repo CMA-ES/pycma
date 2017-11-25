@@ -159,9 +159,6 @@ def ranks(a, reverse=False):
     return [len(idx) - 1 - idx.index(i) if reverse else idx.index(i)
             for i in range(len(idx))]
 
-def randhss(n, dim, norm_=lambda x: len(x)**0.5):
-    raise NotImplementedError("the function randhss moved to module cma.utilities.math")
-
 def pprint(to_be_printed):
     """nicely formated print"""
     try:
