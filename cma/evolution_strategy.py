@@ -199,6 +199,7 @@ from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import pprint
 # from .utilities.math import Mh
 from .sigma_adaptation import *
+from . import restricted_gaussian_sampler as _rgs
 
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
@@ -2194,12 +2195,21 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     f = aggregation([f] + [(func(x, *args) if kappa == 1 else
                                             func(xmean + kappa * length_normalizer * (x - xmean), *args))
                                            for _i in range(int(evaluations - 1))])
-                if rejected + 1 % 1000 == 0:
-                    print('  %d solutions rejected (f-value NaN or None) at iteration %d' %
+                if (rejected + 1) % 1000 == 0:
+                    utils.print_warning('  %d solutions rejected (f-value NaN or None) at iteration %d' %
                           (rejected, self.countiter))
             fit.append(f)
             X.append(x)
         self.evaluations_per_f_value = int(evaluations)
+        if None in fit or np.isnan(fit).any():
+            idxs = [i for i in range(len(fit))
+                    if fit[i] is None or np.isnan(fit[i])]
+            utils.print_warning("f-values %s contain None or NaN at indices %s"
+                                % (str(fit[:30]) + ('...' if len(fit) > 30 else ''),
+                                   str(idxs)),
+                                'ask_and_tell',
+                                'CMAEvolutionStrategy',
+                                self.countiter)
         return X, fit
 
     def _prepare_injection_directions(self):
@@ -2573,6 +2583,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         sampler_weights[:1+sp.weights.mu] +
                         (len(pop_zero) - len(sp.weights)) * [0] +
                         sampler_weights[1+sp.weights.mu:])
+            if 'inc_cmu_pos' in self.opts['vv']:
+                sampler_weights = np.asarray(sampler_weights)
+                sampler_weights[sampler_weights > 0] *= 1 + self.opts['vv']['inc_cmu_pos']
+            import logging
+            logging.debug("w[0,1]=%f,%f", sampler_weights[0],
+                          sampler_weights[1]) if self.countiter < 2 else None
             if flg_diagonal:
                 self.sigma_vec.update(
                     [self.sm.transform_inverse(self.pc)] +
@@ -2924,6 +2940,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.D = sm_.variances**0.5
             self.C = array(1)
             self.dC = self.D
+        elif isinstance(sm_, (_rgs.GaussVDSampler, _rgs.GaussVkDSampler)):
+            self.dC = sm_.variances
         else:
             self.C = self.sm.covariance_matrix  # TODO: this should go away
             try:
@@ -4385,6 +4403,18 @@ class CMADataLogger(interfaces.BaseDataLogger):
             maxD = max(es.sigma_vec * es.sm.variances**0.5)  # dC should be 1 though
             minD = min(es.sigma_vec * es.sm.variances**0.5)
             diagD = [1] if es.opts['CMA_diagonal'] is True else diagC
+        elif isinstance(es.sm, _rgs.GaussVkDSampler):
+            diagD = list(1e2 * es.sm.D) + list(1e-2 * (es.sm.S + 1)**0.5)
+            axratio = ((max(es.sm.S) + 1) / (min(es.sm.S) + 1))**0.5
+            maxD = (max(es.sm.S) + 1)**0.5
+            minD = (min(es.sm.S) + 1)**0.5
+            sigma = es.sm.sigma
+        elif isinstance(es.sm, _rgs.GaussVDSampler):
+            # this may not be reflective of the shown annotations
+            diagD = list(1e2 * es.sm.dvec) + [1e-2 * es.sm.norm_v]
+            maxD = minD = 1
+            axratio = 1  # es.sm.condition_number**0.5
+            # sigma = es.sm.sigma
         else:
             try:
                 diagD = es.sm.D

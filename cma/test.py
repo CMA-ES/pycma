@@ -284,15 +284,13 @@ def various_doctests():
     VD-CMA:
 
         >>> import cma
-        >>> from cma import restricted_gaussian_sampler
-        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1, {
-        ...         'CMA_active': False, 'AdaptSigma': None,
-        ...         'CMA_sampler': restricted_gaussian_sampler.GaussVDSampler,
-        ...         # 'CMA_sampler_options': {'seed': 6},
-        ...         'seed': 6,
-        ...         'ftarget': 1e-8,
-        ...         'verbose': -9,  # helpful for automatic testing
-        ...     })
+        >>> from cma import restricted_gaussian_sampler as rgs
+        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1,
+        ...          rgs.GaussVDSampler.extend_cma_options({
+        ...             'seed': 6,
+        ...             'ftarget': 1e-8,
+        ...             'verbose': -9,  # helpful for automatic testing
+        ...     }))
         >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=6), iterations=None)
         >>> assert es.result.fbest <= 1e-8
         >>> print(es.result.evaluations)
@@ -300,20 +298,16 @@ def various_doctests():
 
     VkD-CMA:
 
-        >>> import cma
-        >>> from cma import restricted_gaussian_sampler
-        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1, {
-        ...         'CMA_active': False, 'AdaptSigma': None,
-        ...         'CMA_sampler': restricted_gaussian_sampler.GaussVkDSampler,
-        ...         # 'CMA_sampler_options': {'seed': 6},
-        ...         'seed': 6,
-        ...         'ftarget': 1e-8,
-        ...         'verbose': -9,  # helpful for automatic testing
-        ...     })
+        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1,
+        ...          rgs.GaussVkDSampler.extend_cma_options({
+        ...             'seed': 7,
+        ...             'ftarget': 1e-8,
+        ...             'verbose': -9,  # helpful for automatic testing
+        ...     }))
         >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=3), iterations=None)
         >>> assert es.result.fbest <= 1e-8
         >>> print(es.result.evaluations)
-        5364
+        6204
 
     """
 

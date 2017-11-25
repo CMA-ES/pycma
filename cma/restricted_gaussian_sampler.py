@@ -37,6 +37,12 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     Comparison-Based Natural Gradient Optimization in High Dimension.
     In Proc. of GECCO 2014, pp. 373 -- 380 (2014)
     """
+    @staticmethod
+    def extend_cma_options(opts):
+        opts.update({'CMA_active': False,
+                     # 'AdaptSigma': None,  # not sure about that, False seems to work much worse
+                     'CMA_sampler': GaussVDSampler})
+        return opts
 
     def __init__(self, dimension, randn=np.random.randn, debug=False):
         """pass dimension of the underlying sample space
@@ -292,6 +298,13 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     Projection-Based Restricted Covariance Matrix Adaptation for High
     Dimension. In Proc. of GECCO 2016, pp. 197--204 (2016)
     """
+
+    @staticmethod
+    def extend_cma_options(opts):
+        opts.update({'CMA_active': False,
+                     'AdaptSigma': False,
+                     'CMA_sampler': GaussVkDSampler})
+        return opts
 
     def __init__(self,
                  dimension,
