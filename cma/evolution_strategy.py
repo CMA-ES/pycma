@@ -265,7 +265,7 @@ class MetaParameters(object):
         self.CMA_mirrors = 0.0  ## [0, 0.5)  # values <0.5 are interpreted as fraction, values >1 as numbers (rounded), otherwise about 0.16 is used',
 
         # sampling strategies
-        self.CMA_sample_on_sphere_surface = 0  ## [0, 1] i  # boolean
+        # self.CMA_sample_on_sphere_surface = 0  ## [0, 1] i  # boolean
         self.mean_shift_line_samples = 0  ## [0, 1] i  # boolean
         self.pc_line_samples = 0  ## [0, 1] i  # boolean
 
@@ -411,7 +411,7 @@ cma_default_options = {
     'CMA_mirrormethod': '2  # 0=unconditional, 1=selective, 2=selective with delay',
     'CMA_mu': 'None  # parents selection parameter, default is popsize // 2',
     'CMA_on': '1  # multiplier for all covariance matrix updates',
-    'CMA_sample_on_sphere_surface': 'False  #v all mutation vectors have the same length, currently (with new_sampling) not in effect',
+    # 'CMA_sample_on_sphere_surface': 'False  #v replaced with option randn=cma.utilities.math.randhss, all mutation vectors have the same length, currently (with new_sampling) not in effect',
     'CMA_sampler': 'None  # a class or instance that implements the interface of `cma.interfaces.StatisticalModelSamplerWithZeroMeanBaseClass`',
     'CMA_sampler_options': '{}  # options passed to `CMA_sampler` class init as keyword arguments',
     'CMA_rankmu': '1.0  # multiplier for rank-mu update learning rate of covariance matrix',
@@ -443,7 +443,7 @@ cma_default_options = {
     'maxstd': 'inf  #v maximal std in any coordinate direction',
     'pc_line_samples': 'False #v one line sample along the evolution path pc',
     'popsize': '4+int(3*np.log(N))  # population size, AKA lambda, number of new solution per iteration',
-    'randn': 'np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N)',
+    'randn': 'np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
     'scaling_of_variables': '''None  # depreciated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
             Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`''',
     'seed': 'None  # random number seed',
@@ -1923,12 +1923,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     break
                 # TODO: if len(arinj) > number, ask doesn't fulfill the contract
                 y = self.pop_injection_directions.pop(0)
-                # TODO: sigma_vec must be taken into account here
-                if self.opts['CMA_sample_on_sphere_surface']:
-                    y *= (self.N**0.5 if self.opts['CSA_squared'] else
-                          self.const.chiN) / self.mahalanobis_norm(y) / self.sigma
-                else:
-                    y *= self._random_rescaling_factor_to_mahalanobis_size(y) / self.sigma
+                # sigma_vec _is_ taken into account here
+                y *= self._random_rescaling_factor_to_mahalanobis_size(y) / self.sigma
                 arinj.append(y)
             while self.pop_injection_solutions:
                 arinj.append((self.pop_injection_solutions.pop(0) - self.mean) / self.sigma)
@@ -2323,8 +2319,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         -------
 
         >>> import numpy as np, cma
-        >>> func = cma.ff.elli  # choose objective function
-        >>> es = cma.CMAEvolutionStrategy(np.random.rand(2), 1)
+        >>> func = cma.ff.sphere  # choose objective function
+        >>> es = cma.CMAEvolutionStrategy(np.random.rand(2) / 3, 1.5)
         ... # doctest:+ELLIPSIS
         (3_...
         >>> while not es.stop():

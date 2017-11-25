@@ -11,7 +11,12 @@ from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
 def randhss(n, dim, norm_=lambda x: len(x)**0.5, randn=np.random.randn):
-    """`n` iid vectors uniformly distributed on the hypersphere surface.
+    """`n` iid `dim`-dimensional vectors with length ``norm_(vector)``.
+
+    The vectors are uniformly distributed on a hypersphere surface.
+
+    CMA-ES diverges with popsize 100 in 15-D without option
+    'CSA_clip_length_value': [0,0].
 
     >>> from cma.utilities.math import randhss
     >>> dim = 3
