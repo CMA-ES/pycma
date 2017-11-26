@@ -2349,6 +2349,22 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 function_values = [val[0] for val in function_values]
             else:
                 raise ValueError('objective function values must be a list of scalars')
+        if None in function_values or np.isnan(function_values).any():
+            idx_nan = [i for i, f in enumerate(function_values) if np.isnan(f)]
+            idx_none = [i for i, f in enumerate(function_values) if f is None]
+            utils.print_warning("function values with index %s/%s are nan/None and will be set to the median value"
+                                % (str(idx_nan), str(idx_none)), 'ask',
+                                'CMAEvolutionStrategy', self.countiter)
+            m = np.median([f for f in function_values
+                           if f is not None and not np.isnan(f)])
+            for i in idx_nan + idx_none:
+                function_values[i] = m
+        if not np.isfinite(function_values).all():
+            idx = [i for i, f in enumerate(function_values)
+                   if not np.isfinite(f)]
+            utils.print_warning("function values with index %s are not finite but %s."
+                                % (str(idx), str([function_values[i] for i in idx])), 'ask',
+                                'CMAEvolutionStrategy', self.countiter)
         if self.number_of_solutions_asked <= self.number_of_injections:
             utils.print_warning("""no independent samples generated because the
                 number of injected solutions, %d, equals the number of
