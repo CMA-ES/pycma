@@ -2116,7 +2116,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Example
         -------
         >>> import cma
-        >>> x0, sigma0 = 8*[10], 1  # 8-D
+        >>> x0, sigma0 = 8 * [10], 1  # 8-D
         >>> es = cma.CMAEvolutionStrategy(x0, sigma0)  #doctest: +ELLIPSIS
         (5_w,...
         >>> while not es.stop():
@@ -2197,7 +2197,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.append(f)
             X.append(x)
         self.evaluations_per_f_value = int(evaluations)
-        if None in fit or np.isnan(fit).any():
+        if any(f is None or np.isnan(f) for f in fit):
             idxs = [i for i in range(len(fit))
                     if fit[i] is None or np.isnan(fit[i])]
             utils.print_warning("f-values %s contain None or NaN at indices %s"
@@ -2318,7 +2318,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Example
         -------
 
-        >>> import numpy as np, cma
+        >>> import cma
         >>> func = cma.ff.sphere  # choose objective function
         >>> es = cma.CMAEvolutionStrategy(np.random.rand(2) / 3, 1.5)
         ... # doctest:+ELLIPSIS
@@ -2343,20 +2343,29 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             raise ValueError('population size ' + str(lam) + ' is too small when option CMA_mirrors * popsize < 0.5')
 
         if not np.isscalar(function_values[0]):
-            if np.isscalar(function_values[0][0]):
-                if self.countiter <= 1:
-                    utils.print_warning('function values are not a list of scalars (further warnings are suppressed)')
-                function_values = [val[0] for val in function_values]
-            else:
-                raise ValueError('objective function values must be a list of scalars')
-        if None in function_values or np.isnan(function_values).any():
-            idx_nan = [i for i, f in enumerate(function_values) if np.isnan(f)]
+            try:
+                if np.isscalar(function_values[0][0]):
+                    if self.countiter <= 1:
+                        utils.print_warning('''function_values is not a list of scalars,
+                        the first element equals %s with non-scalar type %s.
+                        Using now ``[v[0] for v in function_values]`` instead (further warnings are suppressed)'''
+                                            % (str(function_values[0]), str(type(function_values[0]))))
+                    function_values = [val[0] for val in function_values]
+                else:
+                    raise ValueError('objective function values must be a list of scalars')
+            except:
+                utils.print_message("function values=%s" % function_values,
+                                    method_name='tell', class_name='CMAEvolutionStrategy',
+                                    verbose=9, iteration=self.countiter)
+                raise
+        if any(f is None or np.isnan(f) for f in function_values):
             idx_none = [i for i, f in enumerate(function_values) if f is None]
-            utils.print_warning("function values with index %s/%s are nan/None and will be set to the median value"
-                                % (str(idx_nan), str(idx_none)), 'ask',
-                                'CMAEvolutionStrategy', self.countiter)
+            idx_nan = [i for i, f in enumerate(function_values) if f is not None and np.isnan(f)]
             m = np.median([f for f in function_values
                            if f is not None and not np.isnan(f)])
+            utils.print_warning("function values with index %s/%s are nan/None and will be set to the median value %s"
+                                % (str(idx_nan), str(idx_none), str(m)), 'ask',
+                                'CMAEvolutionStrategy', self.countiter)
             for i in idx_nan + idx_none:
                 function_values[i] = m
         if not np.isfinite(function_values).all():

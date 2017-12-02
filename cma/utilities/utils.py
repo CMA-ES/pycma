@@ -199,10 +199,10 @@ def print_message(msg, method_name=None, class_name=None, iteration=None,
     if verbose is None:
         verbose = global_verbosity
     if verbose >= 0:
-        print('NOTE (module=' + __name__ +
+        print('NOTE (module=cma' + # __name__ +
               (', class=' + str(class_name) if class_name else '') +
               (', method=' + str(method_name) if method_name else '') +
-              (', iteration=' + str(iteration) if iteration else '') +
+              (', iteration=' + str(iteration) if iteration is not None else '') +
               '): ', msg)
 
 def set_attributes_from_dict(self, dict_, initial_params_dict_name=None):
