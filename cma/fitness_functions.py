@@ -237,6 +237,18 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         X = [y] if isscalar(y[0]) else y
         f = [1e-4 * x[0]**2 + 1e4 * x[1]**2 + sum(x[2:]**2) for x in X]
         return f if len(f) > 1 else f[0]
+    def cigtab2(self, x, condition=1e8, n_axes=None):
+        """cigtab with 1 + 5% long and short axes.
+
+        `n_axes: int`, if > 0, sets the number of long as well as short
+        axes to `n_axes`, respectively.
+        """
+        m = n_axes or 1 + len(x) // 20
+        x = np.asarray(x)
+        f = sum(x[m:-m]**2)
+        f += condition**0.5 * sum(x[:m]**2)
+        f += condition**-0.5 * sum(x[-m:]**2)
+        return f
     def twoaxes(self, y):
         """Cigtab test objective function"""
         X = [y] if isscalar(y[0]) else y
