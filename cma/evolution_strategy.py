@@ -3412,7 +3412,7 @@ class _CMAParameters(object):
      'c1_sep': 0.0343279...,
      'cc': 0.171767...,
      'cc_sep': 0.252594...,
-     'cmean': 1.0,
+     'cmean': array(1.0),
      'cmu': 0.00921656...,
      'cmu_sep': 0.0565385...,
      'lam_mirr': 0,
@@ -3590,11 +3590,11 @@ class _CMAParameters(object):
             # sp.damps = 20 # 1. + 20 * sp.cs**-1  # 1e99 # (1 + 2*max(0,sqrt((mueff-1)/(N+1))-1)) + sp.cs;
             print('damps is %f' % (sp.damps))
 
-        sp.cmean = float(opts['CMA_cmean'])
+        sp.cmean = np.asarray(opts['CMA_cmean'], dtype=float)
         # sp.kappa = 1  # 4-D, lam=16, rank1, kappa < 4 does not influence convergence rate
                         # in larger dim it does, 15-D with defaults, kappa=8 factor 2
-        if 11 < 3 and sp.cmean != 1:
-            print('  cmean = %f' % (sp.cmean))
+        if 11 < 3 and np.any(sp.cmean != 1):
+            print('  cmean = ' + str(sp.cmean))
 
         if verbose:
             if not sp.CMA_on:
@@ -4045,9 +4045,12 @@ def fmin(objective_function, x0, sigma0,
                         if noisehandler.maxevals > noisehandler.minevals:
                             es.more_to_write.append(noisehandler.evaluations)
                         if 1 < 3:
+                            # If sigma was above multiplied by the same
+                            #  factor cmean is divided by here, this is
+                            #  like only multiplying kappa instead of
+                            #  changing cmean and sigma.
                             es.sp.cmean *= np.exp(-noise_kappa_exponent * np.tanh(noisehandler.noiseS))
-                            if es.sp.cmean > 1:
-                                es.sp.cmean = 1
+                            es.sp.cmean[es.sp.cmean > 1] = 1.0  # also works with "scalar arrays" like np.array(1.2)
                     for f in callback:
                         f is None or f(es)
                     es.disp()
