@@ -3087,6 +3087,27 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         return self.sm.norm(np.asarray(dx) / self.sigma_vec.scaling) / self.sigma
 
+    @property
+    def isotropic_mean_shift(self):
+        """normalized last mean shift, under random selection N(0,I)
+
+        distributed.
+
+        Caveat: while it is finite and close to sqrt(n) under random
+        selection, the length of the normalized mean shift under
+        *systematic* selection (e.g. on a linear function) tends to
+        infinity for mueff -> infty. Hence it must be used with great
+        care for large mueff.
+        """
+        z = self.sm.transform_inverse((self.mean - self.mean_old) /
+                                      self.sigma_vec.scaling)
+        # works unless a re-parametrisation has been done
+        # assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
+        #         np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec)))
+        z /= self.sigma * self.sp.cmean
+        z *= self.sp.weights.mueff**0.5
+        return z
+
     def disp_annotation(self):
         """print annotation line for `disp` ()"""
         print('Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]')
