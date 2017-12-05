@@ -111,7 +111,7 @@ def fmin(objective_fct, xstart, sigma,
     The following example minimizes the function `ff.elli`::
 
         >> from cma import purecma, ff
-        >> res = purecma.fmin(ff.elli, 3 * [0.5], 0.3, verb_disp=100)
+        >> xopt, es = purecma.fmin(ff.elli, 3 * [0.5], 0.3, verb_disp=100)
         evals: ax-ratio max(std)   f-value
             7:     1.0  3.4e-01  240.2716966
            14:     1.0  3.9e-01  2341.50170536
@@ -121,11 +121,11 @@ def fmin(objective_fct, xstart, sigma,
         termination by {'tolfun': 1e-12}
         best f-value = 2.72976881789e-14
         solution = [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-        >> print(res[0])
+        >> print(xopt)
         [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-        >> print(res[1].result[1])
+        >> print(es.result[1])
         2.72976881789e-14
-        >> res[1].logger.plot()  # needs pylab/matplotlib to be installed
+        >> es.logger.plot()  # needs pylab/matplotlib to be installed
 
     Details
     =======
@@ -779,8 +779,10 @@ class DecomposingPositiveMatrix(SquareMatrix):
         C = C.eigenbasis x diag(C.eigenvalues) x C.eigenbasis^T
 
     """
-    def __init__(self, dimension):
+    def __init__(self, dimension, eigen=None):
+        """`eigen` returns eigenvectors and -values like `eig`"""
         SquareMatrix.__init__(self, dimension)
+        self._eig = eigen or eig  # eig is defined below
         self.eigenbasis = eye(dimension)
         self.eigenvalues = dimension * [1]
         self.condition_number = 1
@@ -797,7 +799,7 @@ class DecomposingPositiveMatrix(SquareMatrix):
         if current_eval <= self.updated_eval + lazy_gap_evals:
             return self
         self._enforce_symmetry()  # probably not necessary with eig
-        self.eigenvalues, self.eigenbasis = eig(self)  # O(N**3)
+        self.eigenvalues, self.eigenbasis = self._eig(self)  # O(N**3)
         if min(self.eigenvalues) <= 0:
             raise RuntimeError(
                 "The smallest eigenvalue is <= 0 after %d evaluations!"
