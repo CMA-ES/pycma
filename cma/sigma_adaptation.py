@@ -3,8 +3,10 @@ because `hsig` is computed in the base class
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals, with_statement
 import numpy as np
+from numpy import square as _square, sqrt as _sqrt
 from .utilities import utils
 from .utilities.math import Mh
+def _norm(x): return np.sqrt(np.sum(np.square(x)))
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
 class CMAAdaptSigmaBase(object):
@@ -18,6 +20,8 @@ class CMAAdaptSigmaBase(object):
     def __init__(self, *args, **kwargs):
         self.is_initialized_base = False
         self._ps_updated_iteration = -1
+        self.delta = 1
+        "cumulated effect of adaptation"
     def initialize_base(self, es):
         """set parameters and state variable based on dimension,
         mueff and possibly further options.
@@ -68,6 +72,19 @@ class CMAAdaptSigmaBase(object):
         # correction with self.countiter seems not necessary,
         # as pc also starts with zero
         return squared_sum / es.N - 1 < 1 + 4. / (es.N + 1)
+
+    def update2(self, es, **kwargs):
+        """return sigma change factor and update self.delta.
+
+        ``self.delta == sigma/sigma0`` accumulates all past changes
+        starting from `1.0`.
+
+        Unlike `update`, `update2` is not supposed to change attributes
+        in `es`, specifically it should not change `es.sigma`.
+        """
+        self._update_ps(es)
+        raise NotImplementedError('must be implemented in a derived class')
+
     def update(self, es, **kwargs):
         """update ``es.sigma``
 
@@ -101,11 +118,11 @@ class CMAAdaptSigmaDistanceProportional(CMAAdaptSigmaBase):
         """need attributes ``N``, ``sp.weights.mueff``, ``mean``,
         ``sp.cmean`` of input parameter ``es``
         """
-        es.sigma = self.coefficient * es.sp.weights.mueff * sum(es.mean**2)**0.5 / es.N / es.sp.cmean
+        es.sigma = self.coefficient * es.sp.weights.mueff * _norm(es.mean) / es.N / es.sp.cmean
 class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
     """CSA cumulative step-size adaptation AKA path length control.
 
-    Up to now, 2016, considered as the default step-size control method
+    As of 2017, CSA is considered as the default step-size control method
     within CMA-ES.
     """
     def __init__(self, **kwargs):
@@ -113,6 +130,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
 
         """
         self.is_initialized = False
+        self.delta = 1
     def initialize(self, es):
         """set parameters and state variable based on dimension,
         mueff and possibly further options.
@@ -161,42 +179,62 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         self._ps_updated_iteration = -1
         self.is_initialized = True
     def _update_ps(self, es):
+        """update path with isotropic delta mean, possibly clipped.
+
+        From input argument `es`, the attributes isotropic_mean_shift,
+        opts['CSA_clip_length_value'], and N are used.
+        opts['CSA_clip_length_value'] can be a single value, the upper
+        bound parameter, such that::
+
+            max_len = sqrt(N) + opts['CSA_clip_length_value'] * N / (N+2)
+
+        or a list with lower and upper bound parameters.
+        """
         if not self.is_initialized:
             self.initialize(es)
         if self._ps_updated_iteration == es.countiter:
             return
-        z = es.sm.transform_inverse((es.mean - es.mean_old) / es.sigma_vec.scaling)
-        # works unless a re-parametrisation has been done
-        # assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
-        #         np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec)))
-        z *= es.sp.weights.mueff**0.5 / es.sigma / es.sp.cmean
-        # zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+        z = es.isotropic_mean_shift
         if es.opts['CSA_clip_length_value'] is not None:
             vals = es.opts['CSA_clip_length_value']
+            try: len(vals)
+            except TypeError: vals = [-np.inf, vals]
+            if vals[0] > 0 or vals[1] < 0:
+                raise ValueError(
+                  """value(s) for option 'CSA_clip_length_value' = %s
+                  not allowed""" % str(es.opts['CSA_clip_length_value']))
             min_len = es.N**0.5 + vals[0] * es.N / (es.N + 2)
             max_len = es.N**0.5 + vals[1] * es.N / (es.N + 2)
-            act_len = sum(z**2)**0.5
+            act_len = _norm(z)
             new_len = Mh.minmax(act_len, min_len, max_len)
             if new_len != act_len:
                 z *= new_len / act_len
                 # z *= (es.N / sum(z**2))**0.5  # ==> sum(z**2) == es.N
                 # z *= es.const.chiN / sum(z**2)**0.5
-        self.ps = (1 - self.cs) * self.ps + np.sqrt(self.cs * (2 - self.cs)) * z
+        self.ps = (1 - self.cs) * self.ps + _sqrt(self.cs * (2 - self.cs)) * z
         self._ps_updated_iteration = es.countiter
-    def update(self, es, **kwargs):
+    def update2(self, es, **kwargs):
+        """call ``self._update_ps(es)`` and update self.delta.
+
+        Return change factor of self.delta.
+
+        From input `es`, either attribute N or const.chiN is used.
+        """
+        delta_old = self.delta
         self._update_ps(es)  # caveat: if es.B or es.D are already updated and ps is not, this goes wrong!
+        p = self.ps
+        if 'pc for ps' in es.opts['vv']:
+            # was: es.D**-1 * np.dot(es.B.T, es.pc)
+            p = es.sm.transform_inverse(es.pc)
         if es.opts['CSA_squared']:
-            s = (sum(self.ps**2) / es.N - 1) / 2
+            s = (sum(_square(p)) / es.N - 1) / 2
             # sum(self.ps**2) / es.N has mean 1 and std sqrt(2/N) and is skewed
             # divided by 2 to have the derivative d/dx (x**2 / N - 1) for x**2=N equal to 1
         else:
-            s = sum(self.ps**2)**0.5 / es.const.chiN - 1
-            if 'pc for ps' in es.opts['vv']:
-                # s = sum((es.D**-1 * np.dot(es.B.T, es.pc))**2)**0.5 / es.const.chiN - 1
-                s = (sum((es.D**-1 * np.dot(es.B.T, es.pc))**2) / es.N - 1) / 2
+            s = _norm(p) / es.const.chiN - 1
         s *= self.cs / self.damps
         s_clipped = Mh.minmax(s, -self.max_delta_log_sigma, self.max_delta_log_sigma)
-        es.sigma *= np.exp(s_clipped)
+        self.delta *= np.exp(s_clipped)
         # "error" handling
         if s_clipped != s:
             utils.print_warning('sigma change np.exp(' + str(s) + ') = ' + str(np.exp(s)) +
@@ -204,6 +242,13 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
                           'update',
                           'CMAAdaptSigmaCSA',
                                 es.countiter, es.opts['verbose'])
+        return self.delta / delta_old
+    def update(self, es, **kwargs):
+        """call ``self._update_ps(es)`` and update ``es.sigma``.
+
+        Legacy method replaced by `update2`.
+        """
+        es.sigma *= self.update2(es, **kwargs)
         if 11 < 3:
             # derandomized MSR = natural gradient descent using mean(z**2) instead of mu*mean(z)**2
             fit = kwargs['fit']  # == es.fit
@@ -211,9 +256,10 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             # print lengths[0::int(es.sp.weights.mu/5)]
             es.sigma *= np.exp(np.dot(es.sp.weights, slengths / es.N - 1))**(2 / (es.N + 1))
         if 11 < 3:
-            es.more_to_write.append(10**((sum(self.ps**2) / es.N / 2 - 1 / 2 if es.opts['CSA_squared'] else sum(self.ps**2)**0.5 / es.const.chiN - 1)))
-            es.more_to_write.append(10**(-3.5 + sum(self.ps**2) / es.N / 2 - sum(self.ps**2)**0.5 / es.const.chiN))
+            es.more_to_write.append(10**((sum(self.ps**2) / es.N / 2 - 1 / 2 if es.opts['CSA_squared'] else _norm(self.ps) / es.const.chiN - 1)))
+            es.more_to_write.append(10**(-3.5 + sum(self.ps**2) / es.N / 2 - _norm(self.ps) / es.const.chiN))
             # es.more_to_write.append(10**(-3 + sum(es.arz[es.fit.idx[0]]**2) / es.N))
+
 class CMAAdaptSigmaMedianImprovement(CMAAdaptSigmaBase):
     """Compares median fitness to the 27%tile fitness of the
     previous iteration, see Ait ElHara et al, GECCO 2013.

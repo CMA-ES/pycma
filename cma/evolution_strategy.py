@@ -431,8 +431,8 @@ cma_default_options = {
     # 'CMA_AII': 'False  # not yet tested',
     'CSA_dampfac': '1  #v positive multiplier for step-size damping, 0.3 is close to optimal on the sphere',
     'CSA_damp_mueff_exponent': '0.5  # zero would mean no dependency of damping on mueff, useful with CSA_disregard_length option',
-    'CSA_disregard_length': 'False  #v True is untested',
-    'CSA_clip_length_value': 'None  #v untested, [0, 0] means disregarding length completely',
+    'CSA_disregard_length': 'False  #v True is untested, also changes respective parameters',
+    'CSA_clip_length_value': 'None  #v poorly tested, [0, 0] means const length N**0.5, [-1, 1] allows a variation of +- N/(N+2), etc.',
     'CSA_squared': 'False  #v use squared length for sigma-adaptation ',
     'BoundaryHandler': 'BoundTransform  # or BoundPenalty, unused when ``bounds in (None, [None, None])``',
     'bounds': '[None, None]  # lower (=bounds[0]) and upper domain boundaries, each a scalar or a list/vector',
@@ -2641,7 +2641,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # step-size adaptation, adapt sigma
         # in case of TPA, function_values[0] and [1] must reflect samples colinear to xmean - xmean_old
-        self.adapt_sigma.update(self, function_values=function_values)
+        try:
+            self.sigma *= self.adapt_sigma.update2(self,
+                                        function_values=function_values)
+        except (NotImplementedError, AttributeError):
+            self.adapt_sigma.update(self, function_values=function_values)
 
         if 11 < 3 and self.opts['vv']:
             if self.countiter < 2:
@@ -3114,7 +3118,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         z = self.sm.transform_inverse((self.mean - self.mean_old) /
                                       self.sigma_vec.scaling)
-        # works unless a re-parametrisation has been done
+        # TODO:
+        # works unless a re-parametrisation has been done, and otherwise?
         # assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
         #         np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec)))
         z /= self.sigma * self.sp.cmean
