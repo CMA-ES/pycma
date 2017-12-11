@@ -172,6 +172,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     def __init__(self, dimension,
                  lazy_update_gap=0,
                  constant_trace='',
+                 condition_limit=None,
                  randn=np.random.randn,
                  eigenmethod=np.linalg.eigh):
         try:
@@ -189,6 +190,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         "covariance matrix"
         self.lazy_update_gap = lazy_update_gap
         self.constant_trace = constant_trace
+        self.condition_limit = condition_limit if condition_limit else np.inf
         self.randn = randn
         self.eigenmethod = eigenmethod
         self.B = np.eye(self.dimension)
@@ -301,16 +303,6 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         self._updateC()
         self._decompose_C()
         self.last_update = self.count_tell
-        # qqqqqqqqqq
-        if 11 < 3:  # limit condition number to 1e13
-            dlimit = 1e13**0.5  # cave: conditioncov termination is 1e14
-            if self.D[-1] / self.D[0] > dlimit:
-                fac = (self.D[-1] / dlimit)**2
-                self.D **= 2
-                self.D += fac
-                self.D **= 0.5
-                for i in range(self.dimension):
-                    self.C[i][i] += fac
 
         if _assertions_quadratic and any(abs(sum(
                 self.B[:, 0:self.dimension - 1]
@@ -354,7 +346,16 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             self.D = (D_old**2 + min_di2)**0.5
             self._decompose_C()
         else:
+            self.count_eigen += 1
             assert all(np.isfinite(self.D))
+            if 1 < 3:  # is only n*log(n) compared to n**3 of eig right above
+                idx = np.argsort(self.D)
+                self.D = self.D[idx]
+                # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
+                self.B = self.B[:, idx]
+                assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
+
+            self.limit_condition()
             try:
                 if not self.constant_trace:
                     s = 1
@@ -377,14 +378,52 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 self.C *= s
                 self.D *= s
             self.D **= 0.5
-            if 1 < 3:  # is only n*log(n) compared to n**3 of eig right above
-                idx = np.argsort(self.D)
-                self.D = self.D[idx]
-                # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
-                self.B = self.B[:, idx]
-                assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
+            assert all(np.isfinite(self.D))
             self._inverse_root_C = None
-            self.count_eigen += 1
+
+        # self.dC = np.diag(self.C)
+
+        if 11 < 3:  # not needed for now
+            self.inverse_root_C = np.dot(self.B / self.D, self.B.T)
+            self.inverse_root_C = (self.inverse_root_C + self.inverse_root_C.T) / 2
+
+    def limit_condition(self, limit=None):
+        """bound condition number to `limit` by adding eps to the trace.
+
+        This method only changes the sampling distribution, but not the
+        underlying covariance matrix.
+
+        We add ``eps = (a - limit * b) / (limit - 1)`` to the diagonal
+        variances, derived from ``limit = (a + eps) / (b + eps)`` with
+        ``a, b = lambda_max, lambda_min``.
+
+        >>> import cma
+        >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, {'verbose':-9})
+        >>> _ = es.optimize(cma.ff.elli)
+        >>> assert es.sm.condition_number > 1e4
+        >>> es.sm.limit_condition(1e4 - 1)
+        >>> assert es.sm.condition_number < 1e4
+
+        """
+        if limit is None:
+            limit = self.condition_limit
+        elif limit <= 1:
+            raise ValueError("condition limit was %f<=1 but should be >1"
+                             % limit)
+        if not np.isfinite(limit) or self.condition_number <= limit:
+            return
+
+        eps = (self.D[-1]**2 - limit * self.D[0]**2) / (limit - 1)
+        if eps <= 0:  # should never happen, because cond > limit
+            raise RuntimeWarning("cond=%e, limit=%e, eps=%e" %
+                (self.condition_number, limit, eps))
+            return
+
+        for i in range(self.dimension):
+            self.C[i][i] += eps
+        self.D **= 2
+        self.D += eps
+        self.D **= 0.5
 
     def multiply_C(self, factor):
         """multiply ``self.C`` with ``factor`` updating internal states.
