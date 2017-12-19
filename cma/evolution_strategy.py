@@ -403,7 +403,7 @@ cma_default_options = {
     'CMA_active': 'True  # negative update, conducted after the original update',
 #    'CMA_activefac': '1  # learning rate multiplier for active update',
     'CMA_cmean': '1  # learning rate for the mean value',
-    'CMA_const_trace': 'False  # normalize trace, 1, True, arithm, geom, aeig, geig are valid',
+    'CMA_const_trace': 'False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
     'CMA_diagonal': '0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
     'CMA_eigenmethod': 'np.linalg.eigh  # or cma.utils.eig or pygsl.eigen.eigenvectors',
     'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
