@@ -714,6 +714,21 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         return 2.0 * np.sum(np.log(self.D)) + np.sum(
             np.log(1.0 + self.S[:self.k_active]))
 
+    def get_condition_numbers(self):
+        """get the condition numbers of D**2 and (I + VV')
+        
+        Theoretically, the condition number of the covariance matrix can be
+        at most the product of the return values. It might be safe to stop 
+        a run if the product of the return values reaches 1e14.
+
+        Returns
+        -------
+        float
+            condition number of D
+        float 
+            condition number of I + VV'
+        """
+        return (np.max(self.D) / np.min(self.D)) ** 2, np.max(1 + self.S[:self.k])
 
 class ExponentialMovingAverage(object):
     """Exponential Moving Average, Variance, and SNR (Signal-to-Noise Ratio)
