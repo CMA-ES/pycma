@@ -2607,9 +2607,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if 'inc_cmu_pos' in self.opts['vv']:
                 sampler_weights = np.asarray(sampler_weights)
                 sampler_weights[sampler_weights > 0] *= 1 + self.opts['vv']['inc_cmu_pos']
-            import logging
-            logging.debug("w[0,1]=%f,%f", sampler_weights[0],
-                          sampler_weights[1]) if self.countiter < 2 else None
+            # import logging
+            # logging.debug("w[0,1]=%f,%f", sampler_weights[0],
+            #               sampler_weights[1]) if self.countiter < 2 else None
             if flg_diagonal:
                 self.sigma_vec.update(
                     [self.sm.transform_inverse(self.pc)] +
