@@ -3419,7 +3419,7 @@ class _CMAParameters(object):
      'c1_sep': 0.0343279...,
      'cc': 0.171767...,
      'cc_sep': 0.252594...,
-     'cmean': array(1.0),
+     'cmean': array(1...,
      'cmu': 0.00921656...,
      'cmu_sep': 0.0565385...,
      'lam_mirr': 0,

@@ -63,8 +63,8 @@ class Rotation(object):
     >>> R = cma.transformations.Rotation()
     >>> R2 = cma.transformations.Rotation() # another rotation
     >>> x = np.array((1,2,3))
-    >>> print(R(R(x), inverse=1))
-    [ 1.  2.  3.]
+    >>> list(np.round(R(R(x), inverse=1), 9))
+    [1.0, 2.0, 3.0]
 
     :See also: `Rotated`
 
@@ -222,15 +222,14 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
 
     Example of the internal workings:
 
-    >>> import cma
     >>> from cma.transformations import BoxConstraintsLinQuadTransformation
     >>> tf = BoxConstraintsLinQuadTransformation([[1,2], [1,11], [1,11]])
     >>> tf.bounds
     [[1, 2], [1, 11], [1, 11]]
     >>> tf([1.5, 1.5, 1.5])
     [1.5, 1.5, 1.5]
-    >>> tf([1.52, -2.2, -0.2, 2, 4, 10.4])
-    array([  1.52,   4.  ,   2.  ,   2.  ,   4.  ,  10.4 ])
+    >>> list(np.round(tf([1.52, -2.2, -0.2, 2, 4, 10.4]), 9))
+    [1.52, 4.0, 2.0, 2.0, 4.0, 10.4]
     >>> res = np.round(tf._au, 2)
     >>> assert list(res[:4]) == [ 0.15, 0.6, 0.6, 0.6]
     >>> res = [round(x, 2) for x in tf.shift_or_mirror_into_invertible_domain([1.52, -12.2, -0.2, 2, 4, 10.4])]
