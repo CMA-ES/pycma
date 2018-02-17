@@ -188,6 +188,13 @@ from numpy import inf, array
 # to access the built-in sum fct:  ``__builtins__.sum`` or ``del sum``
 # removes the imported sum and recovers the shadowed build-in
 
+# import logging
+# logging.basicConfig(level=logging.INFO)  # only works before logging is used
+# logging.info('message')  # prints INFO:root:message on red background
+# logger = logging.getLogger(__name__)  # should not be done during import
+# logger.info('message')  # prints INFO:cma...:message on red background
+# see https://fangpenlin.com/posts/2012/08/26/good-logging-practice-in-python/
+
 from . import interfaces
 from . import transformations
 from . import optimization_tools as ot
@@ -2607,8 +2614,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if 'inc_cmu_pos' in self.opts['vv']:
                 sampler_weights = np.asarray(sampler_weights)
                 sampler_weights[sampler_weights > 0] *= 1 + self.opts['vv']['inc_cmu_pos']
-            # import logging
-            # logging.debug("w[0,1]=%f,%f", sampler_weights[0],
+            # logger = logging.getLogger(__name__)  # "global" level needs to be DEBUG
+            # logger.debug("w[0,1]=%f,%f", sampler_weights[0],
             #               sampler_weights[1]) if self.countiter < 2 else None
             if flg_diagonal:
                 self.sigma_vec.update(
