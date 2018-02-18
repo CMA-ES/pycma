@@ -51,6 +51,10 @@ either of these with ``sudo``.
 
 ## Version History
 
+* Version ``2.4.2`` added the function `cma.fmin2` which, similar to `cma.purecma.fmin`, 
+  returns ``(x_best:numpy.ndarray, es:cma.CMAEvolutionStrategy)``  instead of a 10-tuple
+  like `cma.fmin`.
+
 * Version ``2.2.0`` added VkD CMA-ES to the master branch.
 
 * Version ``2.*`` is a multi-file split-up of the original module.
