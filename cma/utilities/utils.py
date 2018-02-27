@@ -65,6 +65,12 @@ def is_str(var):
     else:
         types_ = (str, bytes)
     return any(isinstance(var, type_) for type_ in types_)
+def is_nan(var):
+    """return ``np.isnan(var)`` or `False` if `var` is not numeric"""
+    try:
+        return np.isnan(var)
+    except TypeError:
+        return False
 
 def is_vector_list(x):
     """make an educated guess whether ``x`` is a list of vectors.

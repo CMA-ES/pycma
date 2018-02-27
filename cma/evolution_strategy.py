@@ -453,7 +453,7 @@ cma_default_options = {
     'randn': 'np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
     'scaling_of_variables': '''None  # depreciated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
             Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`''',
-    'seed': 'None  # random number seed',
+    'seed': 'time  # random number seed for `numpy.random`; `None` and `0` equate to `time`, `np.nan` means "do nothing", see also option "randn"',
     'signals_filename': 'None  # cma_signals.in  # read versatile options from this file which contains a single options dict, e.g. ``{"timeout": 0}`` to stop, string-values are evaluated, e.g. "np.inf" is valid',
     'termination_callback': 'None  #v a function returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
     'timeout': 'inf  #v stop if timeout seconds are exceeded, the string "2.5 * 60**2" evaluates to 2 hours and 30 minutes',
@@ -469,7 +469,7 @@ cma_default_options = {
             t1 is the (optional) back transformation, see class GenoPheno''',
     'typical_x': 'None  # used with scaling_of_variables',
     'updatecovwait': 'None  #v number of iterations without distribution update, name is subject to future changes',  # TODO: rename: iterwaitupdatedistribution?
-    'verbose': '3  #v verbosity e.v. of initial/final message, -1 is very quiet, -9 maximally quiet, not yet fully implemented',
+    'verbose': '3  #v verbosity e.g. of initial/final message, -1 is very quiet, -9 maximally quiet, may not be fully implemented',
     'verb_append': '0  # initial evaluation counter, if append, do not overwrite output files',
     'verb_disp': '100  #v verbosity: display console output every verb_disp iteration',
     'verb_filenameprefix': 'outcmaes  # output filenames prefix',
@@ -1356,13 +1356,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if np.isinf(opts['CMA_diagonal']):
             opts['CMA_diagonal'] = True
         self.opts = opts
-        if not opts['seed']:
-            np.random.seed()
-            six_decimals = (time.time() - 1e6 * (time.time() // 1e6))
-            opts['seed'] = 1e5 * np.random.rand() + six_decimals + 1e5 * (time.time() % 1)
-        opts['seed'] = int(opts['seed'])
-        np.random.seed(opts['seed'])  # CAVEAT: this only seeds np.random
         self.randn = opts['randn']
+        if not utils.is_nan(opts['seed']):
+            if self.randn is np.random.randn:
+                if not opts['seed'] or opts['seed'] is time:
+                    np.random.seed()
+                    six_decimals = (time.time() - 1e6 * (time.time() // 1e6))
+                    opts['seed'] = int(1e5 * np.random.rand() + six_decimals
+                                       + 1e5 * (time.time() % 1))
+                np.random.seed(opts['seed'])  # a printable seed
+            elif opts['seed'] not in (None, time):
+                utils.print_warning("seed=%s will never be used (seed is only used if option 'randn' is np.random.randn)"
+                                    % str(opts['seed']))
         self.gp = transformations.GenoPheno(self.N_pheno,
                         opts['scaling_of_variables'],
                         opts['typical_x'],
@@ -1618,7 +1623,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             print('(%d' % (self.sp.weights.mu) + sweighted + ',%d' % (self.sp.popsize) + smirr +
                   ')-' + ('a' if opts['CMA_active'] else '') + 'CMA-ES' +
                   ' (mu_w=%2.1f,w_1=%d%%)' % (self.sp.weights.mueff, int(100 * self.sp.weights[0])) +
-                  ' in dimension %d (seed=%d, %s)' % (N, opts['seed'], time.asctime()))  # + func.__name__
+                  ' in dimension %d (seed=%s, %s)' % (N, str(opts['seed']), time.asctime()))  # + func.__name__
             if opts['CMA_diagonal'] and self.sp.CMA_on:
                 s = ''
                 if opts['CMA_diagonal'] is not True:
@@ -4108,7 +4113,10 @@ def fmin(objective_function, x0, sigma0,
                 break
             opts['verb_append'] = es.countevals
             opts['popsize'] = fmin_opts['incpopsize'] * es.sp.popsize  # TODO: use rather options?
-            opts['seed'] += 1
+            try:
+                opts['seed'] += 1
+            except TypeError:
+                pass
 
         # while irun
 
@@ -4256,7 +4264,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         # write headers for output
         fn = self.name_prefix + 'fit.dat'
-        strseedtime = 'seed=%d, %s' % (es.opts['seed'], time.asctime())
+        strseedtime = 'seed=%s, %s' % (str(es.opts['seed']), time.asctime())
 
         try:
             with open(fn, 'w') as f:
