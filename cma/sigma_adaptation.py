@@ -372,7 +372,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
                 'update', 'CMAAdaptSigmaTPA')
             self.initialized = True
         if 1 < 3:
-            f_vals = function_values
+            f_vals = np.asarray(function_values)
             z = sum(f_vals < f_vals[1]) - sum(f_vals < f_vals[0])
             z /= len(f_vals) - 1  # z in [-1, 1]
         elif 1 < 3:
