@@ -502,7 +502,7 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
     ...     X = es.ask()
     ...     es.tell(X, [pcma.ff.elli(x) for x in X])
     ...     es.logger.add(es)  # doctest: +ELLIPSIS
-    <cma...
+    <...
     >>> es.logger.save()
     >>> # es.logger.plot()  #
 
@@ -870,13 +870,14 @@ def safe_str(s, known_words=None):
     surrounded with a space, which the caller considers safe to evaluate
     with `eval` afterwards.
 
-    Known issues::
+    Known issues:
 
-        >>> from cma.purecma import safe_str
-        >>> safe_str('int(p)', {'int': 'int', 'p': 3.1})  # fine
-        ' int ( 3.1 )'
-        >>> safe_str('int(n)', {'int': 'int', 'n': 3.1})  # unexpected
-        ' i 3.1 t ( 3.1 )'
+    >>> try: from cma.purecma import safe_str
+    ... except ImportError: from purecma import safe_str
+    >>> safe_str('int(p)', {'int': 'int', 'p': 3.1})  # fine
+    ' int ( 3.1 )'
+    >>> safe_str('int(n)', {'int': 'int', 'n': 3.1})  # unexpected
+    ' i 3.1 t ( 3.1 )'
 
     """
     safe_chars = ' 0123456789.,+-*()[]e'
@@ -1260,9 +1261,9 @@ def test():
     >>> while not es.stop():
     ...     X = es.ask()
     ...     es.tell(X, [pcma.ff.rosenbrock(x) for x in X])
-    >>> print("%s, %d" % (pcma.ff.rosenbrock(es.result[0]) < 1e13,
-    ...                   es.result[2]))
-    True, 1584
+    >>> print("%s, %s" % (pcma.ff.rosenbrock(es.result[0]) < 1e-13,
+    ...                   es.result[2] < 1600))
+    True, True
 
     Large population size:
 
