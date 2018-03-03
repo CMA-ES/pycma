@@ -2348,12 +2348,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             raise RuntimeError('tell should only be called once per iteration')
 
         lam = len(solutions)
-        if lam != array(function_values).shape[0]:
-            raise ValueError('for each candidate solution '
-                        + 'a function value must be provided')
+        if lam != len(function_values):
+            raise ValueError('#f-values = %d must equal #solutions = %d'
+                             % (len(function_values), lam))
         if lam + self.sp.lam_mirr < 3:
-            raise ValueError('population size ' + str(lam) + ' is too small when option CMA_mirrors * popsize < 0.5')
-
+            raise ValueError('population size ' + str(lam) +
+                             ' is too small with option ' +
+                             'CMA_mirrors * popsize < 0.5')
         if not np.isscalar(function_values[0]):
             try:
                 if np.isscalar(function_values[0][0]):
