@@ -111,7 +111,7 @@ def fmin(objective_fct, xstart, sigma,
     The following example minimizes the function `ff.elli`::
 
         >> from cma import purecma, ff
-        >> xopt, es = purecma.fmin(ff.elli, 3 * [0.5], 0.3, verb_disp=100)
+        >> res = purecma.fmin(ff.elli, 3 * [0.5], 0.3, verb_disp=100)
         evals: ax-ratio max(std)   f-value
             7:     1.0  3.4e-01  240.2716966
            14:     1.0  3.9e-01  2341.50170536
@@ -121,22 +121,25 @@ def fmin(objective_fct, xstart, sigma,
         termination by {'tolfun': 1e-12}
         best f-value = 2.72976881789e-14
         solution = [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-        >> print(xopt)
+        >> print(res[0])
         [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-        >> print(es.result[1])
+        >> print(res[1].result[1])
         2.72976881789e-14
-        >> es.logger.plot()  # needs pylab/matplotlib to be installed
+        >> res[1].logger.plot()  # needs pylab/matplotlib to be installed
 
     Details
     =======
-    This call::
+    After importing `purecma`::
 
         >> import cma.purecma as pcma
+        >> import random
+
+    This call::
+
         >> pcma.fmin(pcma.ff.elli, 10 * [0.5], 0.3, verb_save=0)
 
     and these lines::
 
-        >> import cma.purecma as pcma
         >> es.logger = pcma.CMAESDataLogger()
         >> pcma.CMAES(10 * [0.5], 0.3).optimize(pcma.ff.elli,
         ...                                     callback=es.logger.add)
@@ -488,28 +491,28 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
     The data may come from `fmin` or `CMAES` and the simulation may
     still be running in a different Python shell.
 
-    Use the default logger from `CMAES`::
+    Use the default logger from `CMAES`:
 
-        >>> import cma.purecma as pcma
-        >>> es = pcma.CMAES(3 * [0.1], 1)
-        >>> isinstance(es.logger, pcma.CMAESDataLogger)  # type(es.logger)
-        True
-        >>> while not es.stop():
-        ...     X = es.ask()
-        ...     es.tell(X, [pcma.ff.elli(x) for x in X])
-        ...     es.logger.add(es)  # doctest: +ELLIPSIS
-        <cma...
-        >>> es.logger.save()
+    >>> try: import cma.purecma as pcma
+    ... except ImportError: import purecma as pcma
+    >>> es = pcma.CMAES(3 * [0.1], 1)
+    >>> isinstance(es.logger, pcma.CMAESDataLogger)  # type(es.logger)
+    True
+    >>> while not es.stop():
+    ...     X = es.ask()
+    ...     es.tell(X, [pcma.ff.elli(x) for x in X])
+    ...     es.logger.add(es)  # doctest: +ELLIPSIS
+    <cma...
+    >>> es.logger.save()
+    >>> # es.logger.plot()  #
 
-         >> es.logger.plot()
+    Load and plot previously generated data:
 
-    Load and plot previously generated data::
+    >>> logger = pcma.CMAESDataLogger().load()
+    >>> logger.filename == "_CMAESDataLogger_datadict.py"
+    True
 
-        >>> logger = pcma.CMAESDataLogger().load()
-        >>> logger.filename == "_CMAESDataLogger_datadict.py"
-        True
-
-         >> logger.plot()
+    >>> # logger.plot()
 
     TODO: the recorded data are kept in memory and keep growing, which
     may well lead to performance issues for (very?) long runs. Ideally,
@@ -779,10 +782,8 @@ class DecomposingPositiveMatrix(SquareMatrix):
         C = C.eigenbasis x diag(C.eigenvalues) x C.eigenbasis^T
 
     """
-    def __init__(self, dimension, eigen=None):
-        """`eigen` returns eigenvectors and -values like `eig`"""
+    def __init__(self, dimension):
         SquareMatrix.__init__(self, dimension)
-        self._eig = eigen or eig  # eig is defined below
         self.eigenbasis = eye(dimension)
         self.eigenvalues = dimension * [1]
         self.condition_number = 1
@@ -799,7 +800,7 @@ class DecomposingPositiveMatrix(SquareMatrix):
         if current_eval <= self.updated_eval + lazy_gap_evals:
             return self
         self._enforce_symmetry()  # probably not necessary with eig
-        self.eigenvalues, self.eigenbasis = self._eig(self)  # O(N**3)
+        self.eigenvalues, self.eigenbasis = eig(self)  # O(N**3)
         if min(self.eigenvalues) <= 0:
             raise RuntimeError(
                 "The smallest eigenvalue is <= 0 after %d evaluations!"
@@ -1238,50 +1239,47 @@ def eig(C):
 def test():
     """test of the `purecma` module, called ``if __name__ == "__main__"``.
 
-    Currently only based on `doctest`::
+    Currently only based on `doctest`:
 
-        >>> try: import cma.purecma as pcma
-        ... except ImportError: import purecma as pcma
-        >>> import random
-        >>> random.seed(3)
-        >>> xmin, es = pcma.fmin(pcma.ff.rosenbrock, 4 * [0.5], 0.5,
-        ...                      verb_disp=0, verb_log=1)
-        >>> print(es.counteval)
-        1680
-        >>> print(es.best.evals)
-        1664
-        >>> assert es.best.f < 1e-12
-        >>> random.seed(5)
-        >>> es = pcma.CMAES(4 * [0.5], 0.5)
-        >>> es.params = pcma.CMAESParameters(es.params.dimension,
-        ...                                  es.params.lam,
-        ...                                  pcma.RecombinationWeights)
-        >>> while not es.stop():
-        ...     X = es.ask()
-        ...     es.tell(X, [pcma.ff.rosenbrock(x) for x in X])
-        >>> print("%s, %d" % (pcma.ff.rosenbrock(es.result[0]) < 1e13,
-        ...                   es.result[2]))
-        True, 1584
+    >>> try: import cma.purecma as pcma
+    ... except ImportError: import purecma as pcma
+    >>> import random
+    >>> random.seed(3)
+    >>> xmin, es = pcma.fmin(pcma.ff.rosenbrock, 4 * [0.5], 0.5,
+    ...                      verb_disp=0, verb_log=1)
+    >>> print(es.counteval)
+    1680
+    >>> print(es.best.evals)
+    1664
+    >>> assert es.best.f < 1e-12
+    >>> random.seed(5)
+    >>> es = pcma.CMAES(4 * [0.5], 0.5)
+    >>> es.params = pcma.CMAESParameters(es.params.dimension,
+    ...                                  es.params.lam,
+    ...                                  pcma.RecombinationWeights)
+    >>> while not es.stop():
+    ...     X = es.ask()
+    ...     es.tell(X, [pcma.ff.rosenbrock(x) for x in X])
+    >>> print("%s, %d" % (pcma.ff.rosenbrock(es.result[0]) < 1e13,
+    ...                   es.result[2]))
+    True, 1584
 
-    Large population size::
+    Large population size:
 
-        >>> try: import cma.purecma as pcma
-        ... except ImportError: import purecma as pcma
-        >>> import random
-        >>> random.seed(4)
-        >>> es = pcma.CMAES(3 * [1], 1)
-        >>> es.params = pcma.CMAESParameters(es.params.dimension, 300,
-        ...                                  pcma.RecombinationWeights)
-        >>> es.logger = pcma.CMAESDataLogger()
-        >>> try:
-        ...    es = es.optimize(pcma.ff.elli, verb_disp=0)
-        ... except AttributeError:  # OOOptimizer.optimize is not available
-        ...     while not es.stop():
-        ...         X = es.ask()
-        ...         es.tell(X, [pcma.ff.elli(x) for x in X])
-        >>> assert es.result[1] < 1e13
-        >>> print(es.result[2])
-        9300
+    >>> random.seed(4)
+    >>> es = pcma.CMAES(3 * [1], 1)
+    >>> es.params = pcma.CMAESParameters(es.params.dimension, 300,
+    ...                                  pcma.RecombinationWeights)
+    >>> es.logger = pcma.CMAESDataLogger()
+    >>> try:
+    ...    es = es.optimize(pcma.ff.elli, verb_disp=0)
+    ... except AttributeError:  # OOOptimizer.optimize is not available
+    ...     while not es.stop():
+    ...         X = es.ask()
+    ...         es.tell(X, [pcma.ff.elli(x) for x in X])
+    >>> assert es.result[1] < 1e13
+    >>> print(es.result[2])
+    9300
 
     """
     import doctest
