@@ -173,7 +173,7 @@ class OOOptimizer(object):
         citer, cevals = 0, 0
         while not self.stop() or citer < min_iterations:
             if (maxfun and cevals >= maxfun) or (
-                iterations and citer >= iterations):
+                  iterations and citer >= iterations):
                 return self
             citer += 1
 
@@ -183,7 +183,7 @@ class OOOptimizer(object):
             self.tell(X, fitvals)  # all the work is done here
             for f in callback:
                 f(self)
-            self.disp(verb_disp)
+            self.disp(verb_disp)  # disp does nothing if not overwritten
 
         # final output
         self._force_final_logging()
