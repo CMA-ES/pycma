@@ -132,17 +132,15 @@ def fmin(objective_fct, xstart, sigma,
     After importing `purecma`::
 
         >> import cma.purecma as pcma
-        >> import random
 
-    This call::
+    this call::
 
-        >> pcma.fmin(pcma.ff.elli, 10 * [0.5], 0.3, verb_save=0)
+        >> es = pcma.fmin(pcma.ff.elli, 10 * [0.5], 0.3, verb_save=0)[1]
 
     and these lines::
 
-        >> es.logger = pcma.CMAESDataLogger()
-        >> pcma.CMAES(10 * [0.5], 0.3).optimize(pcma.ff.elli,
-        ...                                     callback=es.logger.add)
+        >> es = pcma.CMAES(10 * [0.5], 0.3)
+        >> es.optimize(pcma.ff.elli, callback=es.logger.add)
 
     do pretty much the same. The `verb_save` parameter to `fmin` adds
     the possibility to plot the saved data *during* the execution from a
