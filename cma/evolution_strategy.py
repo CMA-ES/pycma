@@ -3668,13 +3668,14 @@ class _CMAParameters(object):
 
 
 def fmin2(*args, **kwargs):
-    """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``.
+    """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``,
 
-    Hence a typical calling pattern may be::
+    and with the same in input arguments as `fmin`. Hence a typical
+    calling pattern may be::
 
-        x, es = cma.fmin2(...)
-        es = cma.fmin2(...)[1]  # `es` still contains all information
-        x = cma.fmin2(...)[0]   # get only the best evaluated solution
+        x, es = cma.fmin2(...)  # recommended pattern
+        es = cma.fmin2(...)[1]  # `es` contains all available information
+        x = cma.fmin2(...)[0]   # keep only the best evaluated solution
 
     `fmin2` is an alias for::
 
