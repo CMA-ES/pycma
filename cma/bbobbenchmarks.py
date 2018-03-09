@@ -328,7 +328,7 @@ def fGauss(ftrue, beta):
     idx = ftrue < tol
     try:
         fval[idx] = ftrue[idx]
-    except IndexError: # fval is a scalar
+    except (IndexError, TypeError): # fval is a scalar
         if idx:
             fval = ftrue
     return fval
@@ -344,7 +344,7 @@ def fUniform(ftrue, alpha, beta):
     idx = ftrue < tol
     try:
         fval[idx] = ftrue[idx]
-    except IndexError: # fval is a scalar
+    except (IndexError, TypeError): # fval is a scalar
         if idx:
             fval = ftrue
     return fval
@@ -366,7 +366,7 @@ def fCauchy(ftrue, alpha, p):
     idx = ftrue < tol
     try:
         fval[idx] = ftrue[idx]
-    except IndexError: # fval is a scalar
+    except (IndexError, TypeError): # fval is a scalar
         if idx:
             fval = ftrue
     return fval
