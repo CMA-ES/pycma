@@ -1,6 +1,41 @@
 """VD-CMA and VkD-CMA
 
-See module `cma.test` for a usage example.
+Usage examples, VD-CMA:
+
+    >>> import cma
+    >>> from cma import restricted_gaussian_sampler as rgs
+    >>> es = cma.CMAEvolutionStrategy(20 * [1], 1,
+    ...          rgs.GaussVDSampler.extend_cma_options({
+    ...             'seed': 6,
+    ...             'ftarget': 1e-8,
+    ...             'verbose': -9,  # helpful for automatic testing
+    ...     }))
+    >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=6), iterations=None)
+    >>> assert es.result.fbest <= 1e-8
+    >>> print(es.result.evaluations)
+    6372
+
+It is recommended to always use `extend_cma_options()` to set the options
+appropriately, even when no other options are passed through.
+
+    >>> len(rgs.GaussVDSampler.extend_cma_options())
+    2
+    >>> len(rgs.GaussVkDSampler.extend_cma_options())
+    3
+
+The use case for VkD-CMA looks identical:
+
+    >>> es = cma.CMAEvolutionStrategy(20 * [1], 1,
+    ...          rgs.GaussVkDSampler.extend_cma_options({
+    ...             'seed': 7,
+    ...             'ftarget': 1e-8,
+    ...             'verbose': -9,  # helpful for automatic testing
+    ...     }))
+    >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=3), iterations=None)
+    >>> assert es.result.fbest <= 1e-8
+    >>> print(es.result.evaluations)
+    6204
+
 
 TODO: correct the interface of __init__, remove unnecessaries
 
@@ -38,7 +73,11 @@ class GaussVDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     In Proc. of GECCO 2014, pp. 373 -- 380 (2014)
     """
     @staticmethod
-    def extend_cma_options(opts):
+    def extend_cma_options(opts=None):
+        """return correct options to run `cma.fmin` or initialize
+        `cma.CMAEvolutionStrategy` using the `GaussVDSampler` AKA VD-CMA-ES
+        """
+        opts = opts or {}
         opts.update({'CMA_active': False,
                      # 'AdaptSigma': None,  # not sure about that, False seems to work much worse
                      'CMA_sampler': GaussVDSampler})
@@ -300,7 +339,11 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     """
 
     @staticmethod
-    def extend_cma_options(opts):
+    def extend_cma_options(opts=None):
+        """return correct options to run `cma.fmin` or initialize
+        `cma.CMAEvolutionStrategy` using the `GaussVkDSampler` AKA VkD-CMA-ES
+        """
+        opts = opts or {}
         opts.update({'CMA_active': False,
                      'AdaptSigma': False,
                      'CMA_sampler': GaussVkDSampler})

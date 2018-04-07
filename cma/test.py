@@ -45,6 +45,7 @@ files_for_doctest = ['bbobbenchmarks.py',
                      'optimization_tools.py',
                      'purecma.py',
                      'recombination_weights.py',
+                     'restricted_gaussian_sampler.py',
                      'sampler.py',
                      'sigma_adaptation.py',
                      'test.py',
@@ -282,33 +283,7 @@ def various_doctests():
         >>> es = es.optimize(cma.ff.tablet)
         >>> assert es.result.evaluations < 5000
 
-    VD-CMA:
-
-        >>> import cma
-        >>> from cma import restricted_gaussian_sampler as rgs
-        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1,
-        ...          rgs.GaussVDSampler.extend_cma_options({
-        ...             'seed': 6,
-        ...             'ftarget': 1e-8,
-        ...             'verbose': -9,  # helpful for automatic testing
-        ...     }))
-        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=6), iterations=None)
-        >>> assert es.result.fbest <= 1e-8
-        >>> print(es.result.evaluations)
-        6372
-
-    VkD-CMA:
-
-        >>> es = cma.CMAEvolutionStrategy(20 * [1], 1,
-        ...          rgs.GaussVkDSampler.extend_cma_options({
-        ...             'seed': 7,
-        ...             'ftarget': 1e-8,
-        ...             'verbose': -9,  # helpful for automatic testing
-        ...     }))
-        >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=3), iterations=None)
-        >>> assert es.result.fbest <= 1e-8
-        >>> print(es.result.evaluations)
-        6204
+    For VD- and VkD-CMA, see `cma.restricted_gaussian_sampler`.
 
     """
 
