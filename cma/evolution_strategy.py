@@ -1235,7 +1235,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> import pickle
     >>>
     >>> es = cma.CMAEvolutionStrategy(12 * [0.1],  # a new instance, 12-D
-    ...                               0.2)         # initial std sigma0
+    ...                               0.12)         # initial std sigma0
     ...   #doctest: +ELLIPSIS
     (5_w,...
     >>> es.optimize(cma.ff.rosen, iterations=100)  #doctest: +ELLIPSIS
