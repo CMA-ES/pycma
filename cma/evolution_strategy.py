@@ -1637,10 +1637,41 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 print('   Covariance matrix is diagonal' + s)
 
     def _set_x0(self, x0):
-        if utils.is_str(x0):
-            if type(x0) is not str:
-                print(type(x0), x0)
-            x0 = eval(x0)
+        """Assign `self.x0` from argument `x0`.
+
+        Input `x0` may be a `callable` or a string (deprecated) or a
+        `list` or `numpy.ndarray` of the desired length.
+
+        Below an artificial example is given, where calling `x0`
+        delivers in the first two calls ``dimension * [5]`` and in
+        succeeding calls``dimension * [0.01]``. Only the initial value of
+        0.01 solves the Rastrigin function:
+
+        >>> import cma
+        >>> class X0:
+        ...     def __init__(self, dimension):
+        ...         self.irun = 0
+        ...         self.dimension = dimension
+        ...     def __call__(self):
+        ...         """"""
+        ...         self.irun += 1
+        ...         return self.dimension * [5] if self.irun < 3 \
+        ...                else self.dimension * [0.01]
+        >>> xopt, es = cma.fmin2(cma.ff.rastrigin, X0(3), 0.01,
+        ...                      {'verbose':-9}, restarts=1)
+        >>> assert es.result.fbest > 1e-5
+        >>> xopt, es = cma.fmin2(cma.ff.rastrigin, X0(3), 0.01,
+        ...                      {'verbose':-9}, restarts=2)
+        >>> assert es.result.fbest < 1e-5  # third run succeeds due to x0
+
+        """
+        try:
+            x0 = x0()
+        except TypeError:
+            if utils.is_str(x0):
+                if type(x0) is not str:
+                    print(type(x0), x0)
+                x0 = eval(x0)
         self.x0 = array(x0, dtype=float, copy=True)  # should not have column or row, is just 1-D
         if self.x0.ndim == 2 and 1 in self.x0.shape:
             utils.print_warning('input x0 should be a list or 1-D array, trying to flatten ' +
