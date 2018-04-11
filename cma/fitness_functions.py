@@ -414,6 +414,9 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         f = array([418.9829 * N - 1.27275661e-5 * N - sum(x * np.sin(np.abs(x)**0.5))
                 + pen_fac * sum((abs(x) > 500) * (abs(x) - 500)**2) for x in y])
         return f if len(f) > 1 else f[0]
+    def schwefel2_22(self, x):
+        """Schwefel 2.22 function"""
+        return sum(np.abs(x)) + np.prod(np.abs(x))
     def optprob(self, x):
         n = np.arange(len(x)) + 1
         f = n * x * (1 - x)**(n - 1)
