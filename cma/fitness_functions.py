@@ -361,11 +361,18 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         f = [x[0] + 100 * np.sum(x[1:]**2)**(expo / 2.) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
     def ridgecircle(self, x, expo=0.5):
-        """happy cat by HG Beyer"""
+        """a difficult sharp ridge type function.
+
+        A modified implementation of HG Beyers `happycat`.
+        """
         a = len(x)
         s = sum(x**2)
         return ((s - a)**2)**(expo / 2) + s / a + sum(x) / a
     def happycat(self, x, alpha=1. / 8):
+        """a difficult sharp ridge type function.
+
+        Proposed by HG Beyer.
+        """
         s = sum(x**2)
         return ((s - len(x))**2)**alpha + (s / 2 + sum(x)) / len(x) + 0.5
     def flat(self, x):
@@ -386,6 +393,17 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         # was in [-600 600]
         x = (600. / 5) * x
         return 1 - np.prod(np.cos(x / np.sqrt(1. + np.arange(len(x))))) + sum(x**2) / 4e3
+    def levy(self, x):
+        """a rather benign multimodal function.
+
+        xopt == ones, fopt == 0.0
+        """
+        w = 1 + (np.asarray(x) - 1) / 4
+        del x
+        f = np.sin(np.pi * w[0])**2
+        f += (w[-1] - 1)**2 * (1 + np.sin(2 * np.pi * w[-1])**2)
+        w = w[1:-1]
+        return f + sum((w - 1)**2 * (1 + 10 * np.sin(np.pi * w + 1)**2))
     def rastrigin(self, x):
         """Rastrigin test objective function"""
         if not isscalar(x[0]):
