@@ -1,0 +1,30 @@
+package:
+  version: "2.5.3"
+  name: 'cma'
+
+source:
+  path: ../../
+
+build:
+  number: 0
+  script: python setup.py install
+
+requirements:
+  run:
+    - python {{ python }}
+    - numpy
+    - matplotlib
+  build:
+    - python
+    - numpy
+    - setuptools
+    - matplotlib
+
+about:
+  home: https://github.com/CMA-ES/pycma
+  description: A Python implementation of CMA-ES and a few related numerical optimization tools 
+  license: BSD
+  license_file: LICENSE
+
+extra:
+  recipe-maintainers: Matthew Chan <talcite@gmail.com>
