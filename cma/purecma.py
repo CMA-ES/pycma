@@ -82,16 +82,17 @@ def fmin(objective_fct, xstart, sigma,
             The objective is to find ``x`` with ``objective_fct(x)``
             to be as small as possible.
         `xstart`: `list` or sequence
-            list of numbers (like `[3.2, 2, 1]`), initial solution vector
+            list of numbers (like `[3.2, 2, 1]`), initial solution vector,
+            its length defines the search space dimension.
         `sigma`: `float`
             initial step-size, standard deviation in any coordinate
         `args`: `tuple` or sequence
-            arguments to `objective_fct`
+            additional (optional) arguments passed to `objective_fct`
         `ftarget`: `float`
             target function value
         `maxfevals`: `int` or `str`
             maximal number of function evaluations, a string
-            is evaluated with ``N`` being the search space dimension
+            is evaluated with ``N`` as search space dimension
         `verb_disp`: `int`
             display on console every `verb_disp` iteration, 0 for never
         `verb_log`: `int`
