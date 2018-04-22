@@ -4016,6 +4016,7 @@ def fmin(objective_function, x0, sigma0,
                     es.best.update([x], es.sent_solutions,
                                    [es.f0], 1)
                     es.countevals += 1
+            es.objective_function = objective_function  # only for the record
 
             opts = es.opts  # processed options, unambiguous
             # a hack:
