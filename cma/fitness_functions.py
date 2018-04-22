@@ -156,12 +156,12 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return np.mean(x[:Neff(x)]**2) + eps * np.mean(x**2)
     def partsphere(self, x):
         """Sphere (squared norm) test objective function"""
-        self.counter += 1
+        self.evaluations += 1
         # return np.random.rand(1)[0]**0 * sum(x**2) + 1 * np.random.rand(1)[0]
         dim = len(x)
         x = array([x[i % dim] for i in range(2 * dim)])
         N = 8
-        i = self.counter % dim
+        i = self.evaluations % dim
         # f = sum(x[i:i + N]**2)
         f = sum(x[np.random.randint(dim, size=N)]**2)
         return f
@@ -355,7 +355,8 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return sum(np.abs(x)**(2. + 4.*np.arange(N) / (N - 1.)))**0.5
     def rosenelli(self, x):
         N = len(x)
-        return self.rosen(x[:N / 2]) + self.elli(x[N / 2:], cond=1)
+        Nhalf = int((N + 1) / 2)
+        return self.rosen(x[:Nhalf]) + self.elli(x[Nhalf:], cond=1)
     def ridge(self, x, expo=2):
         x = [x] if isscalar(x[0]) else x  # scalar into list
         f = [x[0] + 100 * np.sum(x[1:]**2)**(expo / 2.) for x in x]
