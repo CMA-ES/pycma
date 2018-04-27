@@ -458,21 +458,31 @@ class GaussVkDSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 np.linalg.norm(vectors[idx[i] + 1]) for i in range(lam)
             ])
             ndx = self.dx / np.linalg.norm(self.dx)
-            for ip in range(lam):
-                if np.allclose(nlist[ip], ndx):
-                    break
-                if ip == lam - 1:
-                    raise RuntimeError("no first mirrored vector found for TPA")
+            if 11 < 3:
+                for ip in range(lam):
+                    if np.allclose(nlist[ip], ndx):
+                        break
+                    if ip == lam - 1:
+                        raise RuntimeError("no first mirrored vector found for TPA")
+                        warnings.warn("no first mirrored vector found for TPA",
+                                      RuntimeWarning)
+                for im in range(lam):
+                    if np.allclose(nlist[im], -ndx):
+                        break
+                    if im == lam - 1:
+                        raise RuntimeError("no second mirrored vector found for TPA")
+                        warnings.warn("no second mirrored vector found for TPA",
+                                      RuntimeWarning)
+            else:
+                inner = [np.dot(ny, ndx) for ny in nlist]
+                ip = np.argmax(inner)
+                im = np.argmin(inner)
+                if inner[ip] < 0.99:
                     warnings.warn("no first mirrored vector found for TPA",
                                   RuntimeWarning)
-            for im in range(lam):
-                if np.allclose(nlist[im], -ndx):
-                    break
-                if im == lam - 1:
-                    raise RuntimeError("no second mirrored vector found for TPA")
+                if inner[im] > -0.99:
                     warnings.warn("no second mirrored vector found for TPA",
                                   RuntimeWarning)
-
             alpha_act = im - ip
             alpha_act /= float(lam - 1)
             self.ps += self.cs * (alpha_act - self.ps)
