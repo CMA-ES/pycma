@@ -201,6 +201,7 @@ from . import optimization_tools as ot
 from . import sampler
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform
 from .recombination_weights import RecombinationWeights
+from .logger import CMADataLogger, disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import pprint
@@ -4185,7 +4186,7 @@ def fmin(objective_function, x0, sigma0,
 
 # BEGIN cmaplt.py
 
-class CMADataLogger(interfaces.BaseDataLogger):
+class old_CMADataLogger(interfaces.BaseDataLogger):
     """data logger for class `CMAEvolutionStrategy`.
 
     The logger is identified by its name prefix and (over-)writes or
@@ -4242,7 +4243,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         #        'sig':[], 'fit':[], 'xm':[]})
         # class properties:
         self.name_prefix = name_prefix if name_prefix \
-            else CMADataLogger.default_prefix
+            else old_CMADataLogger.default_prefix
         if isinstance(self.name_prefix, CMAEvolutionStrategy):
             self.name_prefix = self.name_prefix.opts.eval(
                 'verb_filenameprefix')
@@ -5383,7 +5384,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         (4...
         >>> assert res[1] < 1e-9
         >>> assert res[2] < 4400
-        >>> l = cma.CMADataLogger()  # == res[-1], logger with default name, "points to" above data
+        >>> l = cma.evolution_strategy.old_CMADataLogger()  # == res[-1], logger with default name, "points to" above data
         >>> l.disp([0,-1])  # first and last
         ...  #doctest: +ELLIPSIS
         Iterat Nfevals  function value    axis ratio maxstd  minstd...
@@ -5425,7 +5426,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                   ' %5.1e' % (dat.f[i, 3]) +
                   ' %6.2e' % (max(dat.std[j, 5:])) + ' %6.2e' % min(dat.std[j, 5:]))
 
-        dat = CMADataLogger(filenameprefix).load()
+        dat = old_CMADataLogger(filenameprefix).load()
         ndata = dat.f.shape[0]
 
         # map index to iteration number, is difficult if not all iteration numbers exist
@@ -5462,8 +5463,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
     # end class CMADataLogger
 
-last_figure_number = 324
-def plot(name=None, fig=None, abscissa=1, iteridx=None,
+_old_last_figure_number = 324
+def _old_plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3):
     """
@@ -5506,16 +5507,16 @@ def plot(name=None, fig=None, abscissa=1, iteridx=None,
     :See also: `CMADataLogger`, `CMADataLogger.plot`
 
     """
-    global last_figure_number
+    global _old_last_figure_number
     if not fig:
-        last_figure_number += 1
-        fig = last_figure_number
+        _old_last_figure_number += 1
+        fig = _old_last_figure_number
     if isinstance(fig, (int, float)):
-        last_figure_number = fig
-    return CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
+        _old_last_figure_number = fig
+    return old_CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
                              x_opt, fontsize, downsample_to)
 
-def disp(name=None, idx=None):
+def _old_disp(name=None, idx=None):
     """displays selected data from (files written by) the class
     `CMADataLogger`.
 
@@ -5549,7 +5550,7 @@ def disp(name=None, idx=None):
     :See also: `CMADataLogger.disp`
 
     """
-    return CMADataLogger(name if name else CMADataLogger.default_prefix
+    return old_CMADataLogger(name if name else old_CMADataLogger.default_prefix
                          ).disp(idx)
 
 # END cmaplt.py
