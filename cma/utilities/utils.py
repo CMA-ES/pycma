@@ -60,10 +60,9 @@ def is_str(var):
     >>> assert not is_str([1]) and not is_str(1)
 
     """
+    types_ = (bytes, str)
     if PY2:
-        types_ = (str, unicode)  # == types.StrTypes
-    else:
-        types_ = (str, bytes)
+        types_ = types_ + (basestring, unicode)  # == types.StrTypes
     return any(isinstance(var, type_) for type_ in types_)
 def is_nan(var):
     """return ``np.isnan(var)`` or `False` if `var` is not numeric"""

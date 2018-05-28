@@ -1669,8 +1669,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             x0 = x0()
         except TypeError:
             if utils.is_str(x0):
-                if type(x0) is not str:
-                    print(type(x0), x0)
                 x0 = eval(x0)
         self.x0 = array(x0, dtype=float, copy=True)  # should not have column or row, is just 1-D
         if self.x0.ndim == 2 and 1 in self.x0.shape:
