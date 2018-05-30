@@ -441,6 +441,7 @@ cma_default_options = {
      # , eval_parallel2': 'not in use {"processes": None, "timeout": 12, "is_feasible": lambda x: True} # distributes function calls to processes processes'
      # 'callback': 'None  # function or list of functions called as callback(self) at the end of the iteration (end of tell)', # only necessary in fmin and optimize
     'conditioncov_alleviate': '[1e8, 1e12]  # when to alleviate the condition in the coordinates and in main axes',
+    'eval_final_mean': 'True  # evaluate the final mean, which is a favorite return candidate',
     'fixed_variables': 'None  # dictionary with index-value pairs like {0:1.1, 2:0.1} that are not optimized',
     'ftarget': '-inf  #v target function value, minimization',
     'integer_variables': '[]  # index list, invokes basic integer handling: prevent std dev to become too small in the given variables',
@@ -2138,7 +2139,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Arguments
         ---------
         `func`:
-            objective function, ``func(x)`` returns a scalar
+            objective function, ``func(x)`` returns a scalar or
+            ``func.eval_parallel(list_of_x)`` returns a list or sequence
         `args`:
             additional parameters for `func`
         `gradf`:
@@ -2223,10 +2225,20 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if xmean is None:
             xmean = self.mean  # might have changed in self.ask
         X = []
+        if hasattr(func, 'eval_parallel'):
+            fit_first = func.eval_parallel(X_first, *args)
+            try: self.countevals += func.eval_parallel.evaluations - self.popsize
+            except: pass
+            if nmirrors and self.opts['CMA_mirrormethod'] > 0 and self.countiter < 2:
+                utils.print_warning("selective mirrors will not work with `eval_parallel`")
+            if evaluations > 1 and self.countiter < 2:
+                utils.print_warning("aggregating evaluations will not work with `eval_parallel`")
+        else:
+            fit_first = len(X_first) * [None]
         for k in range(popsize):
-            x, f = X_first.pop(0), None
+            x, f = X_first.pop(0), fit_first.pop(0)
             rejected = -1
-            while rejected < 0 or not is_feasible(x, f):  # rejection sampling
+            while f is None or not is_feasible(x, f):  # rejection sampling
                 rejected += 1
                 if rejected:  # resample
                     x = self.ask(1, xmean, sigma_fac)[0]
@@ -3763,12 +3775,14 @@ def fmin(objective_function, x0, sigma0,
     =========
     ``objective_function``
         function to be minimized. Called as ``objective_function(x,
-        *args)``. ``x`` is a one-dimensional `numpy.ndarray`.
-        ``objective_function`` can return `numpy.NaN`,
-        which is interpreted as outright rejection of solution ``x``
-        and invokes an immediate resampling and (re-)evaluation
-        of a new solution not counting as function evaluation.
-        The attribute ``variable_annotations`` is passed into the
+        *args)`` or, when available, as
+        ``objective_function.eval_parallel(list_of_x, *args)``.
+        ``x`` is a one-dimensional `numpy.ndarray`.
+        ``objective_function`` can return `numpy.NaN`, which is
+        interpreted as outright rejection of solution ``x`` and invokes
+        an immediate resampling and (re-)evaluation of a new solution
+        not counting as function evaluation. The attribute
+        ``variable_annotations`` is passed into the
         ``CMADataLogger.persistent_communication_dict``.
     ``x0``
         list or `numpy.ndarray`, initial guess of minimum solution
@@ -3941,6 +3955,15 @@ def fmin(objective_function, x0, sigma0,
     >>> assert cma.ff.rosen(res[0]) < 1e-8
     >>> assert res[2] < 3600  # 1% are > 3300
     >>> assert res[3] < 3600  # 1% are > 3300
+
+    If solution can only be comparatively ranked, either use
+    `CMAEvolutionStrategy` directly or add an ``eval_parallel``
+    method attribute to the objective:
+
+    >>> class Objective:
+    ...     eval_parallel = lambda X: [cma.ff.sphere(x) for x in X]
+    >>> x, es = cma.fmin2(Objective, 3 * [0], 0.1, {'verbose': -9})
+    >>> assert es.result[1] < 1e-9
 
     :See also: `CMAEvolutionStrategy`, `OOOptimizer.optimize`, `plot`,
         `CMAOptions`, `scipy.optimize.fmin`
@@ -4143,13 +4166,15 @@ def fmin(objective_function, x0, sigma0,
                         logger.plot(324)
 
             # end while not es.stop
-            mean_pheno = es.gp.pheno(es.mean,
-                                     into_bounds=es.boundary_handler.repair,
-                                     archive=es.sent_solutions)
-            fmean = objective_function(mean_pheno, *args)
-            es.countevals += 1
+            if opts['eval_final_mean'] and callable(objective_function) \
+                    and not hasattr(objective_function, 'eval_parallel'):
+                mean_pheno = es.gp.pheno(es.mean,
+                                         into_bounds=es.boundary_handler.repair,
+                                         archive=es.sent_solutions)
+                fmean = objective_function(mean_pheno, *args)
+                es.countevals += 1
+                es.best.update([mean_pheno], es.sent_solutions, [fmean], es.countevals)
 
-            es.best.update([mean_pheno], es.sent_solutions, [fmean], es.countevals)
             best.update(es.best, es.sent_solutions)  # in restarted case
             # es.best.update(best)
 
