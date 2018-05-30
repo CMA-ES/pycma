@@ -47,6 +47,8 @@ use and modify it however you like).
 """
 from __future__ import division  # such that 1/2 != 0
 from __future__ import print_function  # available since 2.6, not needed
+___author__ = "Nikolaus Hansen"
+__license__ = "public domain"
 
 from sys import stdout as _stdout # not strictly necessary
 from math import log, exp

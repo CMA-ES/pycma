@@ -114,6 +114,8 @@ from __future__ import division
 from __future__ import print_function
 # only necessary for python 2.5 (not supported) and not in heavy use
 from __future__ import with_statement
+___author__ = "Nikolaus Hansen and Petr Baudis and Youhei Akimoto"
+__license__ = "BSD 3-clause"
 
 # __package__ = 'cma'
 from . import purecma
