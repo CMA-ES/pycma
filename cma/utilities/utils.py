@@ -285,6 +285,27 @@ class BlancClass(object):
 
     """
 
+class DictClass(dict):
+    """A class wrapped over `dict` to use class .-notation.
+
+    >>> from cma.utilities.utils import DictClass
+    >>> dict_ = {3 * c: c for c in 'abcd'}
+    >>> as_class = DictClass(dict_)
+    >>> assert as_class.__dict__ == dict_ == as_class
+    >>> assert as_class.aaa == 'a'
+    >>> as_class.new = 33
+    >>> assert 'new' in as_class
+    >>> as_class['nnew'] = 44
+    >>> assert as_class.nnew == 44
+    >>> assert len(as_class) == 6
+
+    """
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self.__dict__ = self
+    def __dir__(self):
+        return self.keys()
+
 class DerivedDictBase(MutableMapping):
     """for conveniently adding methods/functionality to a dictionary.
 
@@ -578,3 +599,14 @@ class DictFromTagsInString(dict):
             values.update(ast.literal_eval(str_[start:end].strip()))
             start = str_lower.find(self._start, start + 1)
         return values
+
+class MoreToWrite(list):
+    """make sure that this list does not grow unbounded"""
+    def __init__(self):
+        self._lenhist = []
+    def check(self):
+        self._lenhist += [len(self)]
+        if self._lenhist > 3:
+            if all(np.diff(self._lenhist) > 0):
+                del self[:]
+            self._lenhist = []
