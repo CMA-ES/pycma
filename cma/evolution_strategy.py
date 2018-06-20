@@ -1614,7 +1614,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit.histbest = []  # long history of best
         self.fit.histmedian = []  # long history of median
 
-        self.more_to_write = []  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
+        self.more_to_write = utils.MoreToWrite()  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
 
         # say hello
         if opts['verb_disp'] > 0 and opts['verbose'] >= 0:
@@ -4519,9 +4519,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             maxD = max(diagD)
             minD = min(diagD)
         more_to_write = es.more_to_write
-        if 11 < 3:  # and len(more_to_write) > 1:
-            more_to_write = []  # [more_to_write[0], more_to_write[1]]
-        es.more_to_write = []
+        es.more_to_write = utils.MoreToWrite()
         # --- end interface ---
 
         try:
