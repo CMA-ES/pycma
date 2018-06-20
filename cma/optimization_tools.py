@@ -2,11 +2,67 @@
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 import numpy as np
+try: from matplotlib import pyplot as plt
+except: pass
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.math import Mh
 # from .transformations import BoundTransform  # only to make it visible but gives circular import anyways
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
+
+def semilogy_signed(x=None, xopt=0, minabsx=None):
+    """signed semilogy plot.
+
+    `x` is a data array, by default read from `outcmaesxmean.dat`
+    Plotted is `x - xopt`.
+
+    """
+    y = x
+    if x is None:
+        if 1 < 3:
+            y = np.loadtxt('outcmaesxmean.dat', comments=('%',))[:, 5:]
+        else:
+            from . import logger
+            y = logger.CMADataLogger('outcmaes').load().data['xmean']
+    if xopt not in (None, 0):
+        try:
+            y -= xopt
+        except:  # recycle last entry of xopt
+            xopt = [xopt[i if i < len(xopt) else -1] for i in range(y.shape[1])]
+            y -= xopt
+    elif 11 < 3:
+        pass  # TODO: subtract optionally last x!? (not smallest which is done anyways)
+    min_log = np.log10(minabsx) if minabsx else int(np.ceil(np.min(np.log10(np.abs(y[y!=0])))))
+
+    idx_zeros = np.abs(y) < 10**min_log
+    idx_pos = y >= 10**min_log
+    idx_neg = y <= -10**min_log
+    y[idx_pos] = np.log10(y[idx_pos]) - min_log
+    y[idx_neg] = -(np.log10(-y[idx_neg]) - min_log)
+    y[idx_zeros] = 0
+
+    plt.plot(range(y.shape[0]), y);
+    # the remainder is changing y-labels
+    ax = plt.gca()
+    yticklabs = [label.get_text() for label in ax.get_yticklabels()]
+    # print(yticklabs)
+    for i, label in enumerate(yticklabs):
+        val = ax.get_yticks()[i]
+        format_ = r"%.2f"  # r'%d' if val == val // 1 else r'%f'
+        yticklabs[i] = (r"$10^{%.2f}$") % (val + min_log)
+        if val < 0:
+            yticklabs[i] = (r"$-10^{%.2f}$") % (-val + min_log)
+        elif val == 0:
+            yticklabs[i] = (r"$\pm10^{%.2f}$") % min_log
+        if '.' in yticklabs[i]:
+            while yticklabs[i][-3] == '0':  # remove trailing zeros
+                yticklabs[i] = yticklabs[i][:-3] + yticklabs[i][-2:]
+            if yticklabs[i][-3] == '.':  # remove trailing dot
+                yticklabs[i] = yticklabs[i][:-3] + yticklabs[i][-2:]
+
+    # print(yticklabs)
+    ax.set_yticklabels(yticklabs);
+
 
 class BestSolution(object):
     """container to keep track of the best solution seen.
