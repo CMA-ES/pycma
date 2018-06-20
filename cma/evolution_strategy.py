@@ -1903,9 +1903,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
             # update distribution, might change self.mean
 
-        if not self.opts['tolconditioncov'] or not np.isfinite(self.opts['tolconditioncov']):
-            self.alleviate_conditioning_in_coordinates(1e7)
-            self.alleviate_conditioning(1e12)
+        # if not self.opts['tolconditioncov'] or not np.isfinite(self.opts['tolconditioncov']):
+        self.alleviate_conditioning_in_coordinates(1e8)
+        self.alleviate_conditioning(1e12)
 
         xmean_arg = xmean
         if xmean is None:

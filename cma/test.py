@@ -233,19 +233,17 @@ def various_doctests():
         ...                                   'tolconditioncov':False,
         ...                                   'seed': 8,
         ...                                   'CMA_mirrors': 0,
-        ...                                   'ftarget': 1e-12,
+        ...                                   'ftarget': 1e-9,
         ...                                })  # doctest:+ELLIPSIS
         (4_w...
-        >>> while not es.stop() and es.countiter < 80:
+        >>> while not es.stop() and es.countiter < 82:
         ...    X = es.ask()
         ...    es.tell(X, [cma.ff.elli(x, cond=1e22) for x in X])  # doctest:+ELLIPSIS
-        NOTE ...iteration=62...
-        >>> import numpy as np
+        NOTE ...iteration=81...
         >>> while not es.stop():
         ...    X = es.ask()
-        ...    es.tell(X, np.asarray([ftabletrot(x, cond=1e32) for x in X]))  # doctest:+ELLIPSIS
-        WARNING ...iteration=2...
-        >>> assert es.countiter < 333 and 'ftarget' in es.stop(), (
+        ...    es.tell(X, [ftabletrot(x, cond=1e32) for x in X])  # doctest:+ELLIPSIS
+        >>> assert es.countiter <= 344 and 'ftarget' in es.stop(), (
         ...             "transformation bug in alleviate_condition?",
         ...             es.countiter, es.stop())
 
