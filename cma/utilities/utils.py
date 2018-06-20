@@ -7,6 +7,7 @@ try:
     from collections import MutableMapping
 except ImportError:
     MutableMapping = object  # should never be actually used
+from collections import defaultdict  # since Python 2.5
 import ast  # ast.literal_eval is safe eval
 import numpy as np
 from .python3for2 import range
@@ -400,6 +401,41 @@ class SolutionDict(DerivedDictBase):
                 if self[k]['iteration'] < min_iter:
                     del self[k]
                     # deletes one item with k as key, better delete all?
+
+class DataDict(defaultdict):
+    """a dictionary of lists (of data)"""
+    def __init__(self, filename='_data.py'):
+        self.filename = filename
+        defaultdict.__init__(self, list)
+        self.load()
+
+    def load(self):
+        """element-wise append/merge data of loaded `dict` to self,
+
+        by calling `update`.
+
+        To load cleanly without merge use `clear` + `load` or the class
+        constructor with a new `filename`.
+        """
+        with open(self.filename, 'rt') as f:
+            dd = ast.literal_eval(f.read())
+        self.update(dd)
+        return self
+
+    def update(self, dict_):
+        """append data of entries in `dict_` to entries in self"""
+        for k in dict_:
+            self[k] += dd[k]  # self is a dict of lists
+        return self
+
+    def save(self):
+        with open(self.filename, 'wt') as f:
+            f.write(repr(dict(self)))
+
+    def clear(self):
+        for key in [k for k in self]:
+            del self[key]
+        return self
 
 class ExclusionListOfVectors(list):
     """For delayed selective mirrored sampling"""
