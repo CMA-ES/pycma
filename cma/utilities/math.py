@@ -5,7 +5,6 @@ functions in `Mh`
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 # from future.builtins.disabled import *  # don't use any function which could lead to different results in Python 2 vs 3
 import numpy as np
-from numpy import array
 from .utils import rglen
 from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
@@ -382,7 +381,7 @@ def eig(C):
 
     tred2(N, V, d, e)
     tql2(N, d, e, V)
-    return (array(d), array(V))
+    return np.array(d), np.array(V)
 
 class MathHelperFunctions(object):
     """static convenience math helper functions, if the function name
@@ -399,7 +398,7 @@ class MathHelperFunctions(object):
         return (a - eps < b < a + eps) or ((1 - eps) * a < b < (1 + eps) * a)
     @staticmethod
     def vequals_approximately(a, b, eps=1e-12):
-        a, b = array(a), array(b)
+        a, b = np.array(a), np.array(b)
         idx = np.nonzero(a < 0)[0]  # find
         if len(idx):
             a[idx], b[idx] = -1 * a[idx], -1 * b[idx]
@@ -414,7 +413,7 @@ class MathHelperFunctions(object):
         return np.dot(B, (np.exp(D) * B).T)
     @staticmethod
     def amax(vec, vec_or_scalar):
-        return array(MathHelperFunctions.max(vec, vec_or_scalar))
+        return np.array(MathHelperFunctions.max(vec, vec_or_scalar))
     @staticmethod
     def max(vec, vec_or_scalar):
         b = vec_or_scalar
@@ -429,10 +428,10 @@ class MathHelperFunctions(object):
         return min((max_val, max((val, min_val))))
     @staticmethod
     def aminmax(val, min_val, max_val):
-        return array([min((max_val, max((v, min_val)))) for v in val])
+        return np.array([min((max_val, max((v, min_val)))) for v in val])
     @staticmethod
     def amin(vec_or_scalar, vec_or_scalar2):
-        return array(MathHelperFunctions.min(vec_or_scalar, vec_or_scalar2))
+        return np.array(MathHelperFunctions.min(vec_or_scalar, vec_or_scalar2))
     @staticmethod
     def min(a, b):
         iss = np.isscalar
@@ -505,11 +504,11 @@ class MathHelperFunctions(object):
             l = 0
 
         if l == 0:
-            return array([MathHelperFunctions.cauchy_with_variance_one() for _i in range(size)])
+            return np.array([MathHelperFunctions.cauchy_with_variance_one() for _i in range(size)])
         elif l == 1:
-            return array([MathHelperFunctions.cauchy_with_variance_one() for _i in range(size[0])])
+            return np.array([MathHelperFunctions.cauchy_with_variance_one() for _i in range(size[0])])
         elif l == 2:
-            return array([[MathHelperFunctions.cauchy_with_variance_one() for _i in range(size[1])]
+            return np.array([[MathHelperFunctions.cauchy_with_variance_one() for _i in range(size[1])]
                          for _j in range(size[0])])
         else:
             raise ValueError('len(size) cannot be larger than two')
