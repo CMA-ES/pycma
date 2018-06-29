@@ -113,7 +113,7 @@ def fmin(objective_fct, xstart, sigma,
     =======
     The following example minimizes the function `ff.elli`::
 
-        >> from cma import purecma, ff
+        >> from cma import purecma, ff  # no doctest, as display may vary between Python versions even with the same seed
         >> res = purecma.fmin(ff.elli, 3 * [0.5], 0.3, verb_disp=100)
         evals: ax-ratio max(std)   f-value
             7:     1.0  3.4e-01  240.2716966
@@ -206,7 +206,7 @@ class CMAESParameters(object):
             self.weights = RecombinationWeights(self.lam)
             self.mueff = self.weights.mueff
         else:  # set non-negative recombination weights "manually"
-            _weights = [log(self.mu+0.5) - log(i+1) if i < self.mu else 0
+            _weights = [log(self.lam / 2 + 0.5) - log(i + 1) if i < self.mu else 0
                         for i in range(self.lam)]
             w_sum = sum(_weights[:self.mu])
             self.weights = [w / w_sum for w in _weights]  # sum is one now
