@@ -438,6 +438,7 @@ cma_default_options = {
     'bounds': '[None, None]  # lower (=bounds[0]) and upper domain boundaries, each a scalar or a list/vector',
      # , eval_parallel2': 'not in use {"processes": None, "timeout": 12, "is_feasible": lambda x: True} # distributes function calls to processes processes'
      # 'callback': 'None  # function or list of functions called as callback(self) at the end of the iteration (end of tell)', # only necessary in fmin and optimize
+    'conditioncov_alleviate': '[1e8, 1e12]  # when to alleviate the condition in the coordinates and in main axes',
     'fixed_variables': 'None  # dictionary with index-value pairs like {0:1.1, 2:0.1} that are not optimized',
     'ftarget': '-inf  #v target function value, minimization',
     'integer_variables': '[]  # index list, invokes basic integer handling: prevent std dev to become too small in the given variables',
@@ -1904,8 +1905,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # update distribution, might change self.mean
 
         # if not self.opts['tolconditioncov'] or not np.isfinite(self.opts['tolconditioncov']):
-        self.alleviate_conditioning_in_coordinates(1e8)
-        self.alleviate_conditioning(1e12)
+        if self.opts['conditioncov_alleviate']:
+            self.alleviate_conditioning_in_coordinates(self.opts['conditioncov_alleviate'][0])
+            self.alleviate_conditioning(self.opts['conditioncov_alleviate'][-1])
 
         xmean_arg = xmean
         if xmean is None:
