@@ -642,7 +642,7 @@ class MoreToWrite(list):
         self._lenhist = []
     def check(self):
         self._lenhist += [len(self)]
-        if self._lenhist > 3:
+        if len(self._lenhist) > 3:
             if all(np.diff(self._lenhist) > 0):
                 del self[:]
             self._lenhist = []

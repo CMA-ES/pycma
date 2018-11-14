@@ -2741,6 +2741,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                 'tell', 'CMAEvolutionStrategy',
                                 self.countiter)
             self.timer = utils.ElapsedWCTime()
+
+        self.more_to_write.check()
     # end tell()
 
     def inject(self, solutions, force=None):
