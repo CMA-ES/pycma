@@ -63,6 +63,57 @@ def semilogy_signed(x=None, xopt=0, minabsx=None):
     # print(yticklabs)
     ax.set_yticklabels(yticklabs);
 
+def contour_data(fct, x_range, y_range):
+    """generate x,y,z-data for contour plot.
+
+    `fct` is a 2-D function.
+    `x`- and `y_range` are `iterable`s (e.g. `list`s or arrays)
+    to define the meshgrid.
+
+    CAVEAT: this function calls `fct` ``len(list(x_range)) * len(list(y_range))``
+    times. Hence using `Sections` may be the better first choice to
+    investigate an expensive function.
+
+    Example:
+
+    >>> import numpy as np
+    ...
+    >>> def example():  # def avoids doctest execution
+    ...     from matplotlib import pyplot as plt
+    ...
+    ...     X, Y, Z = contour_data(lambda x: sum([xi**2 for xi in x]),
+    ...                            np.arange(0.90, 1.10, 0.02),
+    ...                            np.arange(-0.10, 0.10, 0.02))
+    ...     CS = plt.contour(X, Y, Z)
+    ...     plt.axes().set_aspect('equal')
+    ...     plt.clabel(CS)
+
+    See `cma.fitness_transformations.FixVariables` to create a 2-D
+    function from a d-D function, e.g. like
+
+    >>> import cma
+    ...
+    >>> fd = cma.ff.elli
+    >>> x0 = np.zeros(22)
+    >>> indices_to_vary = [2, 4]
+    >>> f2 = cma.fitness_transformations.FixVariables(fd,
+    ...          {i: x0[i] for i in range(len(x0))
+    ...                    if i not in indices_to_vary})
+    >>> isinstance(f2, cma.fitness_transformations.FixVariables)
+    True
+    >>> isinstance(f2, cma.fitness_transformations.ComposedFunction)
+    True
+    >>> f2[0] is fd, len(f2) == 2
+    (True, True)
+
+    """
+    X, Y = np.meshgrid(x_range, y_range)
+    Z = X.copy()
+    for i in range(len(X)):
+        for j in range(len(X[0])):
+            Z[i][j] = fct(np.asarray([X[i][j], Y[i][j]]))
+    return X, Y, Z
+
 
 class BestSolution(object):
     """container to keep track of the best solution seen.
@@ -581,12 +632,12 @@ class Sections(object):
         for i in flatf:
             minf = min((minf, min(flatf[i])))
         addf = 1e-9 - minf if minf <= 1e-9 else 0
-        for i in sorted(res.keys()):  # we plot not all values here
-            if isinstance(i, int):
-                color = colors[i % len(colors)]
-                arx = sorted(res[i].keys())
-                plot_cmd(arx, [tf(np.median(res[i][x]) + addf) for x in arx], color + '-')
-                pyplot.text(arx[-1], tf(np.median(res[i][arx[-1]])), i)
+        for i in sorted(k for k in res.keys() if isinstance(k, int)):  # we plot not all values here
+            color = colors[i % len(colors)]
+            arx = sorted(res[i].keys())
+            plot_cmd(arx, [tf(np.median(res[i][x]) + addf) for x in arx], color + '-')
+            pyplot.text(arx[-1], tf(np.median(res[i][arx[-1]])), i)
+            if len(flatx[i]) < 11:
                 plot_cmd(flatx[i], tf(np.array(flatf[i]) + addf), color + 'o')
         pyplot.ylabel('f + ' + str(addf))
         pyplot.draw()
