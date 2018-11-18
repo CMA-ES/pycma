@@ -46,7 +46,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
                 len_ = same_length # presumably N**0.5, useful if self.opts['CSA_squared']
             for i in rglen(arz):
                 ss = sum(arz[i]**2)
-                if 1 < 3 or ss > self.N + 10.1:
+                if 1 < 3 or ss > self.dimension + 10.1:
                     arz[i] *= len_ / ss**0.5
         if hasattr(self, 'standard_deviations'):
             arz *= self.standard_deviations
@@ -231,7 +231,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 len_ = same_length # presumably N**0.5, useful if self.opts['CSA_squared']
             for i in rglen(arz):
                 ss = sum(arz[i]**2)
-                if 1 < 3 or ss > self.N + 10.1:
+                if 1 < 3 or ss > self.dimension + 10.1:
                     arz[i] *= len_ / ss**0.5
             # or to average
             # arz *= 1 * self.const.chiN / np.mean([sum(z**2)**0.5 for z in arz])
@@ -309,7 +309,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 self.D **= 2
                 self.D += fac
                 self.D **= 0.5
-                for i in range(self.N):
+                for i in range(self.dimension):
                     self.C[i][i] += fac
 
         if _assertions_quadratic and any(abs(sum(
@@ -317,7 +317,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                         * self.B[:, 1:], 0)) > 1e-6):
             print('B is not orthogonal')
             print(self.D)
-            print(sum(self.B[:, 0:self.N - 1] * self.B[:, 1:], 0))
+            print(sum(self.B[:, 0:self.dimension - 1] * self.B[:, 1:], 0))
         # is O(N^3)
         # assert(sum(abs(self.C - np.dot(self.D * self.B,  self.B.T))) < N**2*1e-11)
 
@@ -649,7 +649,7 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
                 len_ = same_length # presumably N**0.5, useful if self.opts['CSA_squared']
             for i in rglen(arz):
                 ss = sum(arz[i]**2)
-                if 1 < 3 or ss > self.N + 10.1:
+                if 1 < 3 or ss > self.dimension + 10.1:
                     arz[i] *= len_ / ss**0.5
             # or to average
             # arz *= 1 * self.const.chiN / np.mean([sum(z**2)**0.5 for z in arz])
