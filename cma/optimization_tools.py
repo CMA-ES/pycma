@@ -97,8 +97,8 @@ def contour_data(fct, x_range, y_range):
     >>> x0 = np.zeros(22)
     >>> indices_to_vary = [2, 4]
     >>> f2 = cma.fitness_transformations.FixVariables(fd,
-    ...          {i: x0[i] for i in range(len(x0))
-    ...                    if i not in indices_to_vary})
+    ...          dict((i, x0[i]) for i in range(len(x0))
+    ...                          if i not in indices_to_vary))
     >>> isinstance(f2, cma.fitness_transformations.FixVariables)
     True
     >>> isinstance(f2, cma.fitness_transformations.ComposedFunction)

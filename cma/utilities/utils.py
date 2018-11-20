@@ -290,7 +290,7 @@ class DictClass(dict):
     """A class wrapped over `dict` to use class .-notation.
 
     >>> from cma.utilities.utils import DictClass
-    >>> dict_ = {3 * c: c for c in 'abcd'}
+    >>> dict_ = dict((3 * c, c) for c in 'abcd')
     >>> as_class = DictClass(dict_)
     >>> assert as_class.__dict__ == dict_ == as_class
     >>> assert as_class.aaa == 'a'
