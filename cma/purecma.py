@@ -111,39 +111,39 @@ def fmin(objective_fct, xstart, sigma,
 
     Example
     =======
-    The following example minimizes the function `ff.elli`::
+    The following example minimizes the function `ff.elli`:
 
-        >> from cma import purecma, ff  # no doctest, as display may vary between Python versions even with the same seed
-        >> res = purecma.fmin(ff.elli, 3 * [0.5], 0.3, verb_disp=100)
-        evals: ax-ratio max(std)   f-value
-            7:     1.0  3.4e-01  240.2716966
-           14:     1.0  3.9e-01  2341.50170536
-          700:   247.9  2.4e-01  0.629102574062
-         1400:  1185.9  5.3e-07  4.83466373808e-13
-         1421:  1131.2  2.9e-07  5.50167024417e-14
-        termination by {'tolfun': 1e-12}
-        best f-value = 2.72976881789e-14
-        solution = [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-        >> print(res[0])
-        [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-        >> print(res[1].result[1])
-        2.72976881789e-14
-        >> res[1].logger.plot()  # needs pylab/matplotlib to be installed
+    >>> try: import cma.purecma as purecma
+    ... except ImportError: import purecma
+    >>> def felli(x):
+    ...     return sum(10**(6 * i / (len(x)-1)) * xi**2
+    ...                for i, xi in enumerate(x))
+    >>> res = purecma.fmin(felli, 3 * [0.5], 0.3, verb_disp=100)  # doctest:+SKIP
+    evals: ax-ratio max(std)   f-value
+        7:     1.0  3.4e-01  240.2716966
+       14:     1.0  3.9e-01  2341.50170536
+      700:   247.9  2.4e-01  0.629102574062
+     1400:  1185.9  5.3e-07  4.83466373808e-13
+     1421:  1131.2  2.9e-07  5.50167024417e-14
+    termination by {'tolfun': 1e-12}
+    best f-value = 2.72976881789e-14
+    solution = [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
+    >>> print(res[0])  # doctest:+SKIP
+    [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
+    >>> res[1].result[1])  # doctest:+SKIP
+    2.72976881789e-14
+    >>> res[1].logger.plot()  # doctest:+SKIP
 
     Details
     =======
-    After importing `purecma`::
+    After importing `purecma`, this call:
 
-        >> import cma.purecma as pcma
+    >>> es = purecma.fmin(pcma.ff.elli, 10 * [0.5], 0.3, verb_save=0)[1]  # doctest:+SKIP
 
-    this call::
+    and these lines:
 
-        >> es = pcma.fmin(pcma.ff.elli, 10 * [0.5], 0.3, verb_save=0)[1]
-
-    and these lines::
-
-        >> es = pcma.CMAES(10 * [0.5], 0.3)
-        >> es.optimize(pcma.ff.elli, callback=es.logger.add)
+    >>> es = purecma.CMAES(10 * [0.5], 0.3)
+    >>> es.optimize(purecma.ff.elli, callback=es.logger.add)  # doctest:+SKIP
 
     do pretty much the same. The `verb_save` parameter to `fmin` adds
     the possibility to plot the saved data *during* the execution from a
@@ -502,8 +502,7 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
     >>> while not es.stop():
     ...     X = es.ask()
     ...     es.tell(X, [pcma.ff.elli(x) for x in X])
-    ...     es.logger.add(es)  # doctest: +ELLIPSIS
-    <...
+    ...     es.logger.add(es)  # doctest: +SKIP
     >>> es.logger.save()
     >>> # es.logger.plot()  #
 
