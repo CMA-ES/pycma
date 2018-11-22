@@ -372,6 +372,9 @@ class ComposedFunction(Function, list):
 class GlueArguments(Function):
     """from a `callable` return a `callable` with arguments attached.
 
+    See also `functools.partial` which has the same functionality and
+    interface.
+
     An ellipsoid function with condition number ``1e4`` is created by
     ``felli1e4 = cma.s.ft.GlueArguments(cma.ff.elli, cond=1e4)``.
 
