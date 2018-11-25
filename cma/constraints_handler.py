@@ -149,11 +149,19 @@ class BoundaryHandlerBase(object):
                 except TypeError:
                     bounds[i] = [bounds[i]]
                     l[i] = 1
+            if l[0] != l[1] and 1 not in l and None not in (
+                    bounds[0][-1], bounds[1][-1]):  # disallow different lengths
+                raise ValueError(
+                    "lower and upper bounds must have the same length\n"
+                    "or length one or `None` as last element (the last"
+                    " element is always recycled).\n"
+                    "Lengths were %s"
+                    % str(l))
             b = []  # bounds in different format
             try:
                 for i in range(max(l)):
-                    b.append([bounds[0][i] if i < l[0] else None,
-                              bounds[1][i] if i < l[1] else None])
+                    b.append([bounds[0][min((i, l[0] - 1))],
+                              bounds[1][min((i, l[1] - 1))]])
             except (TypeError, IndexError):
                 print("boundaries must be provided in the form " +
                       "[scalar_of_vector, scalar_or_vector]")
