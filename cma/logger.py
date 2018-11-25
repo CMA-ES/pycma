@@ -10,7 +10,7 @@ import os  # path
 import sys  # flush
 import warnings
 import time
-from collections import defaultdict as _defaultdict
+# from collections import defaultdict as _defaultdict
 import numpy as np
 from . import interfaces
 from .utilities import utils
@@ -63,8 +63,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
     :See: `disp` (), `plot` ()
     """
-    default_prefix = 'outcma/'
-    default_prefix = 'outcmaes'
+    default_prefix = 'outcma/cma'
+    # default_prefix = 'outcmaes'
     # names = ('axlen','fit','stddev','xmean','xrecentbest')
     # key_names_with_annotation = ('std', 'xmean', 'xrecent')
 
@@ -78,8 +78,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # class properties:
 #        if isinstance(name_prefix, CMAEvolutionStrategy):
 #            name_prefix = name_prefix.opts.eval('verb_filenameprefix')
-        self.name_prefix = os.path.join(*os.path.split(name_prefix
-                if name_prefix else CMADataLogger.default_prefix))
+        self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix
+                if name_prefix else CMADataLogger.default_prefix)))
         # create path if necessary
         if os.path.dirname(self.name_prefix):
             try:
@@ -237,7 +237,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         `plot` and `disp`.
 
         Argument `filenameprefix` is the filename prefix of data to be
-        loaded (six files), by default ``'outcmaes'``.
+        loaded (six files), by default ``'outcma/cma'``.
 
         Return self with (added) attributes `xrecent`, `xmean`,
         `f`, `D`, `std`, 'corrspec'
@@ -1179,8 +1179,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ::
 
             import cma
-            cma.downsampling()  # takes outcmaes* files
-            cma.plot('outcmaesdown')
+            cma.downsampling()  # takes outcma/cma* files
+            cma.plot('outcma/cmadown')
 
         """
         newprefix = self.name_prefix + 'down'
@@ -1315,7 +1315,7 @@ def plot(name=None, fig=None, abscissa=1, iteridx=None,
     ---------
     `name`
         name of the logger, filename prefix, None evaluates to
-        the default 'outcmaes'
+        the default 'outcma/cma'
     `fig`
         filename or figure number, or both as a tuple (any order)
     `abscissa`
@@ -1366,7 +1366,7 @@ def disp(name=None, idx=None):
     ---------
     `name`
         name of the logger, filename prefix, `None` evaluates to
-        the default ``'outcmaes'``
+        the default ``'outcma/cma'``
     `idx`
         indices corresponding to rows in the data file; by
         default the first five, then every 100-th, and the last
