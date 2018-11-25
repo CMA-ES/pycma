@@ -1152,12 +1152,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     An example with user-defined transformation, in this case to realize
     a lower bound of 2.
 
-    >>> es = cma.CMAEvolutionStrategy(5 * [3], 0.1,
+    >>> import warnings
+    >>> with warnings.catch_warnings(record=True) as warns:
+    ...     es = cma.CMAEvolutionStrategy(5 * [3], 0.1,
     ...                 {"transformation": [lambda x: x**2+1.2, None],
-    ...                  })
-    ...  # doctest: +ELLIPSIS
-    WARNING...
-    (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 5 (seed=...
+    ...                  "verbose": -2,})
+    >>> warns[0].message  # doctest:+ELLIPSIS
+    UserWarning('in class GenoPheno: user defined transformations have not been tested thoroughly ()'...
+    >>> warns[1].message  # doctest:+ELLIPSIS
+    UserWarning('computed initial point...
     >>> es.optimize(cma.ff.rosen, verb_disp=0)  #doctest: +ELLIPSIS
     <cma...
     >>> assert cma.ff.rosen(es.result[0]) < 1e-7 + 5.54781521192
@@ -1411,10 +1414,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         tf_geno_backup = self.gp.tf_geno
         if self.gp.tf_pheno and self.gp.tf_geno is None:
             self.gp.tf_geno = lambda x: x  # a hack to avoid an exception
-            utils.print_warning("""
-                computed initial point is likely to be wrong, because
-                no inverse was found of user provided phenotype
-                transformation""")
+            utils.print_warning(
+                "computed initial point may well be wrong, because no\n"
+                "inverse for the user provided phenotype transformation "
+                "was given")
         self.mean = self.gp.geno(np.array(self.x0, copy=True),
                             from_bounds=self.boundary_handler.inverse,
                             copy=False)

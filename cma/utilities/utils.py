@@ -3,6 +3,7 @@
 from __future__ import (absolute_import, division, print_function,
                         )  #unicode_literals, with_statement)
 import os, sys, time
+import warnings
 try:
     from collections import MutableMapping
 except ImportError:
@@ -226,11 +227,11 @@ def print_warning(msg, method_name=None, class_name=None, iteration=None,
         raise ValueError('iteration must be given to activate maxwarns')
     if verbose >= -2 and (iteration is None or maxwarns is None or
                             iteration <= maxwarns):
-        print('WARNING (' +
+        warnings.warn(msg + ' (' +
               ('class=%s ' % str(class_name) if class_name else '') +
               ('method=%s ' % str(method_name) if method_name else '') +
               ('iteration=%s' % str(iteration) if iteration else '') +
-              '): ', msg)
+              ')')
 def print_message(msg, method_name=None, class_name=None, iteration=None,
                    verbose=None):
     if verbose is None:

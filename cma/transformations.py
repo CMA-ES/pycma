@@ -202,23 +202,30 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     ========
     Example to use with cma:
 
+    >>> import warnings
     >>> import cma
     >>> from cma.transformations import BoxConstraintsLinQuadTransformation
     >>> # only the first variable has an upper bound
     >>> tf = BoxConstraintsLinQuadTransformation([[1,2], [1,None]]) # second==last pair is re-cycled
-    >>> cma.fmin(cma.ff.elli, 9 * [2], 1,
-    ...            {'transformation': [tf.transform, tf.inverse],
-    ...             'verb_disp': 0})
-    ...                # doctest: +ELLIPSIS
-    WARNING... user defined transformations have not been tested thorou...
-    >>> # ...or...
+    >>> with warnings.catch_warnings(record=True) as warns:
+    ...     x, es = cma.fmin2(cma.ff.elli, 9 * [2], 1,
+    ...                 {'transformation': [tf.transform, tf.inverse],
+    ...                  'verb_disp':0, 'verbose': -2})
+    >>> str(warns[0].message).startswith(('in class GenoPheno: user defi',
+    ...                                   'flat fitness'))
+    True
+
+    or:
+
     >>> es = cma.CMAEvolutionStrategy(9 * [2], 1)  # doctest: +ELLIPSIS
     (5_w,10)-aCMA-ES (mu_w=...
-    >>> while not es.stop():
-    ...     X = es.ask()
-    ...     f = [cma.ff.elli(tf(x)) for x in X]  # tf(x)==tf.transform(x)
-    ...     es.tell(X, f)  # doctest: +ELLIPSIS
-    WARNING... flat fitness ...
+    >>> with warnings.catch_warnings(record=True) as warns:
+    ...     while not es.stop():
+    ...         X = es.ask()
+    ...         f = [cma.ff.elli(tf(x)) for x in X]  # tf(x)==tf.transform(x)
+    ...         es.tell(X, f)
+    >>> warns[0].message  # doctest: +ELLIPSIS
+    UserWarning('flat fitness (f=...
 
     Example of the internal workings:
 

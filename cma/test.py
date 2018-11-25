@@ -194,13 +194,10 @@ def various_doctests():
         >>> import cma
         >>> res = cma.fmin(cma.ff.sphere, 4 * [1], 2,
         ...      {'CMA_on':False, 'ftarget':1e-8, 'verbose':-9})
-        ...           #doctest: +ELLIPSIS
-        covariance ma...
         >>> assert 'ftarget' in res[7] and res[2] < 1e3
         >>> res = cma.fmin(cma.ff.sphere, 3 * [1], 2,
         ...      {'CMA_rankone':0, 'CMA_rankmu':0, 'ftarget':1e-8,
-        ...       'verbose':-9})  #doctest: +ELLIPSIS
-        covariance ma...
+        ...       'verbose':-9})
         >>> assert 'ftarget' in res[7] and res[2] < 1e3
         >>> res = cma.fmin(cma.ff.sphere, 2 * [1], 2,
         ...      {'CMA_rankone':0, 'ftarget':1e-8, 'verbose':-9})
@@ -249,18 +246,20 @@ def various_doctests():
 
     Integer handling:
 
-        >>> import cma
-        >>> idx = [0, 1, 5, -1]
-        >>> f = cma.s.ft.IntegerMixedFunction(cma.ff.elli, idx)
-        >>> es = cma.CMAEvolutionStrategy(4 * [5], 10, dict(
-        ...               ftarget=1e-9, seed=5,
-        ...               integer_variables=idx
-        ...            ))  # doctest:+ELLIPSIS
-        WARNING... integer index 5 not in range of dimension 4
-        (4_w,8)-...
-        >>> es.optimize(f)  # doctest:+ELLIPSIS
-        Iterat #Fevals   function value ...
-        >>> assert 'ftarget' in es.stop() and es.result[3] < 1800
+    >>> import warnings
+    >>> idx = [0, 1, 5, -1]
+    >>> f = cma.s.ft.IntegerMixedFunction(cma.ff.elli, idx)
+    >>> with warnings.catch_warnings(record=True) as warns:
+    ...     es = cma.CMAEvolutionStrategy(4 * [5], 10, dict(
+    ...                   ftarget=1e-9, seed=5,
+    ...                   integer_variables=idx
+    ...                ))  # doctest:+ELLIPSIS
+    (4_w,8)-...
+    >>> warns[0].message  # doctest:+ELLIPSIS
+    UserWarning('integer index 5 not in range of dimension 4 ()'...
+    >>> es.optimize(f)  # doctest:+ELLIPSIS
+    Iterat #Fevals   function value ...
+    >>> assert 'ftarget' in es.stop() and es.result[3] < 1800
 
     Some sort of interactive control via an options file:
 
