@@ -63,6 +63,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
     :See: `disp` (), `plot` ()
     """
+    default_prefix = 'outcma/'
     default_prefix = 'outcmaes'
     # names = ('axlen','fit','stddev','xmean','xrecentbest')
     # key_names_with_annotation = ('std', 'xmean', 'xrecent')
@@ -75,11 +76,16 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # super(CMAData, self).__init__({'iter':[], 'stds':[], 'D':[],
         #        'sig':[], 'fit':[], 'xm':[]})
         # class properties:
-        self.name_prefix = name_prefix if name_prefix \
-            else old_CMADataLogger.default_prefix
-        if isinstance(self.name_prefix, CMAEvolutionStrategy):
-            self.name_prefix = self.name_prefix.opts.eval(
-                'verb_filenameprefix')
+#        if isinstance(name_prefix, CMAEvolutionStrategy):
+#            name_prefix = name_prefix.opts.eval('verb_filenameprefix')
+        self.name_prefix = os.path.join(*os.path.split(name_prefix
+                if name_prefix else CMADataLogger.default_prefix))
+        # create path if necessary
+        if os.path.dirname(self.name_prefix):
+            try:
+                os.makedirs(os.path.dirname(self.name_prefix))
+            except OSError:
+                pass  # folder exists
         self.file_names = ('axlen', 'axlencorr', 'fit', 'stddev', 'xmean',
                 'xrecentbest')
         """used in load, however hard-coded in add"""
@@ -116,12 +122,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         by default previous data are overwritten.
 
         """
-        if not isinstance(es, CMAEvolutionStrategy):
-            utils.print_warning("""only class CMAEvolutionStrategy should
-    be registered for logging. The used "%s" class may not to work
-    properly. This warning may also occur after using `reload`. Then,
-    restarting Python should solve the issue.""" %
-                                str(type(es)))
+#        if not isinstance(es, CMAEvolutionStrategy):
+#            utils.print_warning("""only class CMAEvolutionStrategy should
+#    be registered for logging. The used "%s" class may not to work
+#    properly. This warning may also occur after using `reload`. Then,
+#    restarting Python should solve the issue.""" %
+#                                str(type(es)))
         self.es = es
         if append is not None:
             self.append = append
@@ -313,9 +319,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
             self.counter = 1
 
         # --- INTERFACE, can be changed if necessary ---
-        if not isinstance(es, CMAEvolutionStrategy):  # not necessary
-            utils.print_warning('type CMAEvolutionStrategy expected, found '
-                                + str(type(es)), 'add', 'CMADataLogger')
+#        if not isinstance(es, CMAEvolutionStrategy):  # not necessary
+#            utils.print_warning('type CMAEvolutionStrategy expected, found '
+#                                + str(type(es)), 'add', 'CMADataLogger')
         evals = es.countevals
         iteration = es.countiter
         eigen_decompositions = es.count_eigen
