@@ -63,7 +63,7 @@ def semilogy_signed(x=None, xopt=0, minabsx=None):
     # print(yticklabs)
     ax.set_yticklabels(yticklabs);
 
-def contour_data(fct, x_range, y_range):
+def contour_data(fct, x_range, y_range=None):
     """generate x,y,z-data for contour plot.
 
     `fct` is a 2-D function.
@@ -107,6 +107,8 @@ def contour_data(fct, x_range, y_range):
     (True, True)
 
     """
+    if y_range is None:
+        y_range = x_range
     X, Y = np.meshgrid(x_range, y_range)
     Z = X.copy()
     for i in range(len(X)):
