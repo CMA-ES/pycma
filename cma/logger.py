@@ -371,6 +371,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 diagD = [1]
             maxD = max(diagD)
             minD = min(diagD)
+        try:
+            correlation_matrix = es.sm.correlation_matrix
+        except (AttributeError, NotImplemented, NotImplementedError):
+            correlation_matrix = None
         more_to_write = es.more_to_write
         es.more_to_write = utils.MoreToWrite()
         # --- end interface ---
@@ -408,11 +412,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # correlation matrix eigenvalues
             if 1 < 3:
                 fn = self.name_prefix + 'axlencorr.dat'
-                try:
-                    c = es.sm.correlation_matrix
-                except (AttributeError, NotImplemented, NotImplementedError):
-                    c = None
-                if c is not None:
+                if (correlation_matrix is not None
+                    and not np.isscalar(correlation_matrix)
+                    and len(correlation_matrix) > 1):
                     # accept at most 50% internal loss
                     if 11 < 3 or self._eigen_counter < eigen_decompositions / 2:
                         self.last_correlation_spectrum = \
@@ -420,17 +422,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         self._eigen_counter += 1
                     if self.last_correlation_spectrum is None:
                         self.last_correlation_spectrum = len(diagD) * [1]
-                    c = c[c < 1 - 1e-14]  # remove diagonal elements
-                    c[c > 1 - 1e-14] = 1 - 1e-14
-                    c[c < -1 + 1e-14] = -1 + 1e-14
+                    c = np.asarray(correlation_matrix)
+                    c = c[np.triu_indices(c.shape[0], 1)]
                     c_min = np.min(c)
                     c_max = np.max(c)
                     if np.min(abs(c)) == 0:
                         c_medminus = 0  # thereby zero "is negative"
                         c_medplus = 0  # thereby zero "is positive"
                     else:
-                        c_medminus = c[np.argmin(1/c)]  # c is flat
-                        c_medplus = c[np.argmax(1/c)]  # c is flat
+                        cinv = 1 / c
+                        c_medminus = 1 / np.min(cinv)  # negative close to zero
+                        c_medplus = 1 / np.max(cinv)  # positive close to zero
 
                     with open(fn, 'a') as f:
                         f.write(str(iteration) + ' '
