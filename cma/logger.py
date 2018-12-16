@@ -14,6 +14,7 @@ import time
 import numpy as np
 from . import interfaces
 from .utilities import utils
+from .optimization_tools import semilogy_signed
 from . import restricted_gaussian_sampler as _rgs
 
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
@@ -538,7 +539,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
     def plot(self, fig=None, iabscissa=1, iteridx=None,
              plot_mean=False, # was: plot_mean=True
              foffset=1e-19, x_opt=None, fontsize=7,
-             downsample_to=1e7):
+             downsample_to=1e7,
+             xsemilog=False):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
 
@@ -550,7 +552,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             ``0==plot`` versus iteration count,
             ``1==plot`` versus function evaluation number
         `iteridx`
-            iteration indices to plot
+            iteration indices to plot, e.g. ``range(100)`` for the first 100 evaluations.
 
         Return `CMADataLogger` itself.
 
@@ -635,9 +637,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         subplot(2, 2, 2)
         if plot_mean:
-            self.plot_mean(iabscissa, x_opt)
+            self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog)
         else:
-            self.plot_xrecent(iabscissa, x_opt)
+            self.plot_xrecent(iabscissa, x_opt, xsemilog=xsemilog)
         pyplot.xlabel('')
         # pyplot.xticks(xticklocs)
 
@@ -784,7 +786,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         verticalalignment='center')
             return self  # nothing interesting to plot
         self._enter_plotting()
-        pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, 5:], '-b')
+        color = iter(pyplot.cm.plasma_r(np.linspace(0.35, 1,
+                                                    dat.D.shape[1] - 5)))
+        for i in range(5, dat.D.shape[1]):
+            pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, i],
+                            '-', color=next(color))
         # pyplot.hold(True)
         pyplot.grid(True)
         ax = array(pyplot.axis())
@@ -849,18 +855,20 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_mean(self, iabscissa=1, x_opt=None, annotations=None):
+    def plot_mean(self, iabscissa=1, x_opt=None, annotations=None, xsemilog=None):
         if not hasattr(self, 'xmean'):
             self.load()
         self.x = self.xmean
-        self._plot_x(iabscissa, x_opt, 'mean', annotations=annotations)
+        if xsemilog is None and x_opt is not None:
+            xsemilog = True
+        self._plot_x(iabscissa, x_opt, 'mean', annotations=annotations, xsemilog=xsemilog)
         self._xlabel(iabscissa)
         return self
-    def plot_xrecent(self, iabscissa=1, x_opt=None, annotations=None):
+    def plot_xrecent(self, iabscissa=1, x_opt=None, annotations=None, xsemilog=None):
         if not hasattr(self, 'xrecent'):
             self.load()
         self.x = self.xrecent
-        self._plot_x(iabscissa, x_opt, 'curr best', annotations=annotations)
+        self._plot_x(iabscissa, x_opt, 'curr best', annotations=annotations, xsemilog=xsemilog)
         self._xlabel(iabscissa)
         return self
     def plot_correlations(self, iabscissa=1):
@@ -1083,10 +1091,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         pyplot.xlabel('iterations' if iabscissa == 0
                       else 'function evaluations')
     def _plot_x(self, iabscissa=1, x_opt=None, remark=None,
-                annotations=None):
+                annotations=None, xsemilog=None):
         """If ``x_opt is not None`` the difference to x_opt is plotted
-        in log scale
-
         """
         if not hasattr(self, 'x'):
             utils.print_warning('no x-attributed found, use methods ' +
@@ -1097,64 +1103,55 @@ class CMADataLogger(interfaces.BaseDataLogger):
             annotations = self.persistent_communication_dict.get('variable_annotations')
         from matplotlib.pyplot import plot, semilogy, text, grid, axis, title
         dat = self  # for convenience and historical reasons
+        if x_opt in (None, 0):
+            dat_x = dat.x
+        else:
+            dat_x = dat.x[:,:]
+            dat_x[:, 5:] -= x_opt
+
         # modify fake last entry in x for line extension-annotation
-        if dat.x.shape[1] < 100:
-            minxend = int(1.06 * dat.x[-2, iabscissa])
-            # write y-values for individual annotation into dat.x
-            dat.x[-1, iabscissa] = minxend  # TODO: should be ax[1]
-            if x_opt is None:
-                idx = np.argsort(dat.x[-2, 5:])
-                # idx2 = np.argsort(idx)
-                dat.x[-1, 5 + idx] = np.linspace(np.min(dat.x[:, 5:]),
-                            np.max(dat.x[:, 5:]), dat.x.shape[1] - 5)
-            else: # y-axis is in log
-                xdat = np.abs(dat.x[:, 5:] - np.array(x_opt, copy=False))
-                idx = np.argsort(xdat[-2, :])
-                # idx2 = np.argsort(idx)
-                xdat[-1, idx] = np.logspace(np.log10(np.min(abs(xdat[xdat!=0]))),
-                            np.log10(np.max(np.abs(xdat))),
-                            dat.x.shape[1] - 5)
+        if dat_x.shape[1] < 100:
+            minxend = int(1.06 * dat_x[-2, iabscissa])
+            # write y-values for individual annotation into dat_x
+            dat_x[-1, iabscissa] = minxend  # TODO: should be ax[1]
+            idx = np.argsort(dat_x[-2, 5:])
+            # idx2 = np.argsort(idx)
+            dat_x[-1, 5 + idx] = np.linspace(np.min(dat_x[:, 5:]),
+                        np.max(dat_x[:, 5:]), dat_x.shape[1] - 5)
         else:
             minxend = 0
         self._enter_plotting()
-        if x_opt is not None:  # TODO: differentate neg and pos?
-            semilogy(dat.x[:, iabscissa], abs(xdat), '-')
+        if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
+            semilogy_signed(dat_x[:, iabscissa], dat_x[:, 5:])
         else:
-            plot(dat.x[:, iabscissa], dat.x[:, 5:], '-')
+            plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
         # hold(True)
         grid(True)
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
         axis(ax)
         ax[1] -= 1e-6  # to prevent last x-tick annotation, probably superfluous
-        if dat.x.shape[1] < 100:
-            # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat.x.shape[1] - 5)
-            # yyl = np.sort(dat.x[-1,5:])
-            if x_opt is not None:
-                # semilogy([dat.x[-1, iabscissa], ax[1]], [abs(dat.x[-1, 5:]), yy[idx2]], 'k-')  # line from last data point
-                semilogy(np.dot(dat.x[-2, iabscissa], [1, 1]),
-                         array([ax[2] * (1+1e-6), ax[3] / (1+1e-6)]), 'k-')
-            else:
-                # plot([dat.x[-1, iabscissa], ax[1]], [dat.x[-1,5:], yy[idx2]], 'k-') # line from last data point
-                plot(np.dot(dat.x[-2, iabscissa], [1, 1]),
-                     array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
-            # plot(array([dat.x[-1, iabscissa], ax[1]]),
-            #      reshape(array([dat.x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
+        if dat_x.shape[1] < 100:
+            # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat_x.shape[1] - 5)
+            # yyl = np.sort(dat_x[-1,5:])
+            # plot([dat_x[-1, iabscissa], ax[1]], [dat_x[-1,5:], yy[idx2]], 'k-') # line from last data point
+            plot(np.dot(dat_x[-2, iabscissa], [1, 1]),
+                 array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
+            # plot(array([dat_x[-1, iabscissa], ax[1]]),
+            #      reshape(array([dat_x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
             for i in range(len(idx)):
                 # TODOqqq: annotate phenotypic value!?
-                # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat.x[-2,5+idx[i]]))
-
-                text(dat.x[-1, iabscissa], dat.x[-1, 5 + i]
-                            if x_opt is None else np.abs(xdat[-1, i]),
+                # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
+                text(dat_x[-1, iabscissa], dat_x[-1, 5 + i],
                      ('x[' + str(i) + ']=' if annotations is None
                         else str(i) + ':' + annotations[i] + "=")
-                     + str(dat.x[-2, 5 + i]))
+                     + str(dat_x[-2, 5 + i]))
         i = 2  # find smallest i where iteration count differs (in case the same row appears twice)
         while i < len(dat.f) and dat.f[-i][0] == dat.f[-1][0]:
             i += 1
         title('Object Variables (' +
                 (remark + ', ' if remark is not None else '') +
-                str(dat.x.shape[1] - 5) + '-D, popsize~' +
+                str(dat_x.shape[1] - 5) + '-D, popsize~' +
                 (str(int((dat.f[-1][1] - dat.f[-i][1]) / (dat.f[-1][0] - dat.f[-i][0])))
                     if len(dat.f.T[0]) > 1 and dat.f[-1][0] > dat.f[-i][0] else 'NA')
                 + ')')
@@ -1307,7 +1304,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
 last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
-         foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3):
+         foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
+         xsemilog=None):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for
@@ -1325,6 +1323,10 @@ def plot(name=None, fig=None, abscissa=1, iteridx=None,
         1==plot versus function evaluation number
     `iteridx`
         iteration indices to plot
+    `x_opt`
+        negative offset for plotting x-values
+    `xsemilog`
+        customized semilog plot for x-values
 
     Return `None`
 
@@ -1355,7 +1357,7 @@ def plot(name=None, fig=None, abscissa=1, iteridx=None,
     if isinstance(fig, (int, float)):
         last_figure_number = fig
     return CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
-                             x_opt, fontsize, downsample_to)
+                             x_opt, fontsize, downsample_to, xsemilog)
 
 def disp(name=None, idx=None):
     """displays selected data from (files written by) the class
