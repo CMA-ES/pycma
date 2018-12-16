@@ -165,6 +165,37 @@ def ranks(a, reverse=False):
     return [len(idx) - 1 - idx.index(i) if reverse else idx.index(i)
             for i in range(len(idx))]
 
+def zero_values_indices(diffs):
+    """generate increasing index pairs ``(i, j)`` with ``all(diffs[i:j] == 0)``
+
+    and ``diffs[j] != 0 or j == len(diffs)``, thereby identifying "flat
+    spots/areas" in `diffs`.
+
+    Returns the respective generator type.
+
+    Not anymore used to smoothen ECDFs.
+
+    Example:
+
+    >>> from cma.utilities.utils import zero_values_indices
+    >>> for i, j in zero_values_indices([0, 0.1, 0, 0, 3.2, 0, 2.1]):
+    ...     print((i, j))
+    (0, 1)
+    (2, 4)
+    (5, 6)
+
+    """
+    i = 0
+    while i < len(diffs):
+        if diffs[i] == 0:
+            j = i
+            while j < len(diffs) and diffs[j] == 0:
+                j += 1
+            yield i, j
+            i = j + 1  # next possibly zero value
+        else:
+            i += 1
+
 def pprint(to_be_printed):
     """nicely formated print"""
     try:

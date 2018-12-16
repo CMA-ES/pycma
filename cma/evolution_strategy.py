@@ -1427,7 +1427,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # self.fmean = np.NaN  # TODO name should change? prints nan in output files (OK with matlab&octave)
         # self.fmean_noise_free = 0.  # for output only
 
-        self.sp = _CMAParameters(N, opts)
+        self.sp = _CMAParameters(N, opts, verbose=opts['verbose'] > 0)
         self.sp0 = self.sp  # looks useless, as it is not a copy
 
         self.adapt_sigma = opts['AdaptSigma']
@@ -1593,10 +1593,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             - self.boundary_handler.get_bounds('lower', self.N_pheno)))
         if np.any(relative_stds > 1):
             idx = np.nonzero(relative_stds > 1)[0]
-            s = ("Initial standard deviation" +
-                 "%s larger than the bounded domain size in variable %s"
-                 % (("s (sigma0*stds*scaling) are", str(idx))
-                    if len(idx) > 1 else (" (sigma0*stds*scaling) is", str(idx[0]))))
+            s = ("Initial standard deviation "
+                 "%s larger than the bounded domain size in variable %s.\n"
+                 "Consider using option 'CMA_stds', if the bounded "
+                 "domain sizes differ significantly. "
+                 % (("s (sigma0*stds) are", str(idx))
+                    if len(idx) > 1 else (" (sigma0*stds) is",
+                                          str(idx[0]))))
             raise ValueError(s)
         self._flgtelldone = True
         self.itereigenupdated = self.countiter

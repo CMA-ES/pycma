@@ -1,6 +1,7 @@
 """Wrapper for objective functions like noise, rotation, gluing args
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals, with_statement
+from functools import partial
 import numpy as np
 from multiprocessing import Pool as ProcessingPool
 # from pathos.multiprocessing import ProcessingPool
