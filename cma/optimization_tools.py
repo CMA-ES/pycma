@@ -10,29 +10,45 @@ from .utilities.math import Mh
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
-def semilogy_signed(x=None, xopt=0, minabsx=None):
+def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1):
     """signed semilogy plot.
 
-    `x` is a data array, by default read from `outcmaesxmean.dat`
-    Plotted is `x - xopt`.
+    `y` (or `x` if `y` is `None`) is a data array, by default read from
+    `outcmaesxmean.dat` or (first) from the default logger output file
+    like::
+
+        xy = cma.logger.CMADataLogger().load().data['xmean']
+        x, y = xy[:, iabscissa], xy[:, 5:]
+        semilogy_signed(x, y)
+
+    Plotted is `y - yoffset` vs `x` for positive values as a semilogy plot
+    and for negative values as a semilogy plot of absolute values with
+    inverted axis.
+
+    `minabsy` controls the minimum shown value away from zero, which can
+    be useful if extremely small non-zero values occur in the data.
 
     """
-    y = x
-    if x is None:
-        if 1 < 3:
-            y = np.loadtxt('outcmaesxmean.dat', comments=('%',))[:, 5:]
+    if y is None:
+        if x is not None:
+            x, y = y, x
         else:
-            from . import logger
-            y = logger.CMADataLogger('outcmaes').load().data['xmean']
-    if xopt not in (None, 0):
+            try:
+                from . import logger
+                xy = logger.CMADataLogger().load().data['xmean']
+            except:
+                xy = np.loadtxt('outcmaesxmean.dat', comments=('%',))
+            x, y = xy[:, iabscissa], xy[:, 5:]
+    if yoffset not in (None, 0):
         try:
-            y -= xopt
-        except:  # recycle last entry of xopt
-            xopt = [xopt[i if i < len(xopt) else -1] for i in range(y.shape[1])]
-            y -= xopt
+            y -= yoffset
+        except:  # recycle last entry of yoffset
+            yoffset = [yoffset[i if i < len(yoffset) else -1] for i in range(y.shape[1])]
+            y -= yoffset
     elif 11 < 3:
         pass  # TODO: subtract optionally last x!? (not smallest which is done anyways)
-    min_log = np.log10(minabsx) if minabsx else int(np.ceil(np.min(np.log10(np.abs(y[y!=0])))))
+    min_log = np.log10(minabsy) if minabsy else \
+              int(np.floor(np.min(np.log10(np.abs(y[y!=0])))))
 
     idx_zeros = np.abs(y) < 10**min_log
     idx_pos = y >= 10**min_log
@@ -41,7 +57,10 @@ def semilogy_signed(x=None, xopt=0, minabsx=None):
     y[idx_neg] = -(np.log10(-y[idx_neg]) - min_log)
     y[idx_zeros] = 0
 
-    plt.plot(range(y.shape[0]), y);
+    if x is None:
+        x = range(1, y.shape[0] + 1)
+    plt.plot(x, y)
+
     # the remainder is changing y-labels
     ax = plt.gca()
     yticklabs = [label.get_text() for label in ax.get_yticklabels()]
@@ -61,7 +80,8 @@ def semilogy_signed(x=None, xopt=0, minabsx=None):
                 yticklabs[i] = yticklabs[i][:-3] + yticklabs[i][-2:]
 
     # print(yticklabs)
-    ax.set_yticklabels(yticklabs);
+    ax.set_yticklabels(yticklabs)
+    plt.grid(True)
 
 def contour_data(fct, x_range, y_range=None):
     """generate x,y,z-data for contour plot.
@@ -116,6 +136,28 @@ def contour_data(fct, x_range, y_range=None):
             Z[i][j] = fct(np.asarray([X[i][j], Y[i][j]]))
     return X, Y, Z
 
+# ecdf_data
+def step_data(data, smooth_corners=0.1):
+
+    """return x, y ECDF data for ECDF plot. Smoothing may look strange
+    in a semilogx plot.
+    """
+    x = np.asarray(sorted(data))
+    y = np.linspace(0, 1, len(x) + 1, endpoint=True)
+    if smooth_corners:
+        x = np.array([x - smooth_corners * np.hstack([[0], np.diff(x)]),
+                      x, x, x + smooth_corners * np.hstack([np.diff(x), [0]])])
+    else:
+        x = np.array([x, x])
+    x = x.reshape(x.size, order='F')
+    if smooth_corners:
+        y = np.array([y[:-1], (1 - smooth_corners) * y[:-1] + smooth_corners * y[1:],
+                      smooth_corners * y[:-1] + (1 - smooth_corners) * y[1:], y[1:]])
+    else:
+            y = np.array([y[:-1], y[1:]])
+    y = y.reshape(y.size, order='F')
+    # y = np.linspace(0, 1, len(x), endpoint=True)
+    return x, y
 
 class BestSolution(object):
     """container to keep track of the best solution seen.
@@ -181,16 +223,21 @@ class BestSolution(object):
         return self.x, self.f, self.evals  # , self.x_geno
 
 class EvolutionPath(object):
-    """"""
+    """not in use (yet)
+
+    A variance-neutral exponentially smoothened vector.
+    """
     def __init__(self, p0, time_constant=None):
         self.path = np.asarray(p0)
+        self.count = 0
         self.time_constant = time_constant
         if time_constant is None:
             self.time_constant = 1 + len(p0)**0.5
     def update(self, v):
-        c = 1. / self.time_constant
+        self.count += 1
+        c = max((1 / self.count, 1. / self.time_constant))
         self.path *= 1 - c
-        self.path += (c * (2 - c))**0.5 * v
+        self.path += (c * (2 - c))**0.5 * np.asarray(v)
 
 class NoiseHandler(object):
     """Noise handling according to [Hansen et al 2009, A Method for
