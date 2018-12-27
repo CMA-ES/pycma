@@ -185,8 +185,6 @@ def various_doctests():
         >>> import cma
         >>> res = cma.fmin(cma.ff.rastrigin, 10 * [0.1], 2,
         ...       {'CMA_elitist':'initial', 'ftarget':1e-3, 'verbose':-9})
-        ...           #doctest: +ELLIPSIS
-        NO... initial solution injected ...
         >>> assert 'ftarget' in res[7]
 
     Test CMA_on option and similar:
@@ -261,24 +259,34 @@ def various_doctests():
     Iterat #Fevals   function value ...
     >>> assert 'ftarget' in es.stop() and es.result[3] < 1800
 
+    Parallel objective:
+
+    >>> def parallel_sphere(X): return [cma.ff.sphere(x) for x in X]
+    >>> x, es = cma.fmin2(cma.ff.sphere, 3 * [0], 0.1, {
+    ...     'verbose': -9, 'eval_final_mean': True, 'CMA_elitist': 'initial'},
+    ...                   parallel_objective=parallel_sphere)
+    >>> assert es.result[1] < 1e-9
+    >>> x, es = cma.fmin2(None, 3 * [0], 0.1, {
+    ...     'verbose': -9, 'eval_final_mean': True, 'CMA_elitist': 'initial'},
+    ...                   parallel_objective=parallel_sphere)
+    >>> assert es.result[1] < 1e-9
+
     Some sort of interactive control via an options file:
 
-        >>> import cma
-        >>> es = cma.CMAEvolutionStrategy(4 * [2], 1, dict(
-        ...                      signals_filename='cma_signals.in',
-        ...                      verbose=-9))
-        >>> s = es.stop()
-        >>> es = es.optimize(cma.ff.sphere)
+    >>> es = cma.CMAEvolutionStrategy(4 * [2], 1, dict(
+    ...                      signals_filename='cma_signals.in',
+    ...                      verbose=-9))
+    >>> s = es.stop()
+    >>> es = es.optimize(cma.ff.sphere)
 
     Test of huge lambda:
 
-        >>> import cma
-        >>> es = cma.CMAEvolutionStrategy(3 * [0.91], 1, {
-        ...     'verbose': -9,
-        ...     'popsize': 200,
-        ...     'ftarget': 1e-8 })
-        >>> es = es.optimize(cma.ff.tablet)
-        >>> assert es.result.evaluations < 5000
+    >>> es = cma.CMAEvolutionStrategy(3 * [0.91], 1, {
+    ...     'verbose': -9,
+    ...     'popsize': 200,
+    ...     'ftarget': 1e-8 })
+    >>> es = es.optimize(cma.ff.tablet)
+    >>> assert es.result.evaluations < 5000
 
     For VD- and VkD-CMA, see `cma.restricted_gaussian_sampler`.
 

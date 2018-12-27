@@ -2130,7 +2130,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     # ____________________________________________________________
     #
     def ask_and_eval(self, func, args=(), gradf=None, number=None, xmean=None, sigma_fac=1,
-                     evaluations=1, aggregation=np.median, kappa=1):
+                     evaluations=1, aggregation=np.median, kappa=1, parallel_mode=False):
         """sample `number` solutions and evaluate them on `func`.
 
         Each solution ``s`` is resampled until
@@ -2139,8 +2139,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Arguments
         ---------
         `func`:
-            objective function, ``func(x)`` returns a scalar or
-            ``func.eval_parallel(list_of_x)`` returns a list or sequence
+            objective function, ``func(x)`` accepts a `numpy.ndarray`
+            and returns a scalar ``if not parallel_mode``. Else returns a
+            `list` of scalars from a `list` of `numpy.ndarray`.
         `args`:
             additional parameters for `func`
         `gradf`:
@@ -2225,20 +2226,35 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if xmean is None:
             xmean = self.mean  # might have changed in self.ask
         X = []
-        if hasattr(func, 'eval_parallel'):
-            fit_first = func.eval_parallel(X_first, *args)
-            try: self.countevals += func.eval_parallel.evaluations - self.popsize
-            except: pass
+        if parallel_mode:
+            fit_first = func(X_first, *args)
+            # the rest is only book keeping and warnings spitting
+            if hasattr(func, 'last_evaluations'):
+                self.countevals += func.last_evaluations - self.popsize
+            elif hasattr(func, 'evaluations'):
+                if self.countevals < func.evaluations:
+                    self.countevals = func.evaluations - self.popsize
             if nmirrors and self.opts['CMA_mirrormethod'] > 0 and self.countiter < 2:
-                utils.print_warning("selective mirrors will not work with `eval_parallel`")
+                utils.print_warning(
+                    "selective mirrors will not work in parallel mode",
+                    "ask_and_eval", "CMAEvolutionStrategy")
             if evaluations > 1 and self.countiter < 2:
-                utils.print_warning("aggregating evaluations will not work with `eval_parallel`")
+                utils.print_warning(
+                    "aggregating evaluations will not work in parallel mode",
+                    "ask_and_eval", "CMAEvolutionStrategy")
         else:
             fit_first = len(X_first) * [None]
         for k in range(popsize):
             x, f = X_first.pop(0), fit_first.pop(0)
             rejected = -1
             while f is None or not is_feasible(x, f):  # rejection sampling
+                if parallel_mode:
+                    utils.print_warning(
+                        "rejection sampling will not work in parallel mode"
+                        " unless the parallel_objective makes a distinction\n"
+                        "between called with a numpy array vs a list (of"
+                        " numpy arrays) as first argument.",
+                        "ask_and_eval", "CMAEvolutionStrategy")
                 rejected += 1
                 if rejected:  # resample
                     x = self.ask(1, xmean, sigma_fac)[0]
@@ -2581,7 +2597,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 utils.print_message('initial solution injected %f<%f' %
                                     (self.f0, fit.fit[0]),
                                'tell', 'CMAEvolutionStrategy',
-                                    self.countiter, verbose=3)
+                                    self.countiter, verbose=self.opts['verbose'])
         elif self.opts['CMA_elitist'] and self.best.f < fit.fit[0]:
             if self.best.x_geno is not None:
                 xp = [self.best.x_geno]
@@ -3746,6 +3762,7 @@ def fmin(objective_function, x0, sigma0,
          restart_from_best='False',
          incpopsize=2,
          eval_initial_x=False,
+         parallel_objective=None,
          noise_handler=None,
          noise_change_sigma_exponent=1,
          noise_kappa_exponent=0,  # TODO: add max kappa value as parameter
@@ -3774,10 +3791,9 @@ def fmin(objective_function, x0, sigma0,
     Arguments
     =========
     ``objective_function``
-        function to be minimized. Called as ``objective_function(x,
-        *args)`` or, when available, as
-        ``objective_function.eval_parallel(list_of_x, *args)``.
-        ``x`` is a one-dimensional `numpy.ndarray`.
+        called as ``objective_function(x, *args)`` to be minimized.
+        ``x`` is a one-dimensional `numpy.ndarray`. See also the
+        `parallel_objective` argument.
         ``objective_function`` can return `numpy.NaN`, which is
         interpreted as outright rejection of solution ``x`` and invokes
         an immediate resampling and (re-)evaluation of a new solution
@@ -3820,6 +3836,13 @@ def fmin(objective_function, x0, sigma0,
     ``incpopsize=2``
         multiplier for increasing the population size ``popsize`` before
         each restart
+    ``parallel_objective``
+        an objective function that accepts a list of `numpy.ndarray` as
+        input and returns a `list`, which is mostly used instead of
+        `objective_function`, but for the initial (also initial
+        elitist) and the final evaluations. If ``parallel_objective``
+        is given, the ``objective_function`` (first argument) may be
+        ``None``.
     ``eval_initial_x=None``
         evaluate initial solution, for ``None`` only with elitist option
     ``noise_handler=None``
@@ -3957,12 +3980,12 @@ def fmin(objective_function, x0, sigma0,
     >>> assert res[3] < 3600  # 1% are > 3300
 
     If solution can only be comparatively ranked, either use
-    `CMAEvolutionStrategy` directly or add an ``eval_parallel``
-    method attribute to the objective:
+    `CMAEvolutionStrategy` directly or the objective accepts a list
+    of solutions as input:
 
-    >>> class Objective:
-    ...     eval_parallel = lambda X: [cma.ff.sphere(x) for x in X]
-    >>> x, es = cma.fmin2(Objective, 3 * [0], 0.1, {'verbose': -9})
+    >>> def parallel_sphere(X): return [cma.ff.sphere(x) for x in X]
+    >>> x, es = cma.fmin2(None, 3 * [0], 0.1, {'verbose': -9},
+    ...                   parallel_objective=parallel_sphere)
     >>> assert es.result[1] < 1e-9
 
     :See also: `CMAEvolutionStrategy`, `OOOptimizer.optimize`, `plot`,
@@ -3970,7 +3993,7 @@ def fmin(objective_function, x0, sigma0,
 
     """  # style guides say there should be the above empty line
     if 1 < 3:  # try: # pass on KeyboardInterrupt
-        if not objective_function:  # cma.fmin(0, 0, 0)
+        if not objective_function and not parallel_objective:  # cma.fmin(0, 0, 0)
             return CMAOptions()  # these opts are by definition valid
 
         fmin_options = locals().copy()  # archive original options
@@ -4062,8 +4085,11 @@ def fmin(objective_function, x0, sigma0,
                 else:
                     es = CMAEvolutionStrategy(x0, sigma_factor * sigma0, opts)
                 # return opts, es
-                if eval_initial_x or es.opts['CMA_elitist'] == 'initial' \
-                   or (es.opts['CMA_elitist'] and eval_initial_x is None):
+                if callable(objective_function) and (
+                        eval_initial_x
+                        or es.opts['CMA_elitist'] == 'initial'
+                        or (es.opts['CMA_elitist'] and
+                                    eval_initial_x is None)):
                     x = es.gp.pheno(es.mean,
                                     into_bounds=es.boundary_handler.repair,
                                     archive=es.sent_solutions)
@@ -4120,9 +4146,11 @@ def fmin(objective_function, x0, sigma0,
             if 1 < 3:
                 while not es.stop():  # iteration loop
                     # X, fit = eval_in_parallel(lambda: es.ask(1)[0], es.popsize, args, repetitions=noisehandler.evaluations-1)
-                    X, fit = es.ask_and_eval(objective_function, args, gradf=gradf,
+                    X, fit = es.ask_and_eval(parallel_objective or objective_function,
+                                             args, gradf=gradf,
                                              evaluations=noisehandler.evaluations,
-                                             aggregation=np.median)  # treats NaN with resampling
+                                             aggregation=np.median,
+                                             parallel_mode=parallel_objective)  # treats NaN with resampling if not parallel_mode
                     # TODO: check args and in case use args=(noisehandler.evaluations, )
 
                     if 11 < 3 and opts['vv']:  # inject a solution
@@ -4166,8 +4194,7 @@ def fmin(objective_function, x0, sigma0,
                         logger.plot(324)
 
             # end while not es.stop
-            if opts['eval_final_mean'] and callable(objective_function) \
-                    and not hasattr(objective_function, 'eval_parallel'):
+            if opts['eval_final_mean'] and callable(objective_function):
                 mean_pheno = es.gp.pheno(es.mean,
                                          into_bounds=es.boundary_handler.repair,
                                          archive=es.sent_solutions)
