@@ -415,6 +415,7 @@ cma_default_options = {
     'CMA_diagonal': '0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
     'CMA_eigenmethod': 'np.linalg.eigh  # or cma.utilities.math.eig or pygsl.eigen.eigenvectors',
     'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
+    'CMA_injections_threshold_keep_len': '0  #v keep length if Mahalanobis length is below the given relative threshold',
     'CMA_mirrors': 'popsize < 6  # values <0.5 are interpreted as fraction, values >1 as numbers (rounded), otherwise about 0.16 is used',
     'CMA_mirrormethod': '2  # 0=unconditional, 1=selective, 2=selective with delay',
     'CMA_mu': 'None  # parents selection parameter, default is popsize // 2',
@@ -1984,7 +1985,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # TODO: if len(arinj) > number, ask doesn't fulfill the contract
                 y = self.pop_injection_directions.pop(0)
                 # sigma_vec _is_ taken into account here
-                y *= self._random_rescaling_factor_to_mahalanobis_size(y) / self.sigma
+                if self.mahalanobis_norm(y) > self.N**0.5 * self.opts['CMA_injections_threshold_keep_len']:
+                    nominator = self._random_rescaling_factor_to_mahalanobis_size(y)
+                else:
+                    nominator = 1
+                y *= nominator / self.sigma
                 arinj.append(y)
             while self.pop_injection_solutions:
                 arinj.append((self.pop_injection_solutions.pop(0) - self.mean) / self.sigma)
@@ -2011,8 +2016,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         "    ...\n"
                         "    es.tell(X, ...)"
                     )
-                s1 = sum(arinj[1]**2)**0.5              # set both vectors
-                arinj[1] *= sum(arinj[0]**2)**0.5 / s1  # to same length
+                # for TPA, set both vectors to the same length and don't
+                # ever keep the original length
+                arinj[0] *= self._random_rescaling_factor_to_mahalanobis_size(arinj[0]) / self.sigma
+                arinj[1] *= (sum(arinj[0]**2) / sum(arinj[1]**2))**0.5
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
                     utils.print_warning(
                         "mean_shift_samples, but the first two solutions"
