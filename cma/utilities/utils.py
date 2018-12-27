@@ -217,6 +217,105 @@ def pprint(to_be_printed):
             print('could not import pprint module, appling regular print')
             print(to_be_printed)
 
+def num2str(val, significant_digits=2, force_rounding=False,
+            max_predecimal_digits=5, max_postdecimal_leading_zeros=1,
+            remove_trailing_zeros=True, desired_length=None):
+    """returns the shortest string representation.
+
+    Generally, display either ``significant_digits`` digits or its true
+    value, whichever is shorter.
+
+    ``force_rounding`` shows no more than the desired number of significant
+    digits, which means, e.g., ``12345``  becomes ``12000``.
+
+    ``remove_trailing_zeros`` removes zeros, if and only if the value is
+    exactly.
+
+    ``desired_length`` adds digits up to the desired length.
+
+    >>> from cma.utilities import utils
+    >>> print([utils.num2str(val) for val in [12345, 1234.5, 123.45,
+    ...       12.345, 1.2345, .12345, .012345, .0012345]])
+    ['12345', '1234', '123', '12', '1.2', '0.12', '0.012', '1.2e-3']
+
+    """
+    if val == 0:
+        return '0'
+    if not significant_digits > 0:
+        raise ValueError('need significant_digits=%s > 0'
+                         % str(significant_digits))
+    is_negative = val < 0
+    original_value = val
+    val = float(np.abs(val))
+
+    order_of_magnitude = int(np.floor(np.log10(val)))
+    # number of digits before decimal point == order_of_magnitude + 1
+    fac = 10**(significant_digits - 1 - order_of_magnitude)
+    val_rounded = np.round(fac * val) / fac
+
+    # the strategy is now to produce two string representations
+    # cut each down to the necessary length and return the better
+
+    # the first is %f format
+    if order_of_magnitude + 1 >= significant_digits:
+        s = str(int(val_rounded if force_rounding else np.round(val)))
+    else:
+        s = str(val_rounded)
+        idx1 = 0  # first non-zero index
+        while idx1 < len(s) and s[idx1] in ('-', '0', '.'):
+            idx1 += 1  # find index of first significant number
+        idx2 = idx1 + significant_digits + (s.find('.') > idx1)
+        # print(val, val_rounded, s, len(s), idx1, idx2)
+        # pad some zeros in the end, in case
+        if val != val_rounded:
+            if len(s) < idx2:
+                s += '0' * (idx2 - len(s))
+        # remove zeros from the end, in case
+        if val == val_rounded and remove_trailing_zeros:
+            while s[-1] == '0':
+                s = s[0:-1]
+        if s[-1] == '.':
+            s = s[0:-1]
+    s_float = ('-' if is_negative else '') + s
+
+    # now the second, %e format
+    s = ('%.' + str(significant_digits - 1) + 'e') % val
+    if eval(s) == val and s.find('.') > 0:
+        while s.find('0e') > 0:
+            s = s.replace('0e', 'e')
+    s = s.replace('.e', 'e')
+    s = s.replace('e+', 'e')
+    while s.find('e0') > 0:
+        s = s.replace('e0', 'e')
+    while s.find('e-0') > 0:
+        s = s.replace('e-0', 'e-')
+    if s[-1] == 'e':
+        s = s[:-1]
+    s_exp = ('-' if is_negative else '') + s
+
+    # print(s_float, s_exp)
+
+    # now return the better (most of the time the shorter) representation
+    if (len(s_exp) < len(s_float) or
+        s_float.find('0.' + '0' * (max_postdecimal_leading_zeros + 1)) > -1 or
+        np.abs(val_rounded) >= 10**(max_predecimal_digits + 1)
+        ):
+        s_ret = s_exp
+    else:
+        s_ret = s_float
+    if desired_length:
+        s_old = ''
+        while len(s_ret) < desired_length and len(s_old) < len(s_ret):
+            s_old = s_ret
+            s_ret = num2str(original_value,
+                       significant_digits + desired_length - len(s_ret),
+                       force_rounding,
+                       max_predecimal_digits,
+                       max_postdecimal_leading_zeros,
+                       remove_trailing_zeros,
+                       desired_length=None)
+    return s_ret
+
 # todo: this should rather be a class instance
 def print_warning(msg, method_name=None, class_name=None, iteration=None,
                    verbose=None, maxwarns=None):

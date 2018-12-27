@@ -1020,7 +1020,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     semilogy(dat.f[:, iabscissa][idx_nan[-1]+1:],
                                             dfit[idx_nan[-1]+1:], '-c')
             text(dat.f[idx, iabscissa][-1], dfit[idx][-1],
-                 r'$f_\mathsf{best} - \min(f)$', fontsize=fontsize + 2)
+                 r'best', fontsize=fontsize + 2)
 
         elif 11 < 3 and any(idx):
             semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
@@ -1143,9 +1143,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 # TODOqqq: annotate phenotypic value!?
                 # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
                 text(dat_x[-1, iabscissa], dat_x[-1, 5 + i],
-                     ('x[' + str(i) + ']=' if annotations is None
+                     ('' + str(i) + ': ' if annotations is None
                         else str(i) + ':' + annotations[i] + "=")
-                     + str(dat_x[-2, 5 + i]))
+                     + utils.num2str(dat_x[-2, 5 + i],
+                                     significant_digits=2,
+                                     desired_length=4))
         i = 2  # find smallest i where iteration count differs (in case the same row appears twice)
         while i < len(dat.f) and dat.f[-i][0] == dat.f[-1][0]:
             i += 1
