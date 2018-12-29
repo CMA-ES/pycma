@@ -1671,8 +1671,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ...     def __call__(self):
         ...         """"""
         ...         self.irun += 1
-        ...         return self.dimension * [5] if self.irun < 3 \
-        ...                else self.dimension * [0.01]
+        ...         return (self.dimension * [5] if self.irun < 3
+        ...                 else self.dimension * [0.01])
         >>> xopt, es = cma.fmin2(cma.ff.rastrigin, X0(3), 0.01,
         ...                      {'verbose':-9}, restarts=1)
         >>> assert es.result.fbest > 1e-5
@@ -5390,7 +5390,7 @@ class old_CMADataLogger(interfaces.BaseDataLogger):
         (4...
         >>> assert res[1] < 1e-9
         >>> assert res[2] < 4400
-        >>> l = cma.evolution_strategy.old_CMADataLogger()  # == res[-1], logger with default name, "points to" above data
+        >>> l = cma.evolution_strategy.CMADataLogger()  # == res[-1], logger with default name, "points to" above data
         >>> l.disp([0,-1])  # first and last
         ...  #doctest: +ELLIPSIS
         Iterat Nfevals  function value    axis ratio maxstd  minstd...
