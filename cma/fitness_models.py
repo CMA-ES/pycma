@@ -176,11 +176,41 @@ class SurrogatePopulation:
 
     >>> import cma
     >>> import cma.fitness_models as fm
+    >>> from cma.fitness_transformations import Function as FFun  # adds evaluations attribute
+    >>> fm.Logger = fm.LoggerDummy
     >>> surrogate = fm.SurrogatePopulation(cma.ff.elli)
 
-    # TODO: - delete model before restart
-    # TODO: eval_xopt depending on eigenspectrum, only if ev[0] > 0 and ev[-1] / ev[0] < 1e8
-    #       A quick test didn't show an improvement though
+    Example using the ask-and-tell interface:
+
+    >>> for fitfun, evals in [[FFun(cma.ff.elli), 21],
+    ...                      [FFun(cma.ff.sectorsphere), 122]]:
+    ...     es = cma.CMAEvolutionStrategy(5 * [1], 2.2,
+    ...                    {'CMA_injections_threshold_keep_len': 1,
+    ...                     'ftarget':1e-9, 'verbose': -9, 'seed':5})
+    ...     surrogate = fm.SurrogatePopulation(fitfun)
+    ...     while not es.stop():
+    ...         X = es.ask()
+    ...         es.tell(X, surrogate(X))  # surrogate evaluation
+    ...         es.inject([surrogate.model.xopt])
+    ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
+    ...     assert 'ftarget' in es.stop()
+    ...     assert fitfun.evaluations <= evals
+    ...     # print(fitfun.evaluations)
+
+    Example using the ``parallel_objective`` interface to `cma.fmin`:
+
+    >>> for fitfun, evals in [[cma.ff.elli, 22], [cma.ff.ellirot, 40]]:
+    ...     surrogate = fm.SurrogatePopulation(fitfun)
+    ...     inject_xopt = fm.ModelInjectionCallback(surrogate.model)  # must use the same model
+    ...     xopt, es = cma.fmin2(None, 5 * [1], 2.2,
+    ...                      {'CMA_injections_threshold_keep_len': 1,
+    ...                       'ftarget':1e-12, 'verbose': -9},
+    ...                      parallel_objective=surrogate,
+    ...                      callback=inject_xopt)
+    ...     assert es.result[1] < 1e-12
+    ...     assert es.result[2] < evals
+    ...     # print(fitfun.evaluations)
+
     """
     def __init__(self,
                  fitness,
@@ -195,7 +225,6 @@ class SurrogatePopulation:
         :param model_size_factor: population size multiplier to possibly increase the maximal model size
         :param tau_truth_threshold:
         :param eval_xopt_condition:
-
 
         If ``model is None``, a default `Model` instance is used. By
         setting `self.model` to `None`, only the `fitness` for each
