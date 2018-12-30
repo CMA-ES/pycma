@@ -143,7 +143,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     # zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
     def noisysphere(self, x, noise=2.10e-9, cond=1.0, noise_offset=0.10):
         """noise=10 does not work with default popsize, ``cma.NoiseHandler(dimension, 1e7)`` helps"""
-        return self.elli(x, cond=cond) * (1 + noise * np.random.randn() / len(x)) + noise_offset * np.random.rand()
+        return self.elli(x, cond=cond) * np.exp(0 + noise * np.random.randn() / len(x)) + noise_offset * np.random.rand()
     def spherew(self, x):
         """Sphere (squared norm) with sum x_i = 1 test objective function"""
         # return np.random.rand(1)[0]**0 * sum(x**2) + 1 * np.random.rand(1)[0]
