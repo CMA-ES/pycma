@@ -182,8 +182,7 @@ class SurrogatePopulation:
 
     Example using the ask-and-tell interface:
 
-    >>> for fitfun, evals in [[FFun(cma.ff.elli), 21],
-    ...                      [FFun(cma.ff.sectorsphere), 122]]:
+    >>> for fitfun in [FFun(cma.ff.elli), FFun(cma.ff.sectorsphere)]:
     ...     es = cma.CMAEvolutionStrategy(5 * [1], 2.2,
     ...                    {'CMA_injections_threshold_keep_len': 1,
     ...                     'ftarget':1e-9, 'verbose': -9, 'seed':5})
@@ -193,9 +192,10 @@ class SurrogatePopulation:
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
+    ...     print(fitfun.evaluations)
     ...     assert 'ftarget' in es.stop()
-    ...     assert fitfun.evaluations <= evals
-    ...     # print(fitfun.evaluations)
+    19
+    144
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -207,35 +207,38 @@ class SurrogatePopulation:
     ...                       'ftarget':1e-12, 'verbose': -9},
     ...                      parallel_objective=surrogate,
     ...                      callback=inject_xopt)
+    ...     # print(fitfun.evaluations)
     ...     assert es.result[1] < 1e-12
     ...     assert es.result[2] < evals
-    ...     # print(fitfun.evaluations)
 
     """
     def __init__(self,
                  fitness,
                  model=None,
                  model_size_factor=3,
-                 tau_truth_threshold=0.9,
-                 eval_xopt_condition=False):
+                 tau_truth_threshold=0.85,
+                 add_xopt_condition=False):
         """
 
         :param fitness:
         :param model: fitness function model
         :param model_size_factor: population size multiplier to possibly increase the maximal model size
         :param tau_truth_threshold:
-        :param eval_xopt_condition:
+        :param add_xopt_condition: add xopt in the end if model condition number is smaller
 
         If ``model is None``, a default `Model` instance is used. By
         setting `self.model` to `None`, only the `fitness` for each
         population member is evaluated in each call.
 
         """
-        self.minimum_n_for_tau = 5
+        self.minimum_model_size = 3  # was: 2 in experiments 5 and 6
+        self.minimum_n_for_tau = 10  # was: n=5 and truth_threshold 0.9 which fails with linear-only model on Rosenbrock, n=10 and 0.8 still works
+        self.maximum_n_for_tau = lambda popsi: 1 * popsi + self.minimum_n_for_tau + int(popsi / 3)
+        self.return_true_fitnesses = True  # TODO: change name, return true fitness if all solutions are evaluated
         self.fitness = fitness
         self.model = model if model else Model()
         self.model_size_factor = model_size_factor
-        self.eval_xopt_condition = eval_xopt_condition
+        self.add_xopt_condition = add_xopt_condition
         self.change_threshold = -1.0  # tau between previous and new model; was: 0.8
         self.truth_threshold = tau_truth_threshold  # tau between model and ground truth
         self.count = 0
@@ -244,7 +247,9 @@ class SurrogatePopulation:
         self.logger = Logger(self, ['evaluations'])
 
     def _number_of_evaluations_to_do_now(self, iloop):
-        """return ``(iloop - 1)**2 + 2``.
+        """return ``1 if iloop==0 else 2 + (iloop - 1)**2``.
+
+        That is, we evaluate first 1 and then 2 + i**2 for i in 0, 1,...
 
         ::
             n = arange(1, 8)
@@ -287,18 +292,21 @@ class SurrogatePopulation:
         F_true = {}
         # need at least two evaluations for a non-flat linear model
         for k in range(len(X)):
-            if len(model.X) > 1:
+            if len(model.X) >= self.minimum_model_size:
                 break
             F_true[k] = self.fitness(X[k])
             model.add_data_row(X[k], F_true[k])
         F_model = [model.eval(x) for x in X]
-        if F_true:
+        if F_true:  # go with minimum model size for one iteration
             offset = min(model.Y) - min(F_model)
             return [f + offset for f in F_model]
 
         sidx0 = np.argsort(F_model)
         # making no evaluation at all should not save too many evaluations
         # if in some iterations many points need to be evaluated
+        # hence we make always one evaluation unconditionally
+
+        # TODO: proofread further from here
 
         # TODO: find a smarter order depending on F_model?
         # eidx = range(len(X))  # indices to be evaluated
@@ -312,9 +320,11 @@ class SurrogatePopulation:
                 F_true[k] = self.fitness(X[k])
                 model.add_data_row(X[k], F_true[k])
             if i1 >= len(eidx):
+                assert len(F_true) == len(X)
+                if not self.return_true_fitnesses:
+                    F_model = [model.eval(x) for x in X]
                 break
-            assert i1 < len(eidx)
-
+            assert i1 < len(eidx)  # just a reminder
             # the model has changed, so we recompute surrogate f-values
             F_model = [model.eval(x) for x in X]
             sidx = np.argsort(F_model)
@@ -323,10 +333,10 @@ class SurrogatePopulation:
             # the tau computed below
 
             # kendall compares F_true[k] with model.eval(X[k]) ranks
-            # TODO: we would not need to recompute model.eval(X)
+            # TODO (minor): we would not need to recompute model.eval(X)
             # TODO: with large popsize we do not want all solutions in kendall, but only the best popsize/3 of this iteration?
             tau = model.kendall(
-                [F_true[k] for k in sorted(F_true)],  # sorted is used to get k in a deterministic order
+                [F_true[k] for k in sorted(F_true)[:self.maximum_n_for_tau(len(X))]],  # sorted is used to get k in a deterministic order
                 [X[k] for k in sorted(F_true)],
                 self.minimum_n_for_tau - len(F_true),
                 # [F_model[k] for k in sorted(F_true)  # check that this is correct
@@ -341,9 +351,9 @@ class SurrogatePopulation:
         self.logger.add(tau)
         self.last_evaluations = len(F_true)
         self.evaluations += self.last_evaluations
-        if self.eval_xopt_condition >= 1:  # this fails, because xopt may be very far astray
+        if self.add_xopt_condition >= 1:  # this fails, because xopt may be very far astray
             evs = sorted(model.eigenvalues)
-            if evs[0] > 0 and evs[-1] <= self.eval_xopt_condition * evs[0]:
+            if evs[0] > 0 and evs[-1] <= self.add_xopt_condition * evs[0]:
                 model.add_data_row(model.xopt, self.fitness(model.xopt))
                 self.evaluations += 1
                 F_model = [model.eval(x) for x in X]
@@ -354,7 +364,7 @@ class SurrogatePopulation:
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
         # self.logs['evaluations'].push()
         self.logger.push()  # TODO: check that we do not miss anything below
-        if len(X) == len(F_true):
+        if len(X) == len(F_true) and self.return_true_fitnesses:
             # model.set_xoffset(model.xopt)
             return [F_true[i] for i in range(len(X))]
 
@@ -380,11 +390,14 @@ class ModelInjectionCallback:
     """
     def __init__(self, model, sigma_distance_lower_threshold=0, sigma_factor=1/1.1):
         """sigma_distance_lower_threshold=0 means decrease never"""
+        self.update_model = False  # do not when es.fit.fit is based on surrogate values itself
         self.model = model
         self.sigma_distance_threshold = sigma_distance_lower_threshold
         self.sigma_factor = sigma_factor
         self.logger = Logger(self)
     def __call__(self, es):
+        if self.update_model:
+            self.model.add_data(es.pop_sorted, es.fit.fit)
         es.inject([self.model.xopt])
         xdist = es.mahalanobis_norm(self.model.xopt - es.mean)
         self.logger.add(self.sigma_distance_threshold * es.N**0.5 / es.sp.weights.mueff)
@@ -398,13 +411,15 @@ class Tau: "placeholder to store Kendall tau related things"
 
 # TODO: check that `xopt` gives OK value if hessian is negative definite
 class Model:
-    """Full quadratic model heavily using the pseudo inverse.
+    """Up to full quadratic model heavily using the pseudo inverse.
 
     The full model has 2n + n(n-1)/2 + 1 = n(n+3) + 1 parameters. Model
     building "works" with any number of data.
 
     Model size 1 doesn't work well on bbob-f10, 1.5 is the minimum that
     works.
+
+    TODO: change self.types: List[str] to self.type: str with only one entry
 
     >>> import numpy as np
     >>> import cma
@@ -440,6 +455,12 @@ class Model:
     >>> assert np.allclose(m.xopt, 4 * [2.2])
 
     """
+    complexity = [  # must be ordered by complexity here
+        ['quadratic', lambda d: 2 * d + 1],
+        ['full', lambda d: d * (d + 3) / 2 + 1]]
+    known_types = [c[0] for c in complexity]
+    complexity = dict(complexity)
+
     @staticmethod
     def sorted_weights(len_):
         return np.linspace(20, 1, len_)
@@ -463,6 +484,8 @@ class Model:
         ``max(max_absolute_size, max_relative_size * max_df)``.
 
         """
+        self.allow_full = True
+        self.disallowed_types = []
         self.max_relative_size = max_relative_size
         self.min_relative_size = min_relative_size
         self.max_absolute_size = max_absolute_size \
@@ -471,18 +494,15 @@ class Model:
             raise ValueError(
                 'need max_relative_size=%f >= min_relative_size=%f >= 1' %
                 (max_relative_size, min_relative_size))
+        self._fieldnames = ['X', 'Y', 'Z', 'counts', 'hashes']
         self.reset()
 
     def reset(self):
-        self.type = {}  # ['quadratic', 'full']
-        self.X = deque()
-        self.Y = deque()
-        self.Z = deque()
-        self.counts = deque()
-        """time stamp for data row"""
-        self.hashes = deque()
-        """reference to x-value quick-and-dirty instead of a hash"""
-        self._fieldnames = ['X', 'Y', 'Z', 'counts', 'hashes']
+        for name in self._fieldnames:
+            setattr(self, name, deque())
+        self.types = []  # ['quadratic', 'full']
+        self._type = 'linear'  # not in use yet
+        "the model can have several types, for the time being"
         self.count = 0  # number of overall data seen
         self._coefficients_count = -1
         self._xopt_count = -1
@@ -490,7 +510,6 @@ class Model:
         self.number_of_data_last_added = 0  # sweep of data added
         self.tau = Tau()
         self.tau.tau, self.tau.n = 0, 0
-        # self.logger = ModelLogger()
 
     @property
     def logging_trace(self):
@@ -505,34 +524,43 @@ class Model:
         return trace
 
     @property
-    def max_size(self):
-        def df(d):
-            return d * (d + 3) / 2 + 1
-        return max((df(len(self.X[0])) * self.max_relative_size,
+    def _new_max_size(self):
+        return max((self.complexity[self.known_types[-1]](self.dim) *
+                        self.max_relative_size,
                     self.max_absolute_size))
+    @property
+    def max_size(self):
+        """"""
+        def df(d):
+            return d * (d + 3) / 2 + 1  # this is copy-paste
+        res = max((df(len(self.X[0])) * self.max_relative_size,
+                    self.max_absolute_size))
+        assert res == self._new_max_size
+        return res
 
     @property
     def max_df(self):
         d = len(self.X[0])
         return d * (d + 3) / 2 + 1
 
+    @property
+    def dim(self):
+        return len(self.X[0]) if len(self.X) else None
+
     def update_type(self):
-        """depending on the number of observed data"""
+        """model type/size depends on the number of observed data
+        """
         if not len(self.X):
             return
         n, d = len(self.X), len(self.X[0])
         # d + 1 affine linear coefficients are always computed
-        def dfquadratic(d): return 2 * d + 1
-        def dffull(d): return d * (d + 3) / 2 + 1
-
-        if n >= dfquadratic(d) * self.min_relative_size:
-            if 'quadratic' not in self.type:
-                self.type.update({'quadratic': dfquadratic})
+        for type in self.known_types[::-1]:  # most complex type first
+            if (n >= self.complexity[type](d) * self.min_relative_size
+                and type not in self.types
+                and type not in self.disallowed_types):
+                self.types.append(type)
                 self.reset_Z()
-            if n >= dffull(d) * self.min_relative_size:
-                if 'full' not in self.type:
-                    self.type.update({'full': dffull})
-                    self.reset_Z()
+                # print(self.count, self.types)
 
     def add_data_row(self, x, f):
         hash = self._hash(x)
@@ -559,7 +587,7 @@ class Model:
     def add_data(self, X, Y):
         """a sequence of x- and y-data"""
         if len(X) != len(Y):
-            raise ValueError("X and Y have different lengths %d!=%d", (len(X), len(Y)))
+            raise ValueError("input X and Y have different lengths %d!=%d" % (len(X), len(Y)))
         idx = np.argsort(Y)[::-1]
         for i in idx:  # insert smallest/best last
             self.add_data_row(X[i], Y[i])
@@ -576,7 +604,7 @@ class Model:
         idx = argsort([self.Y[i] for i in range(number)])  # [:number] doesn't work on deque's
         for name in self._fieldnames:
             field = getattr(self, name)
-            tmp = [field[i] for i in range(number)]
+            tmp = [field[i] for i in range(number)]  # a copy
             for i in range(len(idx)):
                 field[i] = tmp[idx[i]]
 
@@ -597,13 +625,14 @@ class Model:
         x = np.asarray(x) + self._xoffset
         z = [1]
         z += list(x)
-        if 'quadratic' in self.type:
+        if 'quadratic' in self.types:
             z += list(np.square(x))
-            if 'full' in self.type:
+            if 'full' in self.types:
                 z += (x[i] * x[j] for i in range(len(x)) for j in range(len(x)) if i < j)
         return z
 
     def eval_true(self, x, max_number=None):
+        """return true value if ``x in self.X[:max_number]``"""
         try:
             idx = self.hashes.index(self._hash(x))
         except ValueError:
@@ -722,19 +751,21 @@ class Model:
     def hessian(self):
         d = len(self.X[0])
         m = len(self.coefficients)
-        assert m in (d + 1, 2 * d + 1, d * (d + 3) / 2 + 1)
-        assert m in [d + 1] + [complexity(d) for complexity in self.type.values()]
-        H = np.zeros((d, d))  # TODO: use (sparse) diagonal matrix if 'full' not in self.type
+        # assert m in (d + 1, 2 * d + 1, d * (d + 3) / 2 + 1)
+        assert m in [d + 1] + [self.complexity[type](d) for type in self.known_types]
+        H = np.zeros((d, d))  # TODO: use (sparse) diagonal matrix if 'full' not in self.types
         k = 2 * d + 1
         for i in range(d):
             if m > d + 1:
-                assert 'quadratic' in self.type
+                assert 'quadratic' in self.types
                 H[i, i] = self.coefficients[d + i + 1]
             else:
                 assert m == d + 1
-                H[i, i] = self.coefficients[i + 1] / 100  # arbitrary factor to make xopt finite
-            if m > 2 * d + 1:
-                assert m == self.type['full'](d)
+                H[i, i] = self.coefficients[i + 1] / 100  # TODO arbitrary factor to make xopt finite, shouldn't this be 1 / coefficient or min(abs(coefficients))
+                H[i, i] = min(np.abs(self.coefficients)) / 10
+            if m > 3 * d:
+                assert 'full' in self.types
+                assert m == self.complexity['full'](d)  # here the only possibility left
                 for j in range(i + 1, d):
                     H[i, j] = H[j, i] = self.coefficients[k] / 2
                     k += 1
