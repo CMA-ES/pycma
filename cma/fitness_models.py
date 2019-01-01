@@ -96,17 +96,16 @@ class Logger:
         """see also method `push`.
 
         TODO: replacing `obj` here is somewhat inconsistent, but maybe
-        effective.
+        an effective hack.
         """
         if obj is not None:
             self.obj = obj
         return self.push()
 
     def add(self, data):
-        """data may be a value, or a `list`, or a `numpy` array, or...
+        """data may be a value, or a `list`, or a `numpy` array.
 
-        ...an object with attributes `self.attributes` iff self.attributes
-        is not `None`.
+        See also `push` to complete the iteration.
         """
         # if data is not None:
         self._stack(data)
@@ -169,10 +168,9 @@ class SurrogatePopulation:
 
     What is new:
 
-    - the model is global (compared to lmm-CMA)
-    - the model has a linear component
-    - the model is in the beginning linear and diagonal quadratic
-    - the model uses the fitness ranks as weights.
+    - the model is built with >=3 evaluations (compared to LS-CMA and lmm-CMA)
+    - the model is linear at first, then diagonal, then full
+    - the model uses the fitness ranks as weights for weighted regression.
 
     >>> import cma
     >>> import cma.fitness_models as fm
@@ -185,7 +183,7 @@ class SurrogatePopulation:
     >>> for fitfun in [FFun(cma.ff.elli), FFun(cma.ff.sectorsphere)]:
     ...     es = cma.CMAEvolutionStrategy(5 * [1], 2.2,
     ...                    {'CMA_injections_threshold_keep_len': 1,
-    ...                     'ftarget':1e-9, 'verbose': -9, 'seed':5})
+    ...                     'ftarget':1e-9, 'verbose': -9, 'seed':3})
     ...     surrogate = fm.SurrogatePopulation(fitfun)
     ...     while not es.stop():
     ...         X = es.ask()
@@ -194,8 +192,8 @@ class SurrogatePopulation:
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
     ...     print(fitfun.evaluations)
     ...     assert 'ftarget' in es.stop()
-    19
-    144
+    18
+    152
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -234,6 +232,7 @@ class SurrogatePopulation:
         self.minimum_model_size = 3  # was: 2 in experiments 5 and 6
         self.minimum_n_for_tau = 10  # was: n=5 and truth_threshold 0.9 which fails with linear-only model on Rosenbrock, n=10 and 0.8 still works
         self.maximum_n_for_tau = lambda popsi: 1 * popsi + self.minimum_n_for_tau + int(popsi / 3)
+        self.model_sort_is_local = False
         self.return_true_fitnesses = True  # TODO: change name, return true fitness if all solutions are evaluated
         self.fitness = fitness
         self.model = model if model else Model()
@@ -245,9 +244,10 @@ class SurrogatePopulation:
         self.last_evaluations = 0
         self.evaluations = 0
         self.logger = Logger(self, ['evaluations'])
+        self.logger_eigenvalues = Logger(self.model, ['eigenvalues'])
 
     def _number_of_evaluations_to_do_now(self, iloop):
-        """return ``1 if iloop==0 else 2 + (iloop - 1)**2``.
+        """Depreciated. return ``1 if iloop==0 else 2 + (iloop - 1)**2``.
 
         That is, we evaluate first 1 and then 2 + i**2 for i in 0, 1,...
 
@@ -270,6 +270,10 @@ class SurrogatePopulation:
               1+2   3+5  8+10 18+17 35+26 61+37 98+50
               1+2   3+3   6+6 12+11 23+18 41+27 68+38
               1+1   2+2   4+5  9+10 19+17 36+26 62+37
+
+        NEW: multiply with 1.5 and take ceil
+         [1, 2, 3, 5, 8, 12, 18, 27, 41, 62, 93, 140, 210, 315, 473]
+        +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
 
         """
         # already_done + do_now = 0+1 1+2 3+3 6+6 12+11 23+18 41+27 68+38 106+51
@@ -295,7 +299,9 @@ class SurrogatePopulation:
             if len(model.X) >= self.minimum_model_size:
                 break
             F_true[k] = self.fitness(X[k])
-            model.add_data_row(X[k], F_true[k])
+            model.add_data_row(X[k], F_true[k], prune=False)
+        model.sort(len(F_true) if self.model_sort_is_local else None)
+        model.prune()
         F_model = [model.eval(x) for x in X]
         if F_true:  # go with minimum model size for one iteration
             offset = min(model.Y) - min(F_model)
@@ -306,7 +312,7 @@ class SurrogatePopulation:
         # if in some iterations many points need to be evaluated
         # hence we make always one evaluation unconditionally
 
-        # TODO: proofread further from here
+        # TODO/done: proofread further from here
 
         # TODO: find a smarter order depending on F_model?
         # eidx = range(len(X))  # indices to be evaluated
@@ -315,10 +321,15 @@ class SurrogatePopulation:
         i1 = 0  # i1-1 is last evaluation index
         for iloop in range(len(eidx)):
             i0 = i1
-            i1 += self._number_of_evaluations_to_do_now(iloop)
+            # i1 += self._number_of_evaluations_to_do_now(iloop)
+            i1 = int(np.ceil(1.5 * i1)) if i1 else 1
             for k in eidx[i0:i1]:
                 F_true[k] = self.fitness(X[k])
-                model.add_data_row(X[k], F_true[k])
+                model.add_data_row(X[k], F_true[k], prune=False)
+            # TODO: prevent this duplicate "finalize model.add_data" code?
+            # print(len(F_true))
+            model.sort(len(F_true) if self.model_sort_is_local else None)
+            model.prune()
             if i1 >= len(eidx):
                 assert len(F_true) == len(X)
                 if not self.return_true_fitnesses:
@@ -357,13 +368,12 @@ class SurrogatePopulation:
                 model.add_data_row(model.xopt, self.fitness(model.xopt))
                 self.evaluations += 1
                 F_model = [model.eval(x) for x in X]
-        # TODO: is global sorting better?
-        model.sort_(self.evaluations)  # crop worse solutions first, but keep iteration order
         if self.evaluations == 0:  # can currently not happen
             # a hack to have some grasp on zero evaluations from outside
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
-        # self.logs['evaluations'].push()
+        self.logger.add(self.evaluations / len(X))
         self.logger.push()  # TODO: check that we do not miss anything below
+        self.logger_eigenvalues.push()
         if len(X) == len(F_true) and self.return_true_fitnesses:
             # model.set_xoffset(model.xopt)
             return [F_true[i] for i in range(len(X))]
@@ -411,13 +421,13 @@ class Tau: "placeholder to store Kendall tau related things"
 
 # TODO: check that `xopt` gives OK value if hessian is negative definite
 class Model:
-    """Up to full quadratic model heavily using the pseudo inverse.
+    """Up to a full quadratic model using the pseudo inverse to compute
+    the model coefficients.
 
-    The full model has 2n + n(n-1)/2 + 1 = n(n+3) + 1 parameters. Model
+    The full model has 1 + 2n + n(n-1)/2 = n(n+3) + 1 parameters. Model
     building "works" with any number of data.
 
-    Model size 1 doesn't work well on bbob-f10, 1.5 is the minimum that
-    works.
+    Model size 1.0 doesn't work well on bbob-f10, 1.1 however works fine.
 
     TODO: change self.types: List[str] to self.type: str with only one entry
 
@@ -461,9 +471,13 @@ class Model:
     known_types = [c[0] for c in complexity]
     complexity = dict(complexity)
 
-    @staticmethod
-    def sorted_weights(len_):
-        return np.linspace(20, 1, len_)
+    @property
+    def current_complexity(self):
+        raise NotImplementedError
+
+    def sorted_weights(self, number=None):
+        return np.linspace(self.max_weight, 1,
+                           self.size if number is None else number)
 
     def __init__(self,
                  max_relative_size=3,
@@ -486,11 +500,12 @@ class Model:
         """
         self.allow_full = True
         self.disallowed_types = []
+        self.max_weight = 20  # min weight is one
         self.max_relative_size = max_relative_size
         self.min_relative_size = min_relative_size
         self.max_absolute_size = max_absolute_size \
                                    if max_absolute_size is not None else 0
-        if not 1 <= min_relative_size <= max_relative_size:
+        if not 0 < min_relative_size <= max_relative_size:
             raise ValueError(
                 'need max_relative_size=%f >= min_relative_size=%f >= 1' %
                 (max_relative_size, min_relative_size))
@@ -524,24 +539,19 @@ class Model:
         return trace
 
     @property
-    def _new_max_size(self):
+    def max_size(self):
         return max((self.complexity[self.known_types[-1]](self.dim) *
                         self.max_relative_size,
                     self.max_absolute_size))
-    @property
-    def max_size(self):
-        """"""
-        def df(d):
-            return d * (d + 3) / 2 + 1  # this is copy-paste
-        res = max((df(len(self.X[0])) * self.max_relative_size,
-                    self.max_absolute_size))
-        assert res == self._new_max_size
-        return res
 
     @property
     def max_df(self):
-        d = len(self.X[0])
-        return d * (d + 3) / 2 + 1
+        return self.complexity[self.known_types[-1]](self.dim)
+
+    @property
+    def size(self):
+        """number of data available to build the model"""
+        return len(self.X)
 
     @property
     def dim(self):
@@ -562,7 +572,13 @@ class Model:
                 self.reset_Z()
                 # print(self.count, self.types)
 
-    def add_data_row(self, x, f):
+    def prune(self):
+        while (len(self.X) > self.max_size and
+               len(self.X) - 1 >= self.max_df * self.min_relative_size):
+            for name in self._fieldnames:
+                getattr(self, name).pop()
+
+    def add_data_row(self, x, f, prune=True):
         hash = self._hash(x)
         if hash in self.hashes:
             warnings.warn("x value already in Model")
@@ -576,30 +592,31 @@ class Model:
         self.hashes.insert(0, hash)
         # n = len(self.X[0])
         # m = n * (n + 3) / 2 + 1
-        while len(self.X) > self.max_size:
-            for name in self._fieldnames:
-                getattr(self, name).pop()
         self.number_of_data_last_added = 1
         self.update_type()
+        if prune:
+            self.prune()
         # self.logger.add(self)
         return self
 
-    def add_data(self, X, Y):
-        """a sequence of x- and y-data"""
+    def add_data(self, X, Y, prune=True):
+        """add a sequence of x- and y-data, sorted by y-data (best last)
+        """
         if len(X) != len(Y):
             raise ValueError("input X and Y have different lengths %d!=%d" % (len(X), len(Y)))
         idx = np.argsort(Y)[::-1]
         for i in idx:  # insert smallest/best last
-            self.add_data_row(X[i], Y[i])
+            self.add_data_row(X[i], Y[i], prune=prune)
         self.number_of_data_last_added = len(X)
         return self
 
-    def sort_(self, number=None, argsort=np.argsort):
+    def sort(self, number=None, argsort=np.argsort):
         """sort last `number` entries"""
         if number is None:
             number = len(self.X)
         if number <= 0:
             return self
+        # print(number, len(self.Y))
         number = min((number, len(self.Y)))
         idx = argsort([self.Y[i] for i in range(number)])  # [:number] doesn't work on deque's
         for name in self._fieldnames:
@@ -632,7 +649,7 @@ class Model:
         return z
 
     def eval_true(self, x, max_number=None):
-        """return true value if ``x in self.X[:max_number]``"""
+        """return true value if ``x in self.X[:max_number]``, else Model value"""
         try:
             idx = self.hashes.index(self._hash(x))
         except ValueError:
@@ -779,7 +796,7 @@ class Model:
     def weights(self):
         self._weights = np.zeros(len(self.Y))
         idx = np.argsort(self.Y)
-        self._weights[idx] = Model.sorted_weights(len(self.Y))
+        self._weights[idx] = self.sorted_weights()
         assert np.all(np.argsort(self._weights) == idx[::-1])
         # self._weights = 1
         # self._weights = idx
@@ -792,7 +809,19 @@ class Model:
     def xopt(self):
         if self._xopt_count < self.count:
             self._xopt_count = self.count
-            self._xopt = np.dot(np.linalg.pinv(self.hessian), self.b / -2.) - self._xoffset
+            try:
+                self._xopt = np.dot(np.linalg.pinv(self.hessian), self.b / -2.) - self._xoffset
+            except np.linalg.LinAlgError as laerror:
+                warnings.warn('Model.xopt(d=%d,m=%d,n=%d): np.linalg.pinv'
+                              ' raised an exception %s' % (
+                            self.dim or -1,
+                            len(self._coefficients),
+                            self.size,
+                            str(laerror)))
+                if not hasattr(self, '_xopt') and self.dim:
+                    # TODO: zeros is the right choice but is devistatingly good on test functions
+                    self._opt = np.zeros(self.dim)
+                    self._opt = np.random.randn(self.dim)
         return self._xopt
 
     @property
