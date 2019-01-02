@@ -45,22 +45,24 @@ class Logger:
         >> lg.push()  # add the counter
 
     """
-    def __init__(self, obj_or_name, attributes=None, callables=None, name=None):
+    def __init__(self, obj_or_name, attributes=None, callables=None, name=None, labels=None):
         """obj can also be a name"""
+        self.format = "%.19e"
         if obj_or_name == str(obj_or_name) and attributes is not None:
             raise ValueError('string obj %s has no attributes %s' % (
                 str(obj_or_name), str(attributes)))
+        self.obj = obj_or_name
         self.name = name
         self._autoname(obj_or_name)
-        self.obj = obj_or_name
         self.attributes = attributes or []
         self.callables = callables or []
-        self.format = "%.19e"
+        self.labels = labels or []
         self.count = 0
         self.current_data = []
         # print('Logger:', self.name, self._name)
 
     def _autoname(self, obj):
+        """TODO: how to handle two loggers in the same class??"""
         if str(obj) == obj:
             self.name = obj
         if self.name is None:
@@ -134,11 +136,18 @@ class Logger:
     def push_header(self):
         mode = 'at' if self.count else 'wt'
         with open(self._name, mode) as file_:
+            if self.labels:
+                file_.write('# %s\n' % repr(self.labels))
             if self.attributes:
                 file_.write('# %s\n' % repr(self.attributes))
 
     def load(self):
+        import ast
         self.data = np.loadtxt(self._name)
+        with open(self._name, 'rt') as file_:
+            first_line = file_.readline()
+        if first_line.startswith('#'):
+            self.labels = ast.literal_eval((first_line[1:].lstrip()))
         return self
 
     def plot(self, plot=None):
@@ -148,20 +157,25 @@ class Logger:
         if plot is None:
             from matplotlib.pyplot import plot
         self.load()
-        n = len(self.data)
+        n = len(self.data)  # number of data rows
         try:
-            m = len(self.data[0])
+            m = len(self.data[0])  # number of "variables"
         except TypeError:
             m = 0
         plt.gca().clear()
-        if not m:
-            plot(range(1, n + 1), self.data)
+        if not m or len(self.labels) == 1:  # data cannot be indexed like data[:,0]
+            plot(range(1, n + 1), self.data,
+                 label=self.labels[0] if self.labels else None)
             return
         color=iter(plt.cm.winter_r(np.linspace(0.15, 1, m)))
         for i in range(m):
-            plot(range(1, n + 1), self.data[:, i])
+            plot(range(1, n + 1), self.data[:, i],
+                 label=self.labels[i] if i < len(self.labels) else None)
             plt.gca().get_lines()[0].set_color(next(color))
+        plt.legend()
         return self
+
+_Logger = Logger  # to reset Logger in doctest
 
 class SurrogatePopulation:
     """surrogate f-values for a population.
@@ -193,7 +207,7 @@ class SurrogatePopulation:
     ...     print(fitfun.evaluations)
     ...     assert 'ftarget' in es.stop()
     18
-    152
+    137
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -208,6 +222,7 @@ class SurrogatePopulation:
     ...     # print(fitfun.evaluations)
     ...     assert es.result[1] < 1e-12
     ...     assert es.result[2] < evals
+    >>> fm.Logger = fm._Logger
 
     """
     def __init__(self,
@@ -230,6 +245,7 @@ class SurrogatePopulation:
 
         """
         self.minimum_model_size = 3  # was: 2 in experiments 5 and 6
+        self.n_for_tau = lambda popsi: max((10, int(popsi / 2)))
         self.minimum_n_for_tau = 10  # was: n=5 and truth_threshold 0.9 which fails with linear-only model on Rosenbrock, n=10 and 0.8 still works
         self.maximum_n_for_tau = lambda popsi: 1 * popsi + self.minimum_n_for_tau + int(popsi / 3)
         self.model_sort_is_local = False
@@ -243,7 +259,7 @@ class SurrogatePopulation:
         self.count = 0
         self.last_evaluations = 0
         self.evaluations = 0
-        self.logger = Logger(self, ['evaluations'])
+        self.logger = Logger(self, labels=['tau0', 'tau1', 'evaluated ratio'])
         self.logger_eigenvalues = Logger(self.model, ['eigenvalues'])
 
     def _number_of_evaluations_to_do_now(self, iloop):
@@ -300,7 +316,7 @@ class SurrogatePopulation:
                 break
             F_true[k] = self.fitness(X[k])
             model.add_data_row(X[k], F_true[k], prune=False)
-        model.sort(len(F_true) if self.model_sort_is_local else None)
+        model.sort(len(F_true))
         model.prune()
         F_model = [model.eval(x) for x in X]
         if F_true:  # go with minimum model size for one iteration
@@ -328,7 +344,7 @@ class SurrogatePopulation:
                 model.add_data_row(X[k], F_true[k], prune=False)
             # TODO: prevent this duplicate "finalize model.add_data" code?
             # print(len(F_true))
-            model.sort(len(F_true) if self.model_sort_is_local else None)
+            model.sort(len(F_true))
             model.prune()
             if i1 >= len(eidx):
                 assert len(F_true) == len(X)
@@ -346,12 +362,15 @@ class SurrogatePopulation:
             # kendall compares F_true[k] with model.eval(X[k]) ranks
             # TODO (minor): we would not need to recompute model.eval(X)
             # TODO: with large popsize we do not want all solutions in kendall, but only the best popsize/3 of this iteration?
-            tau = model.kendall(
+
+            tau = model._new_kendall(self.n_for_tau(len(X)))
+            if 11 < 3:  # TODO: remove soon (cross check performance though)
+                print(tau, model.kendall(
                 [F_true[k] for k in sorted(F_true)[:self.maximum_n_for_tau(len(X))]],  # sorted is used to get k in a deterministic order
                 [X[k] for k in sorted(F_true)],
                 self.minimum_n_for_tau - len(F_true),
                 # [F_model[k] for k in sorted(F_true)  # check that this is correct
-            )  # take also last few
+                ))  # take also last few
             if iloop == 0:
                 self.logger.add(tau)
             if _kendalltau(sidx0, sidx)[0] > self.change_threshold and tau > self.truth_threshold:
@@ -359,6 +378,8 @@ class SurrogatePopulation:
             sidx0 = sidx
             # TODO: we could also reconsider the order eidx which to compute next
 
+        if not self.model_sort_is_local:
+            self.model.sort()
         self.logger.add(tau)
         self.last_evaluations = len(F_true)
         self.evaluations += self.last_evaluations
@@ -371,9 +392,8 @@ class SurrogatePopulation:
         if self.evaluations == 0:  # can currently not happen
             # a hack to have some grasp on zero evaluations from outside
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
-        self.logger.add(self.evaluations / len(X))
+        self.logger.add(self.last_evaluations / len(X))
         self.logger.push()  # TODO: check that we do not miss anything below
-        self.logger_eigenvalues.push()
         if len(X) == len(F_true) and self.return_true_fitnesses:
             # model.set_xoffset(model.xopt)
             return [F_true[i] for i in range(len(X))]
@@ -448,6 +468,24 @@ class Model:
     >>> assert np.allclose(m.xopt, [ 1.2,  1.2,  1.2])
     >>> assert np.allclose(m.xopt, [ 1.2,  1.2,  1.2])
 
+    Check the same before the full model is build:
+
+    >>> m = fm.Model()
+    >>> m.min_relative_size = 3
+    >>> for i in range(30):
+    ...     x = np.random.randn(4)
+    ...     y = cma.ff.elli(x - 1.2)
+    ...     _ = m.add_data_row(x, y)
+    >>> print(m.types)
+    ['quadratic']
+    >>> assert np.allclose(m.coefficients, [
+    ...   1.45454544e+06,
+    ...  -2.40000000e+00,  -2.40000000e+02,  -2.40000000e+04, -2.40000000e+06,
+    ...   1.00000000e+00,   1.00000000e+02,   1.00000000e+04,   1.00000000e+06,
+    ...   ])
+    >>> assert np.allclose(m.xopt, [ 1.2,  1.2,  1.2,  1.2])
+    >>> assert np.allclose(m.xopt, [ 1.2,  1.2,  1.2,  1.2])
+
     Check the Hessian in the rotated case:
 
     >>> fitness = cma.fitness_transformations.Rotated(cma.ff.elli)
@@ -464,6 +502,18 @@ class Model:
     >>> assert np.all(np.isclose(H, m.hessian))
     >>> assert np.allclose(m.xopt, 4 * [2.2])
 
+    Check a simple linear case, the optimum is not necessarily at the
+    expected position (the Hessian matrix is chosen somewhat arbitrarily)
+
+    >>> m = fm.Model()
+    >>> m.min_relative_size = 4
+    >>> _ = m.add_data_row([1, 1, 1], 220 + 10)
+    >>> _ = m.add_data_row([2, 1, 1], 220)
+    >>> print(m.types)
+    []
+    >>> assert np.allclose(m.coefficients, [80, -10, 80, 80])
+    >>> assert np.allclose(m.xopt, [ 50,  -400, -400])  # depends on Hessian
+
     """
     complexity = [  # must be ordered by complexity here
         ['quadratic', lambda d: 2 * d + 1],
@@ -474,10 +524,6 @@ class Model:
     @property
     def current_complexity(self):
         raise NotImplementedError
-
-    def sorted_weights(self, number=None):
-        return np.linspace(self.max_weight, 1,
-                           self.size if number is None else number)
 
     def __init__(self,
                  max_relative_size=3,
@@ -510,6 +556,10 @@ class Model:
                 'need max_relative_size=%f >= min_relative_size=%f >= 1' %
                 (max_relative_size, min_relative_size))
         self._fieldnames = ['X', 'Y', 'Z', 'counts', 'hashes']
+        self.logger = Logger(self, ['logging_trace'],
+                             labels=['H(X[0]-X[1])', 'H(X[0]-Xopt)',
+                                     '||X[0]-X[1]||^2', '||X[0]-Xopt||^2'])
+        self.log_eigenvalues = Logger(self, ['eigenvalues'], name='Modeleigenvalues')
         self.reset()
 
     def reset(self):
@@ -526,6 +576,10 @@ class Model:
         self.tau = Tau()
         self.tau.tau, self.tau.n = 0, 0
 
+    def sorted_weights(self, number=None):
+        return np.linspace(self.max_weight, 1,
+                           self.size if number is None else number)
+
     @property
     def logging_trace(self):
         if len(self.X) < 2:
@@ -533,9 +587,9 @@ class Model:
         trace = []
         d1 = self.X[0] - self.X[1]
         d2 = self.X[0] - self.xopt
-        trace += [self.mahalanobis_norm(d1),
-                  self.mahalanobis_norm(d2)]
-        trace += [sum(d1**2)**0.5, sum(d2**2)**0.5]
+        trace += [self.mahalanobis_norm_squared(d1),
+                  self.mahalanobis_norm_squared(d2)]
+        trace += [sum(d1**2), sum(d2**2)]
         return trace
 
     @property
@@ -596,7 +650,6 @@ class Model:
         self.update_type()
         if prune:
             self.prune()
-        # self.logger.add(self)
         return self
 
     def add_data(self, X, Y, prune=True):
@@ -695,6 +748,25 @@ class Model:
 
     def _new_kendall(self, number, F_true=None, F_model=None, X=None):
         """return Kendall tau."""
+        if F_true or F_model or X:
+            raise NotImplementedError
+        number = min((number, self.size))
+        self.tau.n = number
+        self.tau.count = self.count
+        if self.tau.n < 3:
+            self.tau.result = None
+            self.tau.tau, self.tau.pvalue = 0, 0
+            return 0
+        self.tau.result = _kendalltau(self.Y[:number],
+                                      [self.eval(self.X[i]) for i in range(number)])
+        try:
+            self.tau.tau, self.tau.pvalue = self.tau.result[:2]
+        except TypeError:  # kendalltau([3,3,3], [3,3,3]) == 1
+            self.tau.tau, self.tau.pvalue = 0, 0
+        if not np.isfinite(self.tau.tau):
+            self.tau.tau = 0
+        return self.tau.tau
+
 
     def kendall(self, F_true, X, more=0, F_model=None):
         """return Kendall tau.
@@ -740,8 +812,11 @@ class Model:
     def _hash(self, x):
         return x[0], sum(x[1:])
 
-    def mahalanobis_norm(self, dx):
-        return np.sqrt(np.dot(dx, np.dot(self.hessian, dx)))
+    def mahalanobis_norm_squared(self, dx):
+        """caveat: this can be negative because hessian is not guarantied
+        to be pos def.
+        """
+        return np.dot(dx, np.dot(self.hessian, dx))
 
     @property
     def pinv(self):
@@ -762,6 +837,8 @@ class Model:
         if self._coefficients_count < self.count:
             self._coefficients_count = self.count
             self._coefficients = np.dot(self.pinv, self._weights * self.Y)
+            self.logger.push()  # use logging_trace attribute and xopt
+            self.log_eigenvalues.push()
         return self._coefficients
 
     @property
@@ -779,7 +856,7 @@ class Model:
             else:
                 assert m == d + 1
                 H[i, i] = self.coefficients[i + 1] / 100  # TODO arbitrary factor to make xopt finite, shouldn't this be 1 / coefficient or min(abs(coefficients))
-                H[i, i] = min(np.abs(self.coefficients)) / 10
+                H[i, i] = min(np.abs(self.coefficients[1:])) / 100
             if m > 3 * d:
                 assert 'full' in self.types
                 assert m == self.complexity['full'](d)  # here the only possibility left
@@ -827,4 +904,3 @@ class Model:
     @property
     def eigenvalues(self):
         return sorted(np.linalg.eigvals(self.hessian))
-
