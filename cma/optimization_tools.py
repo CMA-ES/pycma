@@ -10,7 +10,8 @@ from .utilities.math import Mh
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
-def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1):
+def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1,
+                    **kwargs):
     """signed semilogy plot.
 
     `y` (or `x` if `y` is `None`) is a data array, by default read from
@@ -39,6 +40,7 @@ def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1):
             except:
                 xy = np.loadtxt('outcmaesxmean.dat', comments=('%',))
             x, y = xy[:, iabscissa], xy[:, 5:]
+    y = np.array(y, copy=True)  # not always necessary, but sometimes?
     if yoffset not in (None, 0):
         try:
             y -= yoffset
@@ -59,7 +61,7 @@ def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1):
 
     if x is None:
         x = range(1, y.shape[0] + 1)
-    plt.plot(x, y)
+    plt.plot(x, y, **kwargs)
 
     # the remainder is changing y-labels
     ax = plt.gca()
