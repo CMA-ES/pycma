@@ -207,7 +207,7 @@ class SurrogatePopulation:
     ...     print(fitfun.evaluations)
     ...     assert 'ftarget' in es.stop()
     18
-    137
+    131
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -250,52 +250,17 @@ class SurrogatePopulation:
         self.maximum_n_for_tau = lambda popsi: 1 * popsi + self.minimum_n_for_tau + int(popsi / 3)
         self.model_sort_is_local = False
         self.return_true_fitnesses = True  # TODO: change name, return true fitness if all solutions are evaluated
-        self.fitness = fitness
-        self.model = model if model else Model()
         self.model_size_factor = model_size_factor
         self.add_xopt_condition = add_xopt_condition
         self.change_threshold = -1.0  # tau between previous and new model; was: 0.8
         self.truth_threshold = tau_truth_threshold  # tau between model and ground truth
+        self.fitness = fitness
+        self.model = model if model else Model()
         self.count = 0
         self.last_evaluations = 0
         self.evaluations = 0
         self.logger = Logger(self, labels=['tau0', 'tau1', 'evaluated ratio'])
         self.logger_eigenvalues = Logger(self.model, ['eigenvalues'])
-
-    def _number_of_evaluations_to_do_now(self, iloop):
-        """Depreciated. return ``1 if iloop==0 else 2 + (iloop - 1)**2``.
-
-        That is, we evaluate first 1 and then 2 + i**2 for i in 0, 1,...
-
-        ::
-            n = arange(1, 8)
-            n1 = n**2
-            n2 = hstack([1, n**2 + 1])
-            n3 = hstack([1, (n - 1)**2 + 2])  # current choice = sign(n - 1) * (n - 1)**2 + 2
-            n4 = hstack([1, (n - 1)**2 + 1])
-            # n1, cumsum(n1), aa(100 * n1[1:] / cumsum(n1)[:-1], dtype=int), n2, cumsum(n2), aa(100 * n2[1:] / cumsum(n2)[:-1], dtype=int)
-            print("current_evaluations_starting_from_one + number_of_additional_evaluations=n(loop=1,2,3,...)")
-            for nn in [n1, n2, n3, n4]:
-                for n, s in zip(nn[1:], cumsum(nn)[:-1]):
-                    s = '%d+%d' % (s, n)
-                    s = (5 - len(s)) * ' ' + s
-                    print(s, end=' ')
-                print()
-
-              1+4   5+9 14+16 30+25 55+36 91+49
-              1+2   3+5  8+10 18+17 35+26 61+37 98+50
-              1+2   3+3   6+6 12+11 23+18 41+27 68+38
-              1+1   2+2   4+5  9+10 19+17 36+26 62+37
-
-        NEW: multiply with 1.5 and take ceil
-         [1, 2, 3, 5, 8, 12, 18, 27, 41, 62, 93, 140, 210, 315, 473]
-        +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
-
-        """
-        # already_done + do_now = 0+1 1+2 3+3 6+6 12+11 23+18 41+27 68+38 106+51
-        return (iloop - 1)**2 + 2 if iloop > 0 else 1
-        # already_done + do_now = 0+1 1+2 3+5 8+10 18+17 35+26 61+37 98+50
-        return 1 + iloop**2
 
     def __call__(self, X):
         """return population f-values.
@@ -337,8 +302,11 @@ class SurrogatePopulation:
         i1 = 0  # i1-1 is last evaluation index
         for iloop in range(len(eidx)):
             i0 = i1
-            # i1 += self._number_of_evaluations_to_do_now(iloop)
-            i1 = int(np.ceil(1.5 * i1)) if i1 else 1
+            i1 += int(np.ceil(0.5 * i1)) if i1 else 1
+            """multiply with 1.5 and take ceil
+                [1, 2, 3, 5, 8, 12, 18, 27, 41, 62, 93, 140, 210, 315, 473]
+                +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
+            """
             for k in eidx[i0:i1]:
                 F_true[k] = self.fitness(X[k])
                 model.add_data_row(X[k], F_true[k], prune=False)
@@ -363,9 +331,9 @@ class SurrogatePopulation:
             # TODO (minor): we would not need to recompute model.eval(X)
             # TODO: with large popsize we do not want all solutions in kendall, but only the best popsize/3 of this iteration?
 
-            tau = model._new_kendall(self.n_for_tau(len(X)))
+            tau = model.kendall(self.n_for_tau(len(X)))
             if 11 < 3:  # TODO: remove soon (cross check performance though)
-                print(tau, model.kendall(
+                print(tau, model._old_kendall(
                 [F_true[k] for k in sorted(F_true)[:self.maximum_n_for_tau(len(X))]],  # sorted is used to get k in a deterministic order
                 [X[k] for k in sorted(F_true)],
                 self.minimum_n_for_tau - len(F_true),
@@ -439,7 +407,6 @@ class ModelInjectionCallback:
 
 class Tau: "placeholder to store Kendall tau related things"
 
-# TODO: check that `xopt` gives OK value if hessian is negative definite
 class Model:
     """Up to a full quadratic model using the pseudo inverse to compute
     the model coefficients.
@@ -454,6 +421,7 @@ class Model:
     >>> import numpy as np
     >>> import cma
     >>> import cma.fitness_models as fm
+    >>> fm.Logger = fm.LoggerDummy
     >>> m = fm.Model()
     >>> for i in range(30):
     ...     x = np.random.randn(3)
@@ -513,6 +481,7 @@ class Model:
     []
     >>> assert np.allclose(m.coefficients, [80, -10, 80, 80])
     >>> assert np.allclose(m.xopt, [ 50,  -400, -400])  # depends on Hessian
+    >>> fm.Logger = fm._Logger
 
     """
     complexity = [  # must be ordered by complexity here
@@ -557,7 +526,7 @@ class Model:
                 (max_relative_size, min_relative_size))
         self._fieldnames = ['X', 'Y', 'Z', 'counts', 'hashes']
         self.logger = Logger(self, ['logging_trace'],
-                             labels=['H(X[0]-X[1])', 'H(X[0]-Xopt)',
+                             labels=[# 'H(X[0]-X[1])', 'H(X[0]-Xopt)',
                                      '||X[0]-X[1]||^2', '||X[0]-Xopt||^2'])
         self.log_eigenvalues = Logger(self, ['eigenvalues'], name='Modeleigenvalues')
         self.reset()
@@ -585,10 +554,10 @@ class Model:
         if len(self.X) < 2:
             return [1, 1, 1, 1]
         trace = []
-        d1 = self.X[0] - self.X[1]
-        d2 = self.X[0] - self.xopt
-        trace += [self.mahalanobis_norm_squared(d1),
-                  self.mahalanobis_norm_squared(d2)]
+        d1 = np.asarray(self.X[0]) - self.X[1]
+        d2 = np.asarray(self.X[0]) - self.xopt
+        # trace += [self.mahalanobis_norm_squared(d1),
+        #           self.mahalanobis_norm_squared(d2)]
         trace += [sum(d1**2), sum(d2**2)]
         return trace
 
@@ -626,11 +595,23 @@ class Model:
                 self.reset_Z()
                 # print(self.count, self.types)
 
-    def prune(self):
+    def _prune(self):
         while (len(self.X) > self.max_size and
                len(self.X) - 1 >= self.max_df * self.min_relative_size):
             for name in self._fieldnames:
                 getattr(self, name).pop()
+
+    def prune(self):
+        remove = int(self.size - max((self.max_size, self.max_df * self.min_relative_size - 1)))
+        if remove <= 0:
+            return
+        for name in self._fieldnames:
+            try:
+                setattr(self, name, getattr(self, name)[:-remove])
+            except TypeError:
+                field = getattr(self, name)
+                for _ in range(remove):
+                    field.pop()
 
     def add_data_row(self, x, f, prune=True):
         hash = self._hash(x)
@@ -638,14 +619,17 @@ class Model:
             warnings.warn("x value already in Model")
             return
         self.count += 1
-        x = np.asarray(x)
-        self.X.insert(0, x)
-        self.Y.insert(0, f)
-        self.Z.insert(0, self.expand_x(x))
+        if 11 < 3:
+            # x = np.asarray(x)
+            self.X.insert(0, x)
+            self.Z.insert(0, self.expand_x(x))
+            self.Y.insert(0, f)
+        else:  # in 10D reduces time in ﻿numpy.core.multiarray.array by a factor of five from 2nd to 8th largest consumer
+            self.X = np.vstack([x] + ([self.X] if self.count > 1 else []))
+            self.Z = np.vstack([self.expand_x(x)] + ([self.Z] if self.count > 1 else []))
+            self.Y = np.hstack([f] + ([self.Y] if self.count > 1 else []))
         self.counts.insert(0, self.count)
         self.hashes.insert(0, hash)
-        # n = len(self.X[0])
-        # m = n * (n + 3) / 2 + 1
         self.number_of_data_last_added = 1
         self.update_type()
         if prune:
@@ -663,8 +647,9 @@ class Model:
         self.number_of_data_last_added = len(X)
         return self
 
-    def sort(self, number=None, argsort=np.argsort):
-        """sort last `number` entries"""
+    def _sort(self, number=None, argsort=np.argsort):
+        """sort last `number` entries TODO: for some reason this seems not to pass the doctest"""
+        assert self.size == len(self.X)
         if number is None:
             number = len(self.X)
         if number <= 0:
@@ -674,9 +659,37 @@ class Model:
         idx = argsort([self.Y[i] for i in range(number)])  # [:number] doesn't work on deque's
         for name in self._fieldnames:
             field = getattr(self, name)
-            tmp = [field[i] for i in range(number)]  # a copy
-            for i in range(len(idx)):
-                field[i] = tmp[idx[i]]
+            tmp = [field[i] for i in idx]  # a sorted copy
+            # tmp = [field[i] for i in range(number)]  # a copy
+            for i in range(len(tmp)):
+                field[i] = tmp[i]
+        assert list(self.Y[:number]) == sorted(self.Y[:number])
+
+    def sort(self, number=None, argsort=np.argsort):
+        """sort last `number` entries"""
+        if number is None:
+            number = self.size
+        if number <= 0:
+            return self
+        number = min((number, self.size))
+        if number < self.size:
+            idx = argsort(self.Y[:number])  # [:number] doesn't work on deque's
+        else:
+            idx = argsort(self.Y)
+        for name in self._fieldnames:
+            field = getattr(self, name)
+            try:
+                field[:number] = field[idx]
+            except TypeError:
+                s = [field[i] for i in idx]
+                for i in range(number):
+                    field[i] = s[i]
+            # setattr(self, name, field)
+        if 11 < 3:
+            assert list(self.Y[:number]) == sorted(self.Y[:number])
+            Y = list(self.Y)
+            self._sort(number)
+            assert Y == list(self.Y)
 
     def xmean(self):
         return np.mean(self.X, axis=0)
@@ -688,17 +701,29 @@ class Model:
     def reset_Z(self):
         """set x-values Z attribute"""
         self.Z = deque(self.expand_x(x) for x in self.X)
+        self.Z = np.asarray(deque(self.expand_x(x) for x in self.X))
         self._coefficients_count = -1
         self._xopt_count = -1
 
-    def expand_x(self, x):
+    def _list_expand_x(self, x):
         x = np.asarray(x) + self._xoffset
-        z = [1]
-        z += list(x)
+        z += [1] + list(x)  # or np.hstack([1, x])
         if 'quadratic' in self.types:
             z += list(np.square(x))
             if 'full' in self.types:
-                z += (x[i] * x[j] for i in range(len(x)) for j in range(len(x)) if i < j)
+                # TODO: takes in 10-D about as much time as SVD (generator is slighly more expensive)
+                # using np.array seems not to help either, array itself takes a considerable chunk of time
+                z += [x[i] * x[j] for i in range(len(x)) for j in range(len(x)) if i < j]
+        return z
+
+    def expand_x(self, x):
+        x = np.asarray(x) + self._xoffset
+        z = np.hstack([1, x])
+        if 'quadratic' in self.types:
+            z = np.hstack([z, np.square(x)])
+            if 'full' in self.types:
+                # TODO: takes in 10-D about 65% of the time of SVD (generator is slighly more expensive)
+                z = np.hstack([z, [x[i] * x[j] for i in range(len(x)) for j in range(len(x)) if i < j]])
         return z
 
     def eval_true(self, x, max_number=None):
@@ -741,15 +766,16 @@ class Model:
         while self.count < evals:
             xopt_old = self.xopt[:]
             self.add_data_row(list(self.xopt), fitness(self.xopt))
-            if sum((xopt_old - self.xopt)**2) < 1e-3 * sum((self.X[1] - self.X[0])**2):
-                x_new = (self.X[1] - self.X[0]) / 2
+            if sum((xopt_old - self.xopt)**2) < 1e-3 * sum((np.asarray(self.X[1]) - self.X[0])**2):
+                x_new = (np.asarray(self.X[1]) - self.X[0]) / 2
                 self.add_data_row(x_new, fitness(x_new))
         return self.xopt, self
 
-    def _new_kendall(self, number, F_true=None, F_model=None, X=None):
-        """return Kendall tau."""
-        if F_true or F_model or X:
-            raise NotImplementedError
+    def kendall(self, number, F_model=None):
+        """return Kendall tau between true F-values (Y) and model values.
+        """
+        if F_model:
+            raise NotImplementedError("save model evaluations if implemented")
         number = min((number, self.size))
         self.tau.n = number
         self.tau.count = self.count
@@ -768,7 +794,7 @@ class Model:
         return self.tau.tau
 
 
-    def kendall(self, F_true, X, more=0, F_model=None):
+    def _old_kendall(self, F_true, X, more=0, F_model=None):
         """return Kendall tau.
 
         TODO: possibly better interface, see _new_kendall
@@ -785,7 +811,7 @@ class Model:
         I "simple" usecase after the model update testing the first 15
         Y[i] (true values) versus model(X[i]) values::
 
-            model.kendall([], [], 15)
+            model._old_kendall([], [], 15)
 
         """
         # TODO:
