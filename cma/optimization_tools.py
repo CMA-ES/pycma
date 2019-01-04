@@ -65,24 +65,22 @@ def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1,
 
     # the remainder is changing y-labels
     ax = plt.gca()
-    yticklabs = [label.get_text() for label in ax.get_yticklabels()]
-    # print(yticklabs)
-    for i, label in enumerate(yticklabs):
-        val = ax.get_yticks()[i]
-        format_ = r"%.2f"  # r'%d' if val == val // 1 else r'%f'
-        yticklabs[i] = (r"$10^{%.2f}$") % (val + min_log)
+    ticks, labels = [], []
+    for val in ax.get_yticks():
+        s = (r"$10^{%.2f}$") % (val + min_log)
         if val < 0:
-            yticklabs[i] = (r"$-10^{%.2f}$") % (-val + min_log)
+            s = (r"$-10^{%.2f}$") % (-val + min_log)
         elif val == 0:
-            yticklabs[i] = (r"$\pm10^{%.2f}$") % min_log
-        if '.' in yticklabs[i]:
-            while yticklabs[i][-3] == '0':  # remove trailing zeros
-                yticklabs[i] = yticklabs[i][:-3] + yticklabs[i][-2:]
-            if yticklabs[i][-3] == '.':  # remove trailing dot
-                yticklabs[i] = yticklabs[i][:-3] + yticklabs[i][-2:]
-
-    # print(yticklabs)
-    ax.set_yticklabels(yticklabs)
+            s = (r"$\pm10^{%.2f}$") % min_log
+        if '.' in s:
+            while s[-3] == '0':  # remove trailing zeros
+                s = s[:-3] + s[-2:]
+            if s[-3] == '.':  # remove trailing dot
+                s = s[:-3] + s[-2:]
+        labels += [s]
+        ticks += [val]
+    ax.set_yticks(ticks)
+    ax.set_yticklabels(labels)
     plt.grid(True)
 
 def contour_data(fct, x_range, y_range=None):
