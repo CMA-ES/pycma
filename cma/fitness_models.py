@@ -236,31 +236,39 @@ class Settings:
                               for (key, val) in type(self).__dict__.items()
                               if not key.startswith('_')))
     def _set_from_input(self):
-        """TODO: we would like to select only the last arguments
+        """Only existing parameters/attributes and non-None values are set.
+
+        The number of parameters is cross-checked.
+
+        Remark: we could select only the last arguments
         of obj.__init__.__func__.__code__.co_varnames
         which have defaults obj.__init__.__func__.__defaults__ (we do
-        not need the defaults)"""
+        not need the defaults)
+        """
         discarded = {}
         for key in list(self.inparams):
             if key not in self.__dict__ or key in self.obj.__dict__:
                 discarded[key] = self.inparams.pop(key)
+            elif self.inparams[key] is not None:
+                setattr(self, key, self.inparams[key])
+                # conditional self.__dict__.update(self.inparams)
         if len(self.inparams) != self._number_of_params:
             warnings.warn("%d parameters desired; remaining: %s; discarded: %s "
                           % (self._number_of_params, str(self.inparams),
                              str(discarded)))
-        self.__dict__.update(self.inparams)
+        # self.__dict__.update(self.inparams)
         delattr(self, 'obj')  # set only once
 
 class SurrogatePopulationSettings(Settings):
-    minimum_model_size = 3  # absolute minimum number of true valuations before to build the model
+    minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
     n_for_tau = lambda popsi: max((10, int(popsi / 2)))
-    # maximum_n_for_tau = lambda popsi: 1 * popsi + minimum_n_for_tau + int(popsi / 3)
-    model_sort_globally = True
-    return_true_fitnesses = True  # TODO: change name, return true fitness if all solutions are evaluated
-    model_max_size_factor = 3  # times popsize, this is big!?
-    change_threshold = -1.0  # tau between previous and new model; was: 0.8
+    model_max_size_factor = 2  # times popsize, 3 is big!?
+    model_min_size_factor = 0.5
     tau_truth_threshold = 0.85  # tau between model and ground truth
+    model_sort_globally = True
+    return_true_fitnesses = True  # return true fitness if all solutions are evaluated
     add_xopt_condition = False  # not in use
+    change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
 
 class SurrogatePopulation:
     """surrogate f-values for a population.
@@ -313,9 +321,10 @@ class SurrogatePopulation:
     def __init__(self,
                  fitness,
                  model=None,
-                 model_max_size_factor=SurrogatePopulationSettings.model_max_size_factor,
-                 tau_truth_threshold=SurrogatePopulationSettings.tau_truth_threshold,
-                 add_xopt_condition=SurrogatePopulationSettings.add_xopt_condition):
+                 model_max_size_factor=None,
+                 model_min_size_factor=None,
+                 tau_truth_threshold=None,
+                 add_xopt_condition=None):
         """
 
         If ``model is None``, a default `Model` instance is used. By
@@ -326,7 +335,7 @@ class SurrogatePopulation:
         self.fitness = fitness
         self.model = model if model else Model()
         # set 3 parameters of settings from locals() which are not attributes of self
-        self.settings = SurrogatePopulationSettings(locals(), 3, self)  # not in use yet
+        self.settings = SurrogatePopulationSettings(locals(), 4, self)  # not in use yet
         self.count = 0
         self.last_evaluations = 0
         self.evaluations = 0
@@ -342,9 +351,10 @@ class SurrogatePopulation:
         if self.model is None:
             return [self.fitness(x) for x in X]
         model = self.model
-        if self.settings.model_max_size_factor * len(X) > 1.1 * model.max_absolute_size:
-            model.max_absolute_size = self.settings.model_max_size_factor * len(X)
-            model.min_absolute_size = max((model.min_absolute_size, len(X)))
+        if self.settings.model_max_size_factor * len(X) > 1.1 * model.settings.max_absolute_size:
+            model.settings.max_absolute_size = self.settings.model_max_size_factor * len(X)
+            # model.min_absolute_size = max((model.min_absolute_size,
+            #                                self.settings.model_min_size_factor * len(X)))
             model.reset()
         F_true = {}
         # need at least two evaluations for a non-flat linear model
@@ -472,6 +482,22 @@ class ModelInjectionCallback:
 
 class Tau: "placeholder to store Kendall tau related things"
 
+class ModelSettings(Settings):
+    max_relative_size = 3  # times self.max_df limit archive size
+    min_relative_size = 1.5  # earliest when to switch to next model complexity
+    max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
+    max_weight = 20  # min weight is one
+    disallowed_types = ()
+    f_transformation = False  # a simultanious transformation of all Y values
+
+    def _checking(self):
+        if not 0 < self.min_relative_size <= self.max_relative_size:
+            raise ValueError(
+                'need max_relative_size=%f >= min_relative_size=%f >= 1' %
+                (self.max_relative_size, self.min_relative_size))
+        return self
+
+
 class Model:
     """Up to a full quadratic model using the pseudo inverse to compute
     the model coefficients.
@@ -504,7 +530,7 @@ class Model:
     Check the same before the full model is build:
 
     >>> m = fm.Model()
-    >>> m.min_relative_size = 3
+    >>> m.settings.min_relative_size = 3
     >>> for i in range(30):
     ...     x = np.random.randn(4)
     ...     y = cma.ff.elli(x - 1.2)
@@ -539,7 +565,7 @@ class Model:
     expected position (the Hessian matrix is chosen somewhat arbitrarily)
 
     >>> m = fm.Model()
-    >>> m.min_relative_size = 4
+    >>> m.settings.min_relative_size = 4
     >>> _ = m.add_data_row([1, 1, 1], 220 + 10)
     >>> _ = m.add_data_row([2, 1, 1], 220)
     >>> print(m.types)
@@ -560,10 +586,9 @@ class Model:
         raise NotImplementedError
 
     def __init__(self,
-                 max_relative_size=3,
-                 min_relative_size=1.5,
-                 max_absolute_size=None,
-                 min_absolute_size=None
+                 max_relative_size=None,    # when to prune, only applicable after last model switch
+                 min_relative_size=None,  # when to switch to next model
+                 max_absolute_size=None, # maximum archive size
                  ):
         """
 
@@ -574,21 +599,7 @@ class Model:
         ``max(max_absolute_size, max_relative_size * max_df)``.
 
         """
-        self.disallowed_types = []
-        self.f_transformation = False
-        self.max_weight = 20  # min weight is one
-        self.max_relative_size = max_relative_size
-        self.min_relative_size = min_relative_size
-        self.max_absolute_size = max_absolute_size \
-                                   if max_absolute_size is not None else 0
-        "take max((max_absolute, df * max_relative))"
-        self.min_absolute_size =  min_absolute_size \
-                                   if min_absolute_size is not None else 0
-        "take max((min_absolute, df * min_relative)) as minimum"
-        if not 0 < min_relative_size <= max_relative_size:
-            raise ValueError(
-                'need max_relative_size=%f >= min_relative_size=%f >= 1' %
-                (max_relative_size, min_relative_size))
+        self.settings = ModelSettings(locals(), 3, self)._checking()
         self._fieldnames = ['X', 'F', 'Y', 'Z', 'counts', 'hashes']
         self.logger = Logger(self, ['logging_trace'],
                              labels=[# 'H(X[0]-X[1])', 'H(X[0]-Xopt)',
@@ -613,7 +624,7 @@ class Model:
         self.tau.tau, self.tau.n = 0, 0
 
     def sorted_weights(self, number=None):
-        return np.linspace(self.max_weight, 1,
+        return np.linspace(self.settings.max_weight, 1,
                            self.size if number is None else number)
 
     @property
@@ -631,8 +642,8 @@ class Model:
     @property
     def max_size(self):
         return max((self.complexity[self.known_types[-1]](self.dim) *
-                        self.max_relative_size,
-                    self.max_absolute_size))
+                        self.settings.max_relative_size,
+                    self.settings.max_absolute_size))
 
     @property
     def max_df(self):
@@ -655,9 +666,9 @@ class Model:
         n, d = len(self.X), len(self.X[0])
         # d + 1 affine linear coefficients are always computed
         for type in self.known_types[::-1]:  # most complex type first
-            if (n >= self.complexity[type](d) * self.min_relative_size
+            if (n >= self.complexity[type](d) * self.settings.min_relative_size
                 and type not in self.types
-                and type not in self.disallowed_types):
+                and type not in self.settings.disallowed_types):
                 self.types.append(type)
                 self.reset_Z()
                 self.type_updates[self.count] += [type]
@@ -665,14 +676,14 @@ class Model:
 
     def _prune(self):
         while (len(self.X) > self.max_size and
-               len(self.X) - 1 >= self.max_df * self.min_relative_size):
+               len(self.X) - 1 >= self.max_df * self.settings.min_relative_size):
             for name in self._fieldnames:
                 getattr(self, name).pop()
 
     def prune(self):
         remove = int(self.size - max((self.max_size,
-                                      self.min_absolute_size,
-                                      self.max_df * self.min_relative_size)))
+                                      # self.min_absolute_size,
+                                      self.max_df * self.settings.min_relative_size)))
         if remove <= 0:
             return
         for name in self._fieldnames:
@@ -706,8 +717,8 @@ class Model:
         self.update_type()
         if prune:
             self.prune()
-        if self.f_transformation:
-            self.Y = self.f_transformation(self.F)
+        if self.settings.f_transformation:
+            self.Y = self.settings.f_transformation(self.F)
         return self
 
     def add_data(self, X, Y, prune=True):
