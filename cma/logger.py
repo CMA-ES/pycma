@@ -64,7 +64,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
     :See: `disp` (), `plot` ()
     """
-    default_prefix = 'outcma/cma'
+    default_prefix = 'outcmaes' + os.sep
     # default_prefix = 'outcmaes'
     # names = ('axlen','fit','stddev','xmean','xrecentbest')
     # key_names_with_annotation = ('std', 'xmean', 'xrecent')
@@ -81,15 +81,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
 #            name_prefix = name_prefix.opts.eval('verb_filenameprefix')
         self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix
                 if name_prefix else CMADataLogger.default_prefix)))
-        # create path if necessary
-        if os.path.dirname(self.name_prefix):
-            try:
-                os.makedirs(os.path.dirname(self.name_prefix))
-            except OSError:
-                pass  # folder exists
+        if name_prefix is not None and name_prefix.endswith((os.sep, '/')):
+            self.name_prefix = self.name_prefix + os.sep
         self.file_names = ('axlen', 'axlencorr', 'fit', 'stddev', 'xmean',
                 'xrecentbest')
-        """used in load, however hard-coded in add"""
+        """used in load, however hard-coded in add, because data must agree with name"""
         self.key_names = ('D', 'corrspec', 'f', 'std', 'xmean', 'xrecent')
         """used in load, however hard-coded in plot"""
         self._key_names_with_annotation = ('std', 'xmean', 'xrecent')
@@ -151,6 +147,13 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.last_iteration = 0  # some lines are only written if iteration>last_iteration
         if self.modulo <= 0:
             return self
+
+        # create path if necessary
+        if os.path.dirname(self.name_prefix):
+            try:
+                os.makedirs(os.path.dirname(self.name_prefix))
+            except OSError:
+                pass  # folder exists
 
         # write headers for output
         fn = self.name_prefix + 'fit.dat'
@@ -1081,7 +1084,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         pyplot.ioff()
     def _finalize_plotting(self):
         from matplotlib import pyplot
-        pyplot.tight_layout(rect=(0, 0, 0.96, 1))
+        pyplot.subplots_adjust(left=0.05, top=0.96, bottom=0.07, right=0.95)
+        # pyplot.tight_layout(rect=(0, 0, 0.96, 1))
         pyplot.draw()  # update "screen"
         pyplot.ion()  # prevents that the execution stops after plotting
         pyplot.show()
