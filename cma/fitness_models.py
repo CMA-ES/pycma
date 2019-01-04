@@ -5,10 +5,11 @@ ___author__ = "Nikolaus Hansen"
 __license__ = "BSD 3-clause"
 
 import warnings
-# from collections import deque
-deque = list
+from collections import defaultdict  # since Python 2.5
 import numpy as np
 from scipy.stats import kendalltau as _kendalltau
+from .utilities import utils
+
 
 class LoggerDummy:
     """use to fake a `Logger` in non-verbose setting"""
@@ -177,6 +178,92 @@ class Logger:
 
 _Logger = Logger  # to reset Logger in doctest
 
+class Settings:
+    """somewhat resembling `types.SimpleNamespace` from Python >=3.3
+    and the `dataclass` decorator from Python >=3.7.
+
+    The main purpose is, with the least effort, (i) to separate
+    parameters/settings of a class from its variables and (ii) to be
+    flexibility as to which of these parameters are arguments to
+    ``__init__``. Parameters can always be modified after instantiation
+    as well.
+
+    Usage: define a bunch of parameters in a derived parameter class:
+
+    >>> import cma.fitness_models as fm
+    >>> class MyClassSettings(fm.Settings):
+    ...     param1 = True
+    ...     param2 = False
+    ...     param3 = None  # need to assign at least None always
+
+    Now we assign a settings (or parameters) attribute in the
+    ``__init__` of the target class, which should here use (only) one
+    value from the input arguments list and doesn't use any names
+    which are already defined in ``self.__dict__``:
+
+    >>> class MyClass:
+    ...     def __init__(self, param1=MyClassSettings.param1):
+    ...         self.settings = MyClassSettings(locals(), 1, self)
+
+    Now any of these parameters can be used or re-assigned like:
+
+    >>> c = MyClass()
+    >>> c.settings.param1 is True
+    True
+    >>> c = MyClass(param1=False)
+    >>> c.settings.param1 is False
+    True
+
+    FIXME (is this fixable?): we either need to write
+    ``param1=MyClassSettings.param1`` or ``param1=True``, both is some
+    sort of code duplication.
+
+    FIXME: for the time being we use ``kwargs`` instead of ``**kwargs``,
+    because ``locals()`` also contains `self`.
+
+    """
+    def __init__(self, params, number_of_params, obj):
+        self.params = dict(params)
+        self.number_of_params = number_of_params
+        self.obj = obj
+        self.params.pop('self', None)
+        self.set_from_defaults()
+        self.set_from_input()
+    def set_from_defaults(self):
+        self.__dict__.update(((key, val)
+                              for (key, val) in type(self).__dict__.items()
+                              if not key.startswith('_')))
+    def set_from_input(self):
+        """TODO: we would like to select only the last arguments
+        of obj.__init__.__func__.__code__.co_varnames
+        which have defaults obj.__init__.__func__.__defaults__ (we do
+        not need the defaults)"""
+        discarded = {}
+        for key in list(self.params):
+            if key not in self.__dict__ or key in self.obj.__dict__:
+                discarded[key] = self.params.pop(key)
+        if len(self.params) != self.number_of_params:
+            warnings.warn("%d parameters desired; remaining: %s; discarded: %s "
+                          % (self.number_of_params, str(self.params),
+                             str(discarded)))
+#            warnings.warn("%d parameters desired, %s remaining %s discarded"
+#                          % (key, self.__class__))
+        self.__dict__.update(self.params)
+
+class SurrogatePopulationSettings(Settings):
+    """not in use yet"""
+    minimum_model_size = 3  # was: 2 in experiments 5 and 6
+    n_for_tau = lambda popsi: max((10, int(popsi / 2)))
+    minimum_n_for_tau = 10  # was: n=5 and truth_threshold 0.9 which fails with linear-only model on Rosenbrock, n=10 and 0.8 still works
+    maximum_n_for_tau = lambda popsi: 1 * popsi + 10 + int(popsi / 3)
+    model_sort_is_local = False
+    return_true_fitnesses = True  # TODO: change name, return true fitness if all solutions are evaluated
+    model_size_factor = None
+    add_xopt_condition = None
+    change_threshold = -1.0  # tau between previous and new model; was: 0.8
+    tau_truth_threshold = None  # tau between model and ground truth
+
+
 class SurrogatePopulation:
     """surrogate f-values for a population.
 
@@ -244,6 +331,10 @@ class SurrogatePopulation:
         population member is evaluated in each call.
 
         """
+        self.model = model if model else Model()
+        self.fitness = fitness
+        # set 3 parameters of settings from locals() which are not attributes of self
+        self.settings = SurrogatePopulationSettings(locals(), 3, self)  # not in use yet
         self.minimum_model_size = 3  # was: 2 in experiments 5 and 6
         self.n_for_tau = lambda popsi: max((10, int(popsi / 2)))
         self.minimum_n_for_tau = 10  # was: n=5 and truth_threshold 0.9 which fails with linear-only model on Rosenbrock, n=10 and 0.8 still works
@@ -253,9 +344,7 @@ class SurrogatePopulation:
         self.model_size_factor = model_size_factor
         self.add_xopt_condition = add_xopt_condition
         self.change_threshold = -1.0  # tau between previous and new model; was: 0.8
-        self.truth_threshold = tau_truth_threshold  # tau between model and ground truth
-        self.fitness = fitness
-        self.model = model if model else Model()
+        self.tau_truth_threshold = tau_truth_threshold  # tau between model and ground truth
         self.count = 0
         self.last_evaluations = 0
         self.evaluations = 0
@@ -271,8 +360,9 @@ class SurrogatePopulation:
         if self.model is None:
             return [self.fitness(x) for x in X]
         model = self.model
-        if self.model_size_factor * len(X) > 1.1 * self.model.max_absolute_size:
+        if self.model_size_factor * len(X) > 1.1 * model.max_absolute_size:
             model.max_absolute_size = self.model_size_factor * len(X)
+            model.min_absolute_size = max((model.min_absolute_size, len(X)))
             model.reset()
         F_true = {}
         # need at least two evaluations for a non-flat linear model
@@ -285,7 +375,7 @@ class SurrogatePopulation:
         model.prune()
         F_model = [model.eval(x) for x in X]
         if F_true:  # go with minimum model size for one iteration
-            offset = min(model.Y) - min(F_model)
+            offset = min(F_true.values()) - min(F_model)
             return [f + offset for f in F_model]
 
         sidx0 = np.argsort(F_model)
@@ -341,7 +431,7 @@ class SurrogatePopulation:
                 ))  # take also last few
             if iloop == 0:
                 self.logger.add(tau)
-            if _kendalltau(sidx0, sidx)[0] > self.change_threshold and tau > self.truth_threshold:
+            if _kendalltau(sidx0, sidx)[0] > self.change_threshold and tau > self.tau_truth_threshold:
                 break
             sidx0 = sidx
             # TODO: we could also reconsider the order eidx which to compute next
@@ -366,17 +456,10 @@ class SurrogatePopulation:
             # model.set_xoffset(model.xopt)
             return [F_true[i] for i in range(len(X))]
 
-        # get argmin(F_true)
-        # i_min, f_min = min(F_true.items(), key=lambda x: x[1])  # is about 1.5 times slower
-        f_min = np.inf
-        for i in F_true:
-            if F_true[i] < f_min:
-                i_min, f_min = i, F_true[i]
-
-        # mix F_model and F_true
+        # mix F_model and F_true?
         # TODO (depending on correlation threshold that rarely happens anyways):
         #     correct for false model ranks, but how?
-        offset = F_true[i_min] - min(F_model)  # such that no value is below F_true[i_min]
+        offset = min(F_true.values()) - min(F_model)  # such that no value is below F_true[i_min]
         return [F_model[i] + offset for i in range(len(X))]
 
 class ModelInjectionCallback:
@@ -498,43 +581,45 @@ class Model:
                  max_relative_size=3,
                  min_relative_size=1.5,
                  max_absolute_size=None,
+                 min_absolute_size=None
                  ):
         """
 
-        :param max_relative_size:
-        :param max_absolute_size:
-        :param min_relative_size:
-
-
         Increase model complexity if the number of data exceeds
-        ``min_relative_size * df_bigger_model_type``.
+        ``max(min_relative_size * df_biggest_model_type, self.min_absolute_size)``.
 
         Limit the number of kept data
         ``max(max_absolute_size, max_relative_size * max_df)``.
 
         """
-        self.allow_full = True
         self.disallowed_types = []
+        self.f_transformation = False
         self.max_weight = 20  # min weight is one
         self.max_relative_size = max_relative_size
         self.min_relative_size = min_relative_size
         self.max_absolute_size = max_absolute_size \
                                    if max_absolute_size is not None else 0
+        "take max((max_absolute, df * max_relative))"
+        self.min_absolute_size =  min_absolute_size \
+                                   if min_absolute_size is not None else 0
+        "take max((min_absolute, df * min_relative)) as minimum"
         if not 0 < min_relative_size <= max_relative_size:
             raise ValueError(
                 'need max_relative_size=%f >= min_relative_size=%f >= 1' %
                 (max_relative_size, min_relative_size))
-        self._fieldnames = ['X', 'Y', 'Z', 'counts', 'hashes']
+        self._fieldnames = ['X', 'F', 'Y', 'Z', 'counts', 'hashes']
         self.logger = Logger(self, ['logging_trace'],
                              labels=[# 'H(X[0]-X[1])', 'H(X[0]-Xopt)',
                                      '||X[0]-X[1]||^2', '||X[0]-Xopt||^2'])
-        self.log_eigenvalues = Logger(self, ['eigenvalues'], name='Modeleigenvalues')
+        self.log_eigenvalues = Logger(self, ['eigenvalues'],
+                                      name='Modeleigenvalues')
         self.reset()
 
     def reset(self):
         for name in self._fieldnames:
-            setattr(self, name, deque())
+            setattr(self, name, [])
         self.types = []  # ['quadratic', 'full']
+        self.type_updates = defaultdict(list)  # for the record only
         self._type = 'linear'  # not in use yet
         "the model can have several types, for the time being"
         self.count = 0  # number of overall data seen
@@ -593,6 +678,7 @@ class Model:
                 and type not in self.disallowed_types):
                 self.types.append(type)
                 self.reset_Z()
+                self.type_updates[self.count] += [type]
                 # print(self.count, self.types)
 
     def _prune(self):
@@ -602,7 +688,9 @@ class Model:
                 getattr(self, name).pop()
 
     def prune(self):
-        remove = int(self.size - max((self.max_size, self.max_df * self.min_relative_size - 1)))
+        remove = int(self.size - max((self.max_size,
+                                      self.min_absolute_size,
+                                      self.max_df * self.min_relative_size)))
         if remove <= 0:
             return
         for name in self._fieldnames:
@@ -623,10 +711,12 @@ class Model:
             # x = np.asarray(x)
             self.X.insert(0, x)
             self.Z.insert(0, self.expand_x(x))
+            self.F.insert(0, f)
             self.Y.insert(0, f)
         else:  # in 10D reduces time in ﻿numpy.core.multiarray.array by a factor of five from 2nd to 8th largest consumer
             self.X = np.vstack([x] + ([self.X] if self.count > 1 else []))
             self.Z = np.vstack([self.expand_x(x)] + ([self.Z] if self.count > 1 else []))
+            self.F = np.hstack([f] + ([self.F] if self.count > 1 else []))
             self.Y = np.hstack([f] + ([self.Y] if self.count > 1 else []))
         self.counts.insert(0, self.count)
         self.hashes.insert(0, hash)
@@ -634,6 +724,8 @@ class Model:
         self.update_type()
         if prune:
             self.prune()
+        if self.f_transformation:
+            self.Y = self.f_transformation(self.F)
         return self
 
     def add_data(self, X, Y, prune=True):
@@ -700,8 +792,7 @@ class Model:
 
     def reset_Z(self):
         """set x-values Z attribute"""
-        self.Z = deque(self.expand_x(x) for x in self.X)
-        self.Z = np.asarray(deque(self.expand_x(x) for x in self.X))
+        self.Z = np.asarray([self.expand_x(x) for x in self.X])
         self._coefficients_count = -1
         self._xopt_count = -1
 
@@ -926,6 +1017,10 @@ class Model:
                     self._opt = np.zeros(self.dim)
                     self._opt = np.random.randn(self.dim)
         return self._xopt
+
+    @property
+    def minY(self):
+        return min(self.F)
 
     @property
     def eigenvalues(self):
