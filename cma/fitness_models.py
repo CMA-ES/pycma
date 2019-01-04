@@ -186,7 +186,9 @@ class Settings:
     parameters/settings of a class from its variables and (ii) to be
     flexibility as to which of these parameters are arguments to
     ``__init__``. Parameters can always be modified after instantiation
-    as well.
+    as well. Further advantages are (a) no typing of ``self.`` to
+    assign the default or the passed value (b) no confusing name change
+    between passed option and parameter name.
 
     Usage: define a bunch of parameters in a derived parameter class:
 
@@ -223,46 +225,42 @@ class Settings:
 
     """
     def __init__(self, params, number_of_params, obj):
-        self.params = dict(params)
-        self.number_of_params = number_of_params
+        self.inparams = dict(params)
+        self._number_of_params = number_of_params
         self.obj = obj
-        self.params.pop('self', None)
-        self.set_from_defaults()
-        self.set_from_input()
-    def set_from_defaults(self):
+        self.inparams.pop('self', None)
+        self._set_from_defaults()
+        self._set_from_input()
+    def _set_from_defaults(self):
         self.__dict__.update(((key, val)
                               for (key, val) in type(self).__dict__.items()
                               if not key.startswith('_')))
-    def set_from_input(self):
+    def _set_from_input(self):
         """TODO: we would like to select only the last arguments
         of obj.__init__.__func__.__code__.co_varnames
         which have defaults obj.__init__.__func__.__defaults__ (we do
         not need the defaults)"""
         discarded = {}
-        for key in list(self.params):
+        for key in list(self.inparams):
             if key not in self.__dict__ or key in self.obj.__dict__:
-                discarded[key] = self.params.pop(key)
-        if len(self.params) != self.number_of_params:
+                discarded[key] = self.inparams.pop(key)
+        if len(self.inparams) != self._number_of_params:
             warnings.warn("%d parameters desired; remaining: %s; discarded: %s "
-                          % (self.number_of_params, str(self.params),
+                          % (self._number_of_params, str(self.inparams),
                              str(discarded)))
-#            warnings.warn("%d parameters desired, %s remaining %s discarded"
-#                          % (key, self.__class__))
-        self.__dict__.update(self.params)
+        self.__dict__.update(self.inparams)
+        delattr(self, 'obj')  # set only once
 
 class SurrogatePopulationSettings(Settings):
-    """not in use yet"""
-    minimum_model_size = 3  # was: 2 in experiments 5 and 6
+    minimum_model_size = 3  # absolute minimum number of true valuations before to build the model
     n_for_tau = lambda popsi: max((10, int(popsi / 2)))
-    minimum_n_for_tau = 10  # was: n=5 and truth_threshold 0.9 which fails with linear-only model on Rosenbrock, n=10 and 0.8 still works
-    maximum_n_for_tau = lambda popsi: 1 * popsi + 10 + int(popsi / 3)
-    model_sort_is_local = False
+    # maximum_n_for_tau = lambda popsi: 1 * popsi + minimum_n_for_tau + int(popsi / 3)
+    model_sort_globally = True
     return_true_fitnesses = True  # TODO: change name, return true fitness if all solutions are evaluated
-    model_size_factor = None
-    add_xopt_condition = None
+    model_max_size_factor = 3  # times popsize, this is big!?
     change_threshold = -1.0  # tau between previous and new model; was: 0.8
-    tau_truth_threshold = None  # tau between model and ground truth
-
+    tau_truth_threshold = 0.85  # tau between model and ground truth
+    add_xopt_condition = False  # not in use
 
 class SurrogatePopulation:
     """surrogate f-values for a population.
@@ -315,36 +313,20 @@ class SurrogatePopulation:
     def __init__(self,
                  fitness,
                  model=None,
-                 model_size_factor=3,
-                 tau_truth_threshold=0.85,
-                 add_xopt_condition=False):
+                 model_max_size_factor=SurrogatePopulationSettings.model_max_size_factor,
+                 tau_truth_threshold=SurrogatePopulationSettings.tau_truth_threshold,
+                 add_xopt_condition=SurrogatePopulationSettings.add_xopt_condition):
         """
-
-        :param fitness:
-        :param model: fitness function model
-        :param model_size_factor: population size multiplier to possibly increase the maximal model size
-        :param tau_truth_threshold:
-        :param add_xopt_condition: add xopt in the end if model condition number is smaller
 
         If ``model is None``, a default `Model` instance is used. By
         setting `self.model` to `None`, only the `fitness` for each
         population member is evaluated in each call.
 
         """
-        self.model = model if model else Model()
         self.fitness = fitness
+        self.model = model if model else Model()
         # set 3 parameters of settings from locals() which are not attributes of self
         self.settings = SurrogatePopulationSettings(locals(), 3, self)  # not in use yet
-        self.minimum_model_size = 3  # was: 2 in experiments 5 and 6
-        self.n_for_tau = lambda popsi: max((10, int(popsi / 2)))
-        self.minimum_n_for_tau = 10  # was: n=5 and truth_threshold 0.9 which fails with linear-only model on Rosenbrock, n=10 and 0.8 still works
-        self.maximum_n_for_tau = lambda popsi: 1 * popsi + self.minimum_n_for_tau + int(popsi / 3)
-        self.model_sort_is_local = False
-        self.return_true_fitnesses = True  # TODO: change name, return true fitness if all solutions are evaluated
-        self.model_size_factor = model_size_factor
-        self.add_xopt_condition = add_xopt_condition
-        self.change_threshold = -1.0  # tau between previous and new model; was: 0.8
-        self.tau_truth_threshold = tau_truth_threshold  # tau between model and ground truth
         self.count = 0
         self.last_evaluations = 0
         self.evaluations = 0
@@ -360,14 +342,14 @@ class SurrogatePopulation:
         if self.model is None:
             return [self.fitness(x) for x in X]
         model = self.model
-        if self.model_size_factor * len(X) > 1.1 * model.max_absolute_size:
-            model.max_absolute_size = self.model_size_factor * len(X)
+        if self.settings.model_max_size_factor * len(X) > 1.1 * model.max_absolute_size:
+            model.max_absolute_size = self.settings.model_max_size_factor * len(X)
             model.min_absolute_size = max((model.min_absolute_size, len(X)))
             model.reset()
         F_true = {}
         # need at least two evaluations for a non-flat linear model
         for k in range(len(X)):
-            if len(model.X) >= self.minimum_model_size:
+            if len(model.X) >= self.settings.minimum_model_size:
                 break
             F_true[k] = self.fitness(X[k])
             model.add_data_row(X[k], F_true[k], prune=False)
@@ -392,7 +374,7 @@ class SurrogatePopulation:
         i1 = 0  # i1-1 is last evaluation index
         for iloop in range(len(eidx)):
             i0 = i1
-            i1 += int(np.ceil(0.5 * i1)) if i1 else 1
+            i1 += int(np.ceil(0.5 * i1)) if i1 else int(1 + len(X) / 100)
             """multiply with 1.5 and take ceil
                 [1, 2, 3, 5, 8, 12, 18, 27, 41, 62, 93, 140, 210, 315, 473]
                 +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
@@ -406,7 +388,7 @@ class SurrogatePopulation:
             model.prune()
             if i1 >= len(eidx):
                 assert len(F_true) == len(X)
-                if not self.return_true_fitnesses:
+                if not self.settings.return_true_fitnesses:
                     F_model = [model.eval(x) for x in X]
                 break
             assert i1 < len(eidx)  # just a reminder
@@ -421,29 +403,29 @@ class SurrogatePopulation:
             # TODO (minor): we would not need to recompute model.eval(X)
             # TODO: with large popsize we do not want all solutions in kendall, but only the best popsize/3 of this iteration?
 
-            tau = model.kendall(self.n_for_tau(len(X)))
+            tau = model.kendall(self.settings.n_for_tau(len(X)))
             if 11 < 3:  # TODO: remove soon (cross check performance though)
                 print(tau, model._old_kendall(
-                [F_true[k] for k in sorted(F_true)[:self.maximum_n_for_tau(len(X))]],  # sorted is used to get k in a deterministic order
+                [F_true[k] for k in sorted(F_true)[:self.settings.maximum_n_for_tau(len(X))]],  # sorted is used to get k in a deterministic order
                 [X[k] for k in sorted(F_true)],
-                self.minimum_n_for_tau - len(F_true),
+                self.settings.minimum_n_for_tau - len(F_true),
                 # [F_model[k] for k in sorted(F_true)  # check that this is correct
                 ))  # take also last few
             if iloop == 0:
                 self.logger.add(tau)
-            if _kendalltau(sidx0, sidx)[0] > self.change_threshold and tau > self.tau_truth_threshold:
+            if tau > self.settings.tau_truth_threshold:  # and _kendalltau(sidx0, sidx)[0] > self.settings.change_threshold
                 break
             sidx0 = sidx
             # TODO: we could also reconsider the order eidx which to compute next
 
-        if not self.model_sort_is_local:
+        if self.settings.model_sort_globally:
             self.model.sort()
         self.logger.add(tau)
         self.last_evaluations = len(F_true)
         self.evaluations += self.last_evaluations
-        if self.add_xopt_condition >= 1:  # this fails, because xopt may be very far astray
+        if 11 < 3 and self.settings.add_xopt_condition >= 1:  # this fails, because xopt may be very far astray
             evs = sorted(model.eigenvalues)
-            if evs[0] > 0 and evs[-1] <= self.add_xopt_condition * evs[0]:
+            if evs[0] > 0 and evs[-1] <= self.settings.add_xopt_condition * evs[0]:
                 model.add_data_row(model.xopt, self.fitness(model.xopt))
                 self.evaluations += 1
                 F_model = [model.eval(x) for x in X]
@@ -452,7 +434,7 @@ class SurrogatePopulation:
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
         self.logger.add(self.last_evaluations / len(X))
         self.logger.push()  # TODO: check that we do not miss anything below
-        if len(X) == len(F_true) and self.return_true_fitnesses:
+        if len(X) == len(F_true) and self.settings.return_true_fitnesses:
             # model.set_xoffset(model.xopt)
             return [F_true[i] for i in range(len(X))]
 
