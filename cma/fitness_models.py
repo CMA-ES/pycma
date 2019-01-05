@@ -265,6 +265,7 @@ class SurrogatePopulationSettings(Settings):
     model_max_size_factor = 2  # times popsize, 3 is big!?
     model_min_size_factor = 0.5
     tau_truth_threshold = 0.85  # tau between model and ground truth
+    min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
     model_sort_globally = True
     return_true_fitnesses = True  # return true fitness if all solutions are evaluated
     add_xopt_condition = False  # not in use
@@ -384,7 +385,7 @@ class SurrogatePopulation:
         i1 = 0  # i1-1 is last evaluation index
         for iloop in range(len(eidx)):
             i0 = i1
-            i1 += int(np.ceil(0.5 * i1)) if i1 else int(1 + len(X) / 100)
+            i1 += int(np.ceil(0.5 * i1)) if i1 else int(1 + len(X) * self.settings.min_evals_percent / 100)
             """multiply with 1.5 and take ceil
                 [1, 2, 3, 5, 8, 12, 18, 27, 41, 62, 93, 140, 210, 315, 473]
                 +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
@@ -425,7 +426,7 @@ class SurrogatePopulation:
                 self.logger.add(tau)
             if tau > self.settings.tau_truth_threshold:  # and _kendalltau(sidx0, sidx)[0] > self.settings.change_threshold
                 break
-            sidx0 = sidx
+            sidx0 = sidx  # is never used
             # TODO: we could also reconsider the order eidx which to compute next
 
         if self.settings.model_sort_globally:
@@ -918,6 +919,11 @@ class Model:
         if not np.isfinite(self.tau.tau):
             self.tau.tau = 0
         return self.tau.tau
+
+    def isin(self, x):
+        """return False if `x` is not (anymore) in the model archive"""
+        hash = self._hash(x)
+        return self.hashes.index(hash) + 1 if hash in self.hashes else False
 
     def _hash(self, x):
         return x[0], sum(x[1:])
