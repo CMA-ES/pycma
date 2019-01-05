@@ -178,7 +178,7 @@ class Logger:
 
 _Logger = Logger  # to reset Logger in doctest
 
-class Settings:
+class Settings(object):
     """somewhat resembling `types.SimpleNamespace` from Python >=3.3
     and the `dataclass` decorator from Python >=3.7.
 
@@ -261,7 +261,7 @@ class Settings:
 
 class SurrogatePopulationSettings(Settings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
-    n_for_tau = lambda popsi: max((10, int(popsi / 2)))
+    n_for_tau = lambda popsi: max((10, int(popsi / 1)))
     model_max_size_factor = 2  # times popsize, 3 is big!?
     model_min_size_factor = 0.5
     tau_truth_threshold = 0.85  # tau between model and ground truth
@@ -305,7 +305,7 @@ class SurrogatePopulation:
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
-    >>> for fitfun, evals in [[cma.ff.elli, 22], [cma.ff.ellirot, 40]]:
+    >>> for fitfun, evals in [[FFun(cma.ff.elli), 22], [FFun(cma.ff.ellirot), 40]]:
     ...     surrogate = fm.SurrogatePopulation(fitfun)
     ...     inject_xopt = fm.ModelInjectionCallback(surrogate.model)  # must use the same model
     ...     xopt, es = cma.fmin2(None, 5 * [1], 2.2,
@@ -314,6 +314,7 @@ class SurrogatePopulation:
     ...                      parallel_objective=surrogate,
     ...                      callback=inject_xopt)
     ...     # print(fitfun.evaluations)
+    ...     assert fitfun.evaluations == es.result.evaluations
     ...     assert es.result[1] < 1e-12
     ...     assert es.result[2] < evals
     >>> fm.Logger = fm._Logger
@@ -338,10 +339,49 @@ class SurrogatePopulation:
         # set 3 parameters of settings from locals() which are not attributes of self
         self.settings = SurrogatePopulationSettings(locals(), 4, self)  # not in use yet
         self.count = 0
-        self.last_evaluations = 0
         self.evaluations = 0
         self.logger = Logger(self, labels=['tau0', 'tau1', 'evaluated ratio'])
         self.logger_eigenvalues = Logger(self.model, ['eigenvalues'])
+
+    class FContainer:
+        def __init__(self, X):
+            self.X = X
+            self.evaluated = len(X) * [False]
+            self.fvalues = len(X) * [np.nan]
+        def eval(self, i, fitness, model):
+            self.fvalues[i] = fitness(self.X[i])
+            self.evaluated[i] = True
+            model.add_data_row(self.X[i], self.fvalues[i])
+        def eval_sequence(self, idx, number, fitness, model):
+            """evaluate the unevaluated entries of X[idx] until overall
+            `number` entries are evaluated.
+
+            Assumes that set(X[idx]) == set(X).
+
+            ``idx`` defines the evaluation sequence, post condition is
+            ``sum(self.evaluated) == min(number, len(self.X))``.
+            """
+            assert len(idx) == len(self.evaluated)
+            n = sum(self.evaluated)
+            for i in idx:
+                if n >= number:
+                    break
+                if not self.evaluated[i]:
+                    self.eval(i, fitness, model)
+                    n += 1
+        def svalues(self, model):
+            """assumes that model and `evaluated` is not empty"""
+            if sum(self.evaluated) == len(self.X):
+                return self.fvalues
+            F_model = [model.eval(x) for x in self.X]
+            offset = np.nanmin(self.fvalues) - min(F_model)
+            return [f + offset for f in F_model]
+        @property
+        def evaluations(self):
+            return sum(self.evaluated)
+        @property
+        def remaining(self):
+            return len(self.X) - sum(self.evaluated)
 
     def __call__(self, X):
         """return population f-values.
@@ -368,6 +408,7 @@ class SurrogatePopulation:
         model.prune()
         F_model = [model.eval(x) for x in X]
         if F_true:  # go with minimum model size for one iteration
+            self.evaluations += len(F_true)
             offset = min(F_true.values()) - min(F_model)
             return [f + offset for f in F_model]
 
@@ -432,8 +473,7 @@ class SurrogatePopulation:
         if self.settings.model_sort_globally:
             self.model.sort()
         self.logger.add(tau)
-        self.last_evaluations = len(F_true)
-        self.evaluations += self.last_evaluations
+        self.evaluations += len(F_true)
         if 11 < 3 and self.settings.add_xopt_condition >= 1:  # this fails, because xopt may be very far astray
             evs = sorted(model.eigenvalues)
             if evs[0] > 0 and evs[-1] <= self.settings.add_xopt_condition * evs[0]:
@@ -443,7 +483,7 @@ class SurrogatePopulation:
         if self.evaluations == 0:  # can currently not happen
             # a hack to have some grasp on zero evaluations from outside
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
-        self.logger.add(self.last_evaluations / len(X))
+        self.logger.add(len(F_true) / len(X))
         self.logger.push()  # TODO: check that we do not miss anything below
         if len(X) == len(F_true) and self.settings.return_true_fitnesses:
             # model.set_xoffset(model.xopt)
