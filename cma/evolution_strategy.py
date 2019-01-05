@@ -2252,13 +2252,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             xmean = self.mean  # might have changed in self.ask
         X = []
         if parallel_mode:
+            if hasattr(func, 'evaluations'):
+                evals0 = func.evaluations
             fit_first = func(X_first, *args)
             # the rest is only book keeping and warnings spitting
-            if hasattr(func, 'last_evaluations'):
-                self.countevals += func.last_evaluations - self.popsize
-            elif hasattr(func, 'evaluations'):
-                if self.countevals < func.evaluations:
-                    self.countevals = func.evaluations - self.popsize
+            if hasattr(func, 'evaluations'):
+                self.countevals += func.evaluations - evals0 - self.popsize  # why not .sp.popsize ?
             if nmirrors and self.opts['CMA_mirrormethod'] > 0 and self.countiter < 2:
                 utils.print_warning(
                     "selective mirrors will not work in parallel mode",
