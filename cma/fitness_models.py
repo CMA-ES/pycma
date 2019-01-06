@@ -190,6 +190,8 @@ class Settings(object):
     assign the default or the passed value (b) no confusing name change
     between passed option and parameter name.
 
+    It is not possible to overwrite a default value with `None`.
+
     Usage: define a bunch of parameters in a derived parameter class:
 
     >>> import cma.fitness_models as fm
@@ -225,12 +227,27 @@ class Settings(object):
 
     """
     def __init__(self, params, number_of_params, obj):
+        """
+
+        :param params: A dictionary containing the parameters to set/overwrite
+        :param number_of_params: Number of parameters to set/overwrite
+        :param obj: elements of obj.__dict__ are on the ignore list.
+        """
         self.inparams = dict(params)
         self._number_of_params = number_of_params
         self.obj = obj
         self.inparams.pop('self', None)
         self._set_from_defaults()
         self._set_from_input()
+
+    def __str__(self):
+        # works with print:
+        return ("{" +
+                '\n'.join(r"%s: %s" % (str(k), str(v))
+                          for k, v in self.items()) +
+                "}")
+        return str(self.__dict__)
+
     def _set_from_defaults(self):
         self.__dict__.update(((key, val)
                               for (key, val) in type(self).__dict__.items()
@@ -245,13 +262,12 @@ class Settings(object):
         which have defaults obj.__init__.__func__.__defaults__ (we do
         not need the defaults)
         """
-        discarded = {}
+        discarded = {}  # discard name if not in self.__dict__
         for key in list(self.inparams):
             if key not in self.__dict__ or key in self.obj.__dict__:
                 discarded[key] = self.inparams.pop(key)
             elif self.inparams[key] is not None:
                 setattr(self, key, self.inparams[key])
-                # conditional self.__dict__.update(self.inparams)
         if len(self.inparams) != self._number_of_params:
             warnings.warn("%d parameters desired; remaining: %s; discarded: %s "
                           % (self._number_of_params, str(self.inparams),
@@ -261,14 +277,14 @@ class Settings(object):
 
 class SurrogatePopulationSettings(Settings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
-    n_for_tau = lambda popsi: max((10, int(popsi / 1)))
+    n_for_tau = lambda popsi: max((10, int(0.75 * popsi / 1)))
     model_max_size_factor = 2  # times popsize, 3 is big!?
-    model_min_size_factor = 0.5
+    # model_min_size_factor = 0.5
     tau_truth_threshold = 0.85  # tau between model and ground truth
     min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
     model_sort_globally = True
     return_true_fitnesses = True  # return true fitness if all solutions are evaluated
-    add_xopt_condition = False  # not in use
+    # add_xopt_condition = False  # not in use
     change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
 
 class SurrogatePopulation:
@@ -324,9 +340,10 @@ class SurrogatePopulation:
                  fitness,
                  model=None,
                  model_max_size_factor=None,
-                 model_min_size_factor=None,
+                 # model_min_size_factor=None,
                  tau_truth_threshold=None,
-                 add_xopt_condition=None):
+                 # add_xopt_condition=None,
+                 ):
         """
 
         If ``model is None``, a default `Model` instance is used. By
@@ -337,13 +354,18 @@ class SurrogatePopulation:
         self.fitness = fitness
         self.model = model if model else Model()
         # set 3 parameters of settings from locals() which are not attributes of self
-        self.settings = SurrogatePopulationSettings(locals(), 4, self)  # not in use yet
+        self.settings = SurrogatePopulationSettings(locals(), 2, self)  # not in use yet
         self.count = 0
         self.evaluations = 0
         self.logger = Logger(self, labels=['tau0', 'tau1', 'evaluated ratio'])
         self.logger_eigenvalues = Logger(self.model, ['eigenvalues'])
 
     class FContainer:
+        """Manage incremental evaluation of a population of solutions.
+
+        Evaluate solutions and add them into the model and keep track of
+        evaluated solutions.
+        """
         def __init__(self, X):
             self.X = X
             self.evaluated = len(X) * [False]
@@ -353,7 +375,7 @@ class SurrogatePopulation:
             self.evaluated[i] = True
             model.add_data_row(self.X[i], self.fvalues[i])
         def eval_sequence(self, idx, number, fitness, model):
-            """evaluate the unevaluated entries of X[idx] until overall
+            """evaluate unevaluated entries of X[idx] until overall
             `number` entries are evaluated.
 
             Assumes that set(X[idx]) == set(X).
@@ -369,21 +391,74 @@ class SurrogatePopulation:
                 if not self.evaluated[i]:
                     self.eval(i, fitness, model)
                     n += 1
-        def svalues(self, model):
+        def svalues(self, model, true_values_if_all_available=True):
             """assumes that model and `evaluated` is not empty"""
-            if sum(self.evaluated) == len(self.X):
+            if true_values_if_all_available and sum(self.evaluated) == len(self.X):
                 return self.fvalues
             F_model = [model.eval(x) for x in self.X]
-            offset = np.nanmin(self.fvalues) - min(F_model)
+            offset = np.nanmin(self.fvalues) - np.nanmin(F_model)
             return [f + offset for f in F_model]
         @property
         def evaluations(self):
             return sum(self.evaluated)
         @property
         def remaining(self):
+            """number of not yet evaluated solutions"""
             return len(self.X) - sum(self.evaluated)
 
     def __call__(self, X):
+        """return population f-values.
+
+        The smallest value is never smaller than a truly evaluated value.
+
+        """
+        model = self.model
+        if self.settings.model_max_size_factor * len(X) > 1.1 * model.settings.max_absolute_size:
+            model.settings.max_absolute_size = self.settings.model_max_size_factor * len(X)
+            # model.reset()  # no need to reset, but it also should not be a problem after once calling model.add...
+        evals = SurrogatePopulation.FContainer(X)
+        self.evals = evals  # for the record
+
+        # make minimum_model_size unconditional evals in the first call and quit
+        if len(model.X) < self.settings.minimum_model_size:
+            for i in range(self.settings.minimum_model_size - len(model.X)):
+                evals.eval(i, self.fitness, model)
+            self.evaluations += evals.evaluations
+            if self.settings.model_sort_globally:
+                model.sort()
+            return evals.svalues(model, self.settings.return_true_fitnesses)
+
+        number_evaluated = int(1 + len(X) * self.settings.min_evals_percent / 100)
+        first_path = True
+        while evals.remaining:
+            idx = np.argsort([model.eval(x) for x in X])  # like previously, move down to recompute indices
+            evals.eval_sequence(idx, number_evaluated, self.fitness, model)
+            model.sort(number_evaluated)  # makes only a difference if elements of X are pushed out on later adds
+            # model.sort()
+            tau = model.kendall(self.settings.n_for_tau(len(X)))
+            if first_path:
+                self.logger.add(tau)  # log first tau
+                first_path = False
+            if tau >= self.settings.tau_truth_threshold:
+                break
+            number_evaluated += int(np.ceil(0.5 * number_evaluated))
+            """multiply with 1.5 and take ceil
+                [1, 2, 3, 5, 8, 12, 18, 27, 41, 62, 93, 140, 210, 315, 473]
+                +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
+            """
+
+        if self.settings.model_sort_globally:
+            model.sort()
+        self.logger.add(tau)  # log last tau
+        self.evaluations += evals.evaluations
+        if self.evaluations == 0:  # can currently not happen
+            # a hack to have some grasp on zero evaluations from outside
+            self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
+        self.logger.add(evals.evaluations / len(X))
+        self.logger.push()  # TODO: check that we do not miss anything below
+        return evals.svalues(model, self.settings.return_true_fitnesses)
+
+    def old__call__(self, X):
         """return population f-values.
 
         The smallest value is never smaller than a truly evaluated value.
