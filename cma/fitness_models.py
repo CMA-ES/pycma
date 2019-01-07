@@ -173,61 +173,61 @@ class Logger:
             plot(range(1, n + 1), self.data[:, i],
                  label=self.labels[i] if i < len(self.labels) else None)
             plt.gca().get_lines()[0].set_color(next(color))
-        plt.legend()
+        plt.legend(framealpha=0.3)  # more opaque than not
         return self
 
 _Logger = Logger  # to reset Logger in doctest
 
-class Settings(object):
+class DefaultSettings(object):
     """somewhat resembling `types.SimpleNamespace` from Python >=3.3
-    and the `dataclass` decorator from Python >=3.7.
+    but with instantiation and even more the `dataclass` decorator from
+    Python >=3.7.
+
+    ``MyClassSettings(DefaultSettings)`` is used like:
+
+    >>> class MyClass:
+    ...     def __init__(self, a, b=None, param1=None, c=3):
+    ...         self.settings = MyClassSettings(locals(), 1, self)
+
+    The `1` signals, purely for consistency checking, that one parameter
+    defined in ``MyClassSettings`` is to be set. The settings may be
+    defined like
+
+    >>> from cma.fitness_models import DefaultSettings
+    >>> class MyClassSettings(DefaultSettings):
+    ...     param1 = 123
+    ...     val2 = False
+    ...     another_par = None  # we need to assign at least None always
 
     The main purpose is, with the least effort, (i) to separate
-    parameters/settings of a class from its variables and (ii) to be
-    flexibility as to which of these parameters are arguments to
-    ``__init__``. Parameters can always be modified after instantiation
-    as well. Further advantages are (a) no typing of ``self.`` to
-    assign the default or the passed value (b) no confusing name change
-    between passed option and parameter name.
+    parameters/settings of a class from its remaining attributes, and (ii) to be
+    flexible as to which of these parameters are arguments to ``__init__``.
+    Parameters can always be modified after instantiation. Further advantages
+    are (a) no typing of ``self.`` to assign the default value or the passed
+    parameter value (the latter do not even be assigned) and (b) no confusing
+    name change between the passed option and attribute name.
 
-    It is not possible to overwrite a default value with `None`.
+    It is not possible to overwrite the default value with `None`.
 
     Usage: define a bunch of parameters in a derived parameter class:
 
-    >>> import cma.fitness_models as fm
-    >>> class MyClassSettings(fm.Settings):
-    ...     param1 = True
-    ...     param2 = False
-    ...     param3 = None  # need to assign at least None always
-
-    Now we assign a settings (or parameters) attribute in the
-    ``__init__` of the target class, which should here use (only) one
-    value from the input arguments list and doesn't use any names
-    which are already defined in ``self.__dict__``:
-
-    >>> class MyClass:
-    ...     def __init__(self, param1=MyClassSettings.param1):
-    ...         self.settings = MyClassSettings(locals(), 1, self)
+    Now we assign a settings (or parameters) attribute in the ``__init__` of the
+    target class, which should here use (only) one value from the input
+    arguments list and doesn't use any names which are already defined in
+    ``self.__dict__``:
 
     Now any of these parameters can be used or re-assigned like:
 
-    >>> c = MyClass()
-    >>> c.settings.param1 is True
+    >>> c = MyClass(0.1)
+    >>> c.settings.param1 == 123
     True
-    >>> c = MyClass(param1=False)
+    >>> c = MyClass(2, param1=False)
     >>> c.settings.param1 is False
     True
 
-    FIXME (is this fixable?): we either need to write
-    ``param1=MyClassSettings.param1`` or ``param1=True``, both is some
-    sort of code duplication.
-
-    FIXME: for the time being we use ``kwargs`` instead of ``**kwargs``,
-    because ``locals()`` also contains `self`.
-
     """
     def __init__(self, params, number_of_params, obj):
-        """
+        """Overwrite default settings in case.
 
         :param params: A dictionary containing the parameters to set/overwrite
         :param number_of_params: Number of parameters to set/overwrite
@@ -249,6 +249,7 @@ class Settings(object):
         return str(self.__dict__)
 
     def _set_from_defaults(self):
+        """defaults are taken from the class attributes"""
         self.__dict__.update(((key, val)
                               for (key, val) in type(self).__dict__.items()
                               if not key.startswith('_')))
@@ -275,11 +276,10 @@ class Settings(object):
         # self.__dict__.update(self.inparams)
         delattr(self, 'obj')  # set only once
 
-class SurrogatePopulationSettings(Settings):
+class SurrogatePopulationSettings(DefaultSettings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
     n_for_tau = lambda popsi: max((10, int(0.75 * popsi / 1)))
     model_max_size_factor = 2  # times popsize, 3 is big!?
-    # model_min_size_factor = 0.5
     tau_truth_threshold = 0.85  # tau between model and ground truth
     min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
     model_sort_globally = True
@@ -570,6 +570,10 @@ class SurrogatePopulation:
         offset = min(F_true.values()) - min(F_model)  # such that no value is below F_true[i_min]
         return [F_model[i] + offset for i in range(len(X))]
 
+class ModelInjectionCallbackSettings(DefaultSettings):
+    sigma_distance_lower_threshold = 0  # 0 == never decrease sigma
+    sigma_factor = 1 / 1.1
+
 class ModelInjectionCallback:
     """inject `model.xopt` and decrease `sigma` if `mean` is close to `model.xopt`.
 
@@ -577,28 +581,27 @@ class ModelInjectionCallback:
 
     Sigma decrease saves (only) 30% on the 10-D ellipsoid.
     """
-    def __init__(self, model, sigma_distance_lower_threshold=0, sigma_factor=1/1.1):
+    def __init__(self, model):
         """sigma_distance_lower_threshold=0 means decrease never"""
         self.update_model = False  # do not when es.fit.fit is based on surrogate values itself
         self.model = model
-        self.sigma_distance_threshold = sigma_distance_lower_threshold
-        self.sigma_factor = sigma_factor
         self.logger = Logger(self)
+        self.settings = ModelInjectionCallbackSettings(locals(), 0, self)
     def __call__(self, es):
         if self.update_model:
             self.model.add_data(es.pop_sorted, es.fit.fit)
         es.inject([self.model.xopt])
         xdist = es.mahalanobis_norm(self.model.xopt - es.mean)
-        self.logger.add(self.sigma_distance_threshold * es.N**0.5 / es.sp.weights.mueff)
-        if xdist < self.sigma_distance_threshold * es.N**0.5 / es.sp.weights.mueff:
-            es.sigma *= self.sigma_factor
+        self.logger.add(self.settings.sigma_distance_lower_threshold * es.N**0.5 / es.sp.weights.mueff)
+        if xdist < self.settings.sigma_distance_lower_threshold * es.N**0.5 / es.sp.weights.mueff:
+            es.sigma *= self.settings.sigma_factor
             self.logger.add(xdist).push()
         else:
             self.logger.add(-xdist).push()
 
 class Tau: "placeholder to store Kendall tau related things"
 
-class ModelSettings(Settings):
+class ModelSettings(DefaultSettings):
     max_relative_size = 3  # times self.max_df limit archive size
     min_relative_size = 1.5  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
@@ -612,7 +615,6 @@ class ModelSettings(Settings):
                 'need max_relative_size=%f >= min_relative_size=%f >= 1' %
                 (self.max_relative_size, self.min_relative_size))
         return self
-
 
 class Model:
     """Up to a full quadratic model using the pseudo inverse to compute
