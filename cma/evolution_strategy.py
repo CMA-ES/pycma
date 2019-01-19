@@ -201,7 +201,7 @@ from . import optimization_tools as ot
 from . import sampler
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform
 from .recombination_weights import RecombinationWeights
-from .logger import CMADataLogger, disp, plot
+from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import pprint
@@ -474,7 +474,7 @@ cma_default_options = {
     'verbose': '3  #v verbosity e.g. of initial/final message, -1 is very quiet, -9 maximally quiet, may not be fully implemented',
     'verb_append': '0  # initial evaluation counter, if append, do not overwrite output files',
     'verb_disp': '100  #v verbosity: display console output every verb_disp iteration',
-    'verb_filenameprefix': 'outcma/cma  # output path and filenames prefix',
+    'verb_filenameprefix': CMADataLogger.default_prefix + '  # output path and filenames prefix',
     'verb_log': '1  #v verbosity: write data to files every verb_log iteration, writing can be time critical on fast to evaluate functions',
     'verb_plot': '0  #v in fmin(): plot() is called every verb_plot iteration',
     'verb_time': 'True  #v output timings on console',
@@ -4184,10 +4184,10 @@ def fmin(objective_function, x0, sigma0,
         ### 4560
         # TODO refine output, can #args be flexible?
         # is this well usable as it is now?
-    else:  # except KeyboardInterrupt:  # Exception, e:
+    else:  # except KeyboardInterrupt:  # Exception as e:
         if eval(str(options['verb_disp'])) > 0:
             print(' in/outcomment ``raise`` in last line of cma.fmin to prevent/restore KeyboardInterrupt exception')
-        raise  # cave: swallowing this exception can silently mess up experiments, if ctrl-C is hit
+        raise KeyboardInterrupt  # cave: swallowing this exception can silently mess up experiments, if ctrl-C is hit
 
 
 # BEGIN cmaplt.py

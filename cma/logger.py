@@ -79,8 +79,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # class properties:
 #        if isinstance(name_prefix, CMAEvolutionStrategy):
 #            name_prefix = name_prefix.opts.eval('verb_filenameprefix')
-        self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix
-                if name_prefix else CMADataLogger.default_prefix)))
+        if name_prefix is None:
+            name_prefix = CMADataLogger.default_prefix
+        self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
         if name_prefix is not None and name_prefix.endswith((os.sep, '/')):
             self.name_prefix = self.name_prefix + os.sep
         self.file_names = ('axlen', 'axlencorr', 'fit', 'stddev', 'xmean',
@@ -933,8 +934,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
             if np.isnan(val):
                 dat.f[0, i] = dat.f[1, i]
         minfit = np.nanmin(dat.f[:, 5])
-        dfit = dat.f[:, 5] - minfit  # why not using idx?
-        dfit[dfit < 1e-98] = np.NaN
+        dfit1 = dat.f[:, 5] - minfit  # why not using idx?
+        dfit1[dfit1 < 1e-98] = np.NaN
+        dfit2 = dat.f[:, 5] - dat.f[-1, 5]
+        dfit2[dfit2 < 1e-28] = np.NaN
 
         self._enter_plotting()
         if dat.f.shape[1] > 7:
@@ -1007,43 +1010,47 @@ class CMADataLogger(interfaces.BaseDataLogger):
              fontsize=fontsize)
 
         # delta-fitness in cyan
-        idx = np.isfinite(dfit)
-        if any(idx):
-            idx_nan = _where(~idx)[0]  # gaps
-            if not len(idx_nan):  # should never happen
+        for dfit, label in [
+            [dfit2, r'$f_\mathsf{best} - f_\mathsf{last}$'],
+            [dfit1, r'$f_\mathsf{best} - f_\mathsf{min}$']]:
+            idx = np.isfinite(dfit)
+            if any(idx):
+                idx_nan = _where(~idx)[0]  # gaps
+                if not len(idx_nan):  # should never happen
+                    semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
+                else:
+                    i_start = 0
+                    for i_end in idx_nan:
+                        if i_end > i_start:
+                            semilogy(dat.f[:, iabscissa][i_start:i_end],
+                                                    dfit[i_start:i_end], '-c')
+                        i_start = i_end + 1
+                    if len(dfit) > idx_nan[-1] + 1:
+                        semilogy(dat.f[:, iabscissa][idx_nan[-1]+1:],
+                                                dfit[idx_nan[-1]+1:], '-c')
+                text(dat.f[idx, iabscissa][-1], dfit[idx][-1],
+                     label, fontsize=fontsize + 2)
+
+            elif 11 < 3 and any(idx):
                 semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
-            else:
-                i_start = 0
-                for i_end in idx_nan:
-                    if i_end > i_start:
-                        semilogy(dat.f[:, iabscissa][i_start:i_end],
-                                                dfit[i_start:i_end], '-c')
-                    i_start = i_end + 1
-                if len(dfit) > idx_nan[-1] + 1:
-                    semilogy(dat.f[:, iabscissa][idx_nan[-1]+1:],
-                                            dfit[idx_nan[-1]+1:], '-c')
-            text(dat.f[idx, iabscissa][-1], dfit[idx][-1],
-                 r'best', fontsize=fontsize + 2)
+                text(dat.f[idx, iabscissa][-1], dfit[idx][-1],
+                     r'$f_\mathsf{best} - \min(f)$', fontsize=fontsize + 2)
 
-        elif 11 < 3 and any(idx):
-            semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
-            text(dat.f[idx, iabscissa][-1], dfit[idx][-1],
-                 r'$f_\mathsf{best} - \min(f)$', fontsize=fontsize + 2)
+            if 11 < 3:  # delta-fitness as points
+                dfit = dat.f[1:, 5] - dat.f[:-1, 5]  # should be negative usually
+                semilogy(dat.f[1:, iabscissa],  # abs(fit(g) - fit(g-1))
+                    np.abs(dfit) + foffset, '.c')
+                i = dfit > 0
+                # print(np.sum(i) / float(len(dat.f[1:,iabscissa])))
+                semilogy(dat.f[1:, iabscissa][i],  # abs(fit(g) - fit(g-1))
+                    np.abs(dfit[i]) + foffset, '.r')
+            # postcondition: dfit, idx = dfit1, ...
 
-        if 11 < 3:  # delta-fitness as points
-            dfit = dat.f[1:, 5] - dat.f[:-1, 5]  # should be negative usually
-            semilogy(dat.f[1:, iabscissa],  # abs(fit(g) - fit(g-1))
-                np.abs(dfit) + foffset, '.c')
-            i = dfit > 0
-            # print(np.sum(i) / float(len(dat.f[1:,iabscissa])))
-            semilogy(dat.f[1:, iabscissa][i],  # abs(fit(g) - fit(g-1))
-                np.abs(dfit[i]) + foffset, '.r')
-
-        # overall minimum
+        # fat red dot for overall minimum
         i = np.argmin(dat.f[:, 5])
         semilogy(dat.f[i, iabscissa], np.abs(dat.f[i, 5]), 'ro',
                  markersize=9)
-        if any(idx):
+        if any(idx):  # another fat red dot
             semilogy(dat.f[i, iabscissa], dfit[idx][np.argmin(dfit[idx])]
                  + 1e-98, 'ro', markersize=9)
         # semilogy(dat.f[-1, iabscissa]*np.ones(2), dat.f[-1,4]*np.ones(2), 'rd')
