@@ -272,6 +272,8 @@ class Function(object):
         """
         self.__callable = fitness_function  # this naming prevents interference with a derived class variable
         self.evaluations = 0
+        self.ftarget = -np.inf
+        self.target_hit_at = 0  # evaluation counter when target was first hit
         self.__initialized = True
 
     def __call__(self, *args, **kwargs):
@@ -294,9 +296,10 @@ class Function(object):
         if callable_ is not None:
             X, list_revert = utils.as_vector_list(args[0])
             self.evaluations += len(X)
-            return list_revert([
-                    callable_(np.asarray(x), *args[1:], **kwargs)
-                    for x in X])
+            F = [callable_(np.asarray(x), *args[1:], **kwargs) for x in X]
+            if not self.target_hit_at and any(np.asarray(F) <= self.ftarget):
+                self.target_hit_at = self.evaluations - len(X) + 1 + list(np.asarray(F) <= self.ftarget).index(True)
+            return list_revert(F)
         else:
             self.evaluations += 1  # somewhat bound to fail
 
