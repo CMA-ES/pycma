@@ -11,6 +11,41 @@ from scipy.stats import kendalltau as _kendalltau
 from .utilities import utils
 
 
+def kendall_tau(x, y):
+    """return Kendall tau rank correlation coefficient.
+
+    Implemented only to potentially remove dependency on `scipy.stats`.
+
+    This
+
+    >>> import numpy as np
+    >>> from cma.fitness_models import kendall_tau
+    >>> kendalltau = lambda x, y: (kendall_tau(x, y), 0)
+    >>> from scipy.stats import kendalltau  # incomment if not available
+    >>> for dim in np.random.randint(3, 22, 5):
+    ...     x, y = np.random.randn(dim), np.random.randn(dim)
+    ...     t1, t2 = kendall_tau(x, y), kendalltau(x, y)[0]
+    ...     # print(t1, t2)
+    ...     assert np.isclose(t1, t2)
+
+    """
+    equal_correction = 1 / 2
+    assert len(x) == len(y)
+    x, y = np.asarray(x), np.asarray(y)
+    s = 0
+    for i in range(len(x)):
+        if 1 < 3:  # 20 times faster with len(x)=200
+            dx = np.sign(x[i] - x[:i])
+            dy = np.sign(y[i] - y[:i])
+            s += sum(dx * dy)
+            if equal_correction:
+                s += equal_correction * sum((dx == 0) * (dy == 0))
+        else:
+            for j in range(i):
+                s += np.sign(x[i] - x[j]) * np.sign(y[i] - y[j])
+    return s * 2. / (len(x) * (len(x) - 1))
+
+
 class LoggerDummy:
     """use to fake a `Logger` in non-verbose setting"""
     def __init__(self, *args, **kwargs):
@@ -30,7 +65,7 @@ class LoggerDummy:
 class Logger:
     """log an arbitrary number of data (a data row) per "timestep".
 
-    The `stack` method can be called several times per timestep, the
+    The `add` method can be called several times per timestep, the
     `push` method must be called once per timestep. `load` and `plot`
     will only work if each time the same number of data was pushed.
 
@@ -270,16 +305,16 @@ class DefaultSettings(object):
             elif self.inparams[key] is not None:
                 setattr(self, key, self.inparams[key])
         if len(self.inparams) != self._number_of_params:
-            warnings.warn("%d parameters desired; remaining: %s; discarded: %s "
-                          % (self._number_of_params, str(self.inparams),
+            warnings.warn("%s: %d parameters desired; remaining: %s; discarded: %s "
+                          % (str(type(self)), self._number_of_params, str(self.inparams),
                              str(discarded)))
         # self.__dict__.update(self.inparams)
         delattr(self, 'obj')  # set only once
 
 class SurrogatePopulationSettings(DefaultSettings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
-    n_for_tau = lambda popsi: max((10, int(0.75 * popsi / 1)))
-    model_max_size_factor = 2  # times popsize, 3 is big!?
+    n_for_tau = lambda popsi, nevaluated: int(max((15, min((1.5 * nevaluated, 0.75 * popsi)))))
+    model_max_size_factor = 3  # times popsize, 3 is big!?
     tau_truth_threshold = 0.85  # tau between model and ground truth
     min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
     model_sort_globally = True
@@ -314,10 +349,10 @@ class SurrogatePopulation:
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)
+    ...     print(fitfun.evaluations)  # was: 12, 161, 18 131 (and even smaller)
     ...     assert 'ftarget' in es.stop()
     18
-    131
+    150
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -365,6 +400,8 @@ class SurrogatePopulation:
 
         Evaluate solutions and add them into the model and keep track of
         evaluated solutions.
+
+        Uses `model.add_data_row` and `model.eval`.
         """
         def __init__(self, X):
             self.X = X
@@ -411,11 +448,13 @@ class SurrogatePopulation:
 
         The smallest value is never smaller than a truly evaluated value.
 
+        Uses: `model.settings.max_absolute_size`, `len(model.X)`, `model.sort`, `model.eval`
+
         """
         model = self.model
         if self.settings.model_max_size_factor * len(X) > 1.1 * model.settings.max_absolute_size:
             model.settings.max_absolute_size = self.settings.model_max_size_factor * len(X)
-            # model.reset()  # no need to reset, but it also should not be a problem after once calling model.add...
+            model.reset()  # reset, because the population size changed
         evals = SurrogatePopulation.FContainer(X)
         self.evals = evals  # for the record
 
@@ -435,7 +474,7 @@ class SurrogatePopulation:
             evals.eval_sequence(idx, number_evaluated, self.fitness, model)
             model.sort(number_evaluated)  # makes only a difference if elements of X are pushed out on later adds
             # model.sort()
-            tau = model.kendall(self.settings.n_for_tau(len(X)))
+            tau = model.kendall(self.settings.n_for_tau(len(X), evals.evaluations))
             if first_path:
                 self.logger.add(tau)  # log first tau
                 first_path = False
@@ -449,6 +488,7 @@ class SurrogatePopulation:
 
         if self.settings.model_sort_globally:
             model.sort()
+        model.adapt_max_relative_size(tau)
         self.logger.add(tau)  # log last tau
         self.evaluations += evals.evaluations
         if self.evaluations == 0:  # can currently not happen
@@ -530,10 +570,10 @@ class SurrogatePopulation:
             # TODO (minor): we would not need to recompute model.eval(X)
             # TODO: with large popsize we do not want all solutions in kendall, but only the best popsize/3 of this iteration?
 
-            tau = model.kendall(self.settings.n_for_tau(len(X)))
+            tau = model.kendall(self.settings.n_for_tau(len(X), evals.evaluations))
             if 11 < 3:  # TODO: remove soon (cross check performance though)
                 print(tau, model._old_kendall(
-                [F_true[k] for k in sorted(F_true)[:self.settings.maximum_n_for_tau(len(X))]],  # sorted is used to get k in a deterministic order
+                [F_true[k] for k in sorted(F_true)[:self.settings.maximum_n_for_tau(len(X), evals.evaluations)]],  # sorted is used to get k in a deterministic order
                 [X[k] for k in sorted(F_true)],
                 self.settings.minimum_n_for_tau - len(F_true),
                 # [F_model[k] for k in sorted(F_true)  # check that this is correct
@@ -602,7 +642,10 @@ class ModelInjectionCallback:
 class Tau: "placeholder to store Kendall tau related things"
 
 class ModelSettings(DefaultSettings):
-    max_relative_size = 3  # times self.max_df limit archive size
+    max_relative_size_init = 1.5  # times self.max_df: initial limit archive size
+    max_relative_size_end = 3  # times self.max_df: limit archive size
+    max_relative_size_factor = 1.1  # factor to increment max_relevative_size
+    tau_threshold_for_model_increase = 0.5
     min_relative_size = 1.5  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
     max_weight = 20  # min weight is one
@@ -610,10 +653,10 @@ class ModelSettings(DefaultSettings):
     f_transformation = False  # a simultanious transformation of all Y values
 
     def _checking(self):
-        if not 0 < self.min_relative_size <= self.max_relative_size:
+        if not 0 < self.min_relative_size <= self.max_relative_size_init <= self.max_relative_size_end:
             raise ValueError(
-                'need max_relative_size=%f >= min_relative_size=%f >= 1' %
-                (self.max_relative_size, self.min_relative_size))
+                'need max_relative_size_end=%f >= max_relative_size_init=%f >= min_relative_size=%f >= 0' %
+                (self.max_relative_size_end, self.max_relative_size_init, self.min_relative_size))
         return self
 
 class Model:
@@ -641,7 +684,7 @@ class Model:
     ...  -2.40000000e+00,  -2.40000000e+03,  -2.40000000e+06,
     ...   1.00000000e+00,   1.00000000e+03,   1.00000000e+06,
     ...  -4.65661287e-10,  -6.98491931e-10,   1.97906047e-09,
-    ...   ])
+    ...   ], atol=1e-5)
     >>> assert np.allclose(m.xopt, [ 1.2,  1.2,  1.2])
     >>> assert np.allclose(m.xopt, [ 1.2,  1.2,  1.2])
 
@@ -704,7 +747,8 @@ class Model:
         raise NotImplementedError
 
     def __init__(self,
-                 max_relative_size=None,    # when to prune, only applicable after last model switch
+                 max_relative_size_init=None,    # when to prune, only applicable after last model switch
+                 max_relative_size_end=None,
                  min_relative_size=None,  # when to switch to next model
                  max_absolute_size=None, # maximum archive size
                  ):
@@ -717,7 +761,7 @@ class Model:
         ``max(max_absolute_size, max_relative_size * max_df)``.
 
         """
-        self.settings = ModelSettings(locals(), 3, self)._checking()
+        self.settings = ModelSettings(locals(), 4, self)._checking()
         self._fieldnames = ['X', 'F', 'Y', 'Z', 'counts', 'hashes']
         self.logger = Logger(self, ['logging_trace'],
                              labels=[# 'H(X[0]-X[1])', 'H(X[0]-Xopt)',
@@ -734,6 +778,7 @@ class Model:
         self._type = 'linear'  # not in use yet
         "the model can have several types, for the time being"
         self.count = 0  # number of overall data seen
+        self.max_relative_size = self.settings.max_relative_size_init
         self._coefficients_count = -1
         self._xopt_count = -1
         self._xoffset = 0
@@ -760,7 +805,7 @@ class Model:
     @property
     def max_size(self):
         return max((self.complexity[self.known_types[-1]](self.dim) *
-                        self.settings.max_relative_size,
+                        self.max_relative_size,
                     self.settings.max_absolute_size))
 
     @property
@@ -893,6 +938,11 @@ class Model:
             Y = list(self.Y)
             self._sort(number)
             assert Y == list(self.Y)
+
+    def adapt_max_relative_size(self, tau):
+        if len(self.types) == len(self.known_types) and tau < self.settings.tau_threshold_for_model_increase:
+            self.max_relative_size = min((self.settings.max_relative_size_end,
+                                self.settings.max_relative_size_factor * self.max_relative_size))
 
     def xmean(self):
         return np.mean(self.X, axis=0)
@@ -1141,3 +1191,4 @@ class Model:
     @property
     def eigenvalues(self):
         return sorted(np.linalg.eigvals(self.hessian))
+
