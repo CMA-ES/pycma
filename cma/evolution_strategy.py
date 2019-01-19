@@ -914,7 +914,8 @@ else:
             'evaluations',
             'iterations',
             'xfavorite',
-            'stds'
+            'stds',
+            'stop',
         ])):
         """A results tuple from `CMAEvolutionStrategy` property ``result``.
 
@@ -934,6 +935,7 @@ else:
           dimension**0.5 / min(popsize / 2, dimension) / 5, where
           dimension = CMAEvolutionStrategy.N and mueff =
           CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
+        - 7 ``stop`` termination conditions in a dictionary
 
         The best solution of the last completed iteration can be accessed via
         attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy` and the
@@ -1107,7 +1109,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> es.optimize(cma.ff.elli, verb_disp=1)  # doctest: +ELLIPSIS
     Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]
         1      8 2.09...
-    >>> assert len(es.result) == 7
+    >>> assert len(es.result) == 8
     >>> assert es.result[1] < 1e-9
 
     The optimization loop can also be written explicitly:
@@ -1254,7 +1256,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
       200 ...
     >>> assert es.result[2] < 15000
     >>> assert cma.s.Mh.vequals_approximately(es.result[0], 12 * [1], 1e-5)
-    >>> assert len(es.result) == 7
+    >>> assert len(es.result) == 8
 
     Details
     =======
@@ -2809,7 +2811,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.countiter,
             self.gp.pheno(self.mean),
             self.gp.scales * self.sigma * self.sigma_vec.scaling *
-                self.dC**0.5)
+                self.dC**0.5,
+            self.stop())
         try:
             return CMAEvolutionStrategyResult(*res)
         except NameError:
@@ -3403,7 +3406,7 @@ class _CMAStopDict(dict):
             # noeffectaxis (CEC: 0.1sigma), noeffectcoord (CEC:0.2sigma), conditioncov
             idx = np.nonzero(es.mean == es.mean + 0.2 * es.sigma *
                              es.sigma_vec.scaling * es.dC**0.5)[0]
-            self._addstop('noeffectcoord', any(idx), idx)
+            self._addstop('noeffectcoord', any(idx), list(idx))
 #                         any([es.mean[i] == es.mean[i] + 0.2 * es.sigma *
 #                                                         (es.sigma_vec if np.isscalar(es.sigma_vec) else es.sigma_vec[i]) *
 #                                                         sqrt(es.dC[i])
@@ -3713,6 +3716,7 @@ def fmin2(*args, **kwargs):
     return res[0], res[-2]
 
 
+all_stoppings = []  # accessable via cma.evolution_strategy.all_stoppings, bound to change
 def fmin(objective_function, x0, sigma0,
          options=None,
          args=(),
@@ -3965,6 +3969,7 @@ def fmin(objective_function, x0, sigma0,
 
         irun = 0
         best = ot.BestSolution()
+        all_stoppings = []
         while True:  # restart loop
             sigma_factor = 1
 
@@ -4164,6 +4169,7 @@ def fmin(objective_function, x0, sigma0,
             irun += 1
             # if irun > fmin_opts['restarts'] or 'ftarget' in es.stop() \
             # if irun > restarts or 'ftarget' in es.stop() \
+            all_stoppings.append(dict(es.stop(check=False)))  # keeping the order
             if irun - runs_with_small > fmin_opts['restarts'] or 'ftarget' in es.stop() \
                     or 'maxfevals' in es.stop(check=False) or 'callback' in es.stop(check=False):
                 break
