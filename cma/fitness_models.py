@@ -313,11 +313,11 @@ class DefaultSettings(object):
 
 class SurrogatePopulationSettings(DefaultSettings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
-    n_for_tau = lambda popsi, nevaluated: int(max((15, min((1.5 * nevaluated, 0.75 * popsi)))))
-    model_max_size_factor = 3  # times popsize, 3 is big!?
+    n_for_tau = lambda popsi, nevaluated: int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
+    model_max_size_factor = 2  # times popsize, 3 is big!?
     tau_truth_threshold = 0.85  # tau between model and ground truth
     min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
-    model_sort_globally = True
+    model_sort_globally = True  # harmful under noise?
     return_true_fitnesses = True  # return true fitness if all solutions are evaluated
     # add_xopt_condition = False  # not in use
     change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
@@ -349,10 +349,10 @@ class SurrogatePopulation:
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: 12, 161, 18 131 (and even smaller)
+    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59
     ...     assert 'ftarget' in es.stop()
-    18
-    150
+    15
+    59
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -642,11 +642,11 @@ class ModelInjectionCallback:
 class Tau: "placeholder to store Kendall tau related things"
 
 class ModelSettings(DefaultSettings):
-    max_relative_size_init = 1.5  # times self.max_df: initial limit archive size
-    max_relative_size_end = 3  # times self.max_df: limit archive size
-    max_relative_size_factor = 1.1  # factor to increment max_relevative_size
+    max_relative_size_init = 1.2  # times self.max_df: initial limit archive size
+    max_relative_size_end = 2  # times self.max_df: limit archive size
+    max_relative_size_factor = 1.05  # factor to increment max_relevative_size
     tau_threshold_for_model_increase = 0.5
-    min_relative_size = 1.5  # earliest when to switch to next model complexity
+    min_relative_size = 1.1  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
     max_weight = 20  # min weight is one
     disallowed_types = ()
