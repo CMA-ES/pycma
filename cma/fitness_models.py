@@ -30,6 +30,7 @@ def kendall_tau(x, y):
 
     """
     equal_correction = 1 / 2
+
     assert len(x) == len(y)
     x, y = np.asarray(x), np.asarray(y)
     s = 0
@@ -43,6 +44,8 @@ def kendall_tau(x, y):
         else:
             for j in range(i):
                 s += np.sign(x[i] - x[j]) * np.sign(y[i] - y[j])
+                if equal_correction:
+                    s += equal_correction * (x[i] == x[j]) * (y[i] == y[j])
     return s * 2. / (len(x) * (len(x) - 1))
 
 
@@ -214,19 +217,21 @@ class Logger:
 _Logger = Logger  # to reset Logger in doctest
 
 class DefaultSettings(object):
-    """somewhat resembling `types.SimpleNamespace` from Python >=3.3
-    but with instantiation and even more the `dataclass` decorator from
-    Python >=3.7.
+    """resembling somewhat `types.SimpleNamespace` from Python >=3.3
+    but with instantiation and resembling even more the `dataclass` decorator
+    from Python >=3.7.
 
-    ``MyClassSettings(DefaultSettings)`` is used like:
+    ``MyClassSettings(DefaultSettings)`` is preferably used by assigning a settings
+    attribute in ``__init__`` like:
 
     >>> class MyClass:
     ...     def __init__(self, a, b=None, param1=None, c=3):
     ...         self.settings = MyClassSettings(locals(), 1, self)
 
-    The `1` signals, purely for consistency checking, that one parameter
-    defined in ``MyClassSettings`` is to be set. The settings may be
-    defined like
+    The `1` signals, purely for consistency checking, that one parameter defined
+    in ``MyClassSettings`` is to be set. ``MyClassSettings`` doesn't use any
+    names which are already defined in ``self.__dict__``. The settings are
+    defined in a derived parameter class like
 
     >>> from cma.fitness_models import DefaultSettings
     >>> class MyClassSettings(DefaultSettings):
@@ -239,19 +244,13 @@ class DefaultSettings(object):
     flexible as to which of these parameters are arguments to ``__init__``.
     Parameters can always be modified after instantiation. Further advantages
     are (a) no typing of ``self.`` to assign the default value or the passed
-    parameter value (the latter do not even be assigned) and (b) no confusing
-    name change between the passed option and attribute name.
+    parameter value (the latter are assigned "automatically") and (b) no
+    confusing name change between the passed option and attribute name is
+    possible.
 
-    It is not possible to overwrite the default value with `None`.
+    The class does not allow to overwrite the default value with `None`.
 
-    Usage: define a bunch of parameters in a derived parameter class:
-
-    Now we assign a settings (or parameters) attribute in the ``__init__` of the
-    target class, which should here use (only) one value from the input
-    arguments list and doesn't use any names which are already defined in
-    ``self.__dict__``:
-
-    Now any of these parameters can be used or re-assigned like:
+    Now any of these parameters can be used or re-assigned like
 
     >>> c = MyClass(0.1)
     >>> c.settings.param1 == 123
@@ -264,9 +263,9 @@ class DefaultSettings(object):
     def __init__(self, params, number_of_params, obj):
         """Overwrite default settings in case.
 
-        :param params: A dictionary containing the parameters to set/overwrite
+        :param params: A dictionary (usually locals()) containing the parameters to set/overwrite
         :param number_of_params: Number of parameters to set/overwrite
-        :param obj: elements of obj.__dict__ are on the ignore list.
+        :param obj: elements of obj.__dict__ are in the ignore list.
         """
         self.inparams = dict(params)
         self._number_of_params = number_of_params
@@ -276,12 +275,8 @@ class DefaultSettings(object):
         self._set_from_input()
 
     def __str__(self):
-        # works with print:
-        return ("{" +
-                '\n'.join(r"%s: %s" % (str(k), str(v))
-                          for k, v in self.items()) +
-                "}")
-        return str(self.__dict__)
+        # return str(self.__dict__)
+        return ("{" + '\n'.join(r"%s: %s" % (str(k), str(v)) for k, v in self.items()) + "}")
 
     def _set_from_defaults(self):
         """defaults are taken from the class attributes"""
@@ -309,7 +304,7 @@ class DefaultSettings(object):
                           % (str(type(self)), self._number_of_params, str(self.inparams),
                              str(discarded)))
         # self.__dict__.update(self.inparams)
-        delattr(self, 'obj')  # set only once
+        delattr(self, 'obj')  # prevent circular reference self.obj.settings where settings is self
 
 class SurrogatePopulationSettings(DefaultSettings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
@@ -388,8 +383,8 @@ class SurrogatePopulation:
         """
         self.fitness = fitness
         self.model = model if model else Model()
-        # set 3 parameters of settings from locals() which are not attributes of self
-        self.settings = SurrogatePopulationSettings(locals(), 2, self)  # not in use yet
+        # set 2 parameters of settings from locals() which are not attributes of self
+        self.settings = SurrogatePopulationSettings(locals(), 2, self)
         self.count = 0
         self.evaluations = 0
         self.logger = Logger(self, labels=['tau0', 'tau1', 'evaluated ratio'])
@@ -398,39 +393,46 @@ class SurrogatePopulation:
     class FContainer:
         """Manage incremental evaluation of a population of solutions.
 
-        Evaluate solutions and add them into the model and keep track of
-        evaluated solutions.
+        Evaluate solutions, add them to the model and keep track of which
+        solutions were evaluated.
 
         Uses `model.add_data_row` and `model.eval`.
         """
         def __init__(self, X):
+            """all is based on the population (list of solutions) `X`"""
             self.X = X
             self.evaluated = len(X) * [False]
             self.fvalues = len(X) * [np.nan]
         def eval(self, i, fitness, model):
+            """add fitness(self.X[i]) to model data"""
+            assert not self.evaluated[i]  # need to decide what to do in this case
             self.fvalues[i] = fitness(self.X[i])
             self.evaluated[i] = True
             model.add_data_row(self.X[i], self.fvalues[i])
         def eval_sequence(self, idx, number, fitness, model):
-            """evaluate unevaluated entries of X[idx] until overall
-            `number` entries are evaluated.
+            """evaluate unevaluated entries of X[idx] until `number` entries are
+            evaluated *overall*.
 
-            Assumes that set(X[idx]) == set(X).
+            Assumes that ``sorted(idx) == list(range(len(self.X)))``.
 
-            ``idx`` defines the evaluation sequence, post condition is
-            ``sum(self.evaluated) == min(number, len(self.X))``.
+            ``idx`` defines the evaluation sequence.
+
+            The post condition is ``self.evaluations == min(number, len(self.X))``.
             """
-            assert len(idx) == len(self.evaluated)
-            n = sum(self.evaluated)
+            assert len(idx) == len(self.evaluated) == len(self.X)
+            if not self.evaluations < number <= len(self.X):
+                warnings.warn("Expected evaluations=%d < number=%d <= %d=popsize"
+                              % (self.evaluations, number, len(self.X)))
+            self.last_evaluations = number - self.evaluations  # used in surrogate loop
             for i in idx:
-                if n >= number:
+                if self.evaluations >= number:
                     break
                 if not self.evaluated[i]:
                     self.eval(i, fitness, model)
-                    n += 1
-        def svalues(self, model, true_values_if_all_available=True):
+            assert self.evaluations == number or self.evaluations == len(self.X) < number
+        def surrogate_values(self, model, true_values_if_all_available=True):
             """assumes that model and `evaluated` is not empty"""
-            if true_values_if_all_available and sum(self.evaluated) == len(self.X):
+            if true_values_if_all_available and self.evaluations == len(self.X):
                 return self.fvalues
             F_model = [model.eval(x) for x in self.X]
             offset = np.nanmin(self.fvalues) - np.nanmin(F_model)
@@ -451,12 +453,14 @@ class SurrogatePopulation:
         Uses: `model.settings.max_absolute_size`, `len(model.X)`, `model.sort`, `model.eval`
 
         """
-        model = self.model
-        if self.settings.model_max_size_factor * len(X) > 1.1 * model.settings.max_absolute_size:
+        model = self.model  # convenience shortcut
+        # a trick to see whether the population size has increased (from a restart)
+        # max_absolute_size is by default initialized with zero
+        if self.settings.model_max_size_factor * len(X) > model.settings.max_absolute_size:
             model.settings.max_absolute_size = self.settings.model_max_size_factor * len(X)
             model.reset()  # reset, because the population size changed
         evals = SurrogatePopulation.FContainer(X)
-        self.evals = evals  # for the record
+        self.evals = evals  # only for the record
 
         # make minimum_model_size unconditional evals in the first call and quit
         if len(model.X) < self.settings.minimum_model_size:
@@ -465,22 +469,19 @@ class SurrogatePopulation:
             self.evaluations += evals.evaluations
             if self.settings.model_sort_globally:
                 model.sort()
-            return evals.svalues(model, self.settings.return_true_fitnesses)
+            return evals.surrogate_values(model, self.settings.return_true_fitnesses)
 
         number_evaluated = int(1 + len(X) * self.settings.min_evals_percent / 100)
-        first_path = True
         while evals.remaining:
             idx = np.argsort([model.eval(x) for x in X])  # like previously, move down to recompute indices
             evals.eval_sequence(idx, number_evaluated, self.fitness, model)
-            model.sort(number_evaluated)  # makes only a difference if elements of X are pushed out on later adds
-            # model.sort()
+            model.sort(number_evaluated)  # makes only a difference if elements of X are pushed out on later adds in evals
             tau = model.kendall(self.settings.n_for_tau(len(X), evals.evaluations))
-            if first_path:
+            if evals.last_evaluations == number_evaluated:  # first call to evals.eval_sequence
                 self.logger.add(tau)  # log first tau
-                first_path = False
             if tau >= self.settings.tau_truth_threshold:
                 break
-            number_evaluated += int(np.ceil(0.5 * number_evaluated))
+            number_evaluated += int(np.ceil(number_evaluated / 2))
             """multiply with 1.5 and take ceil
                 [1, 2, 3, 5, 8, 12, 18, 27, 41, 62, 93, 140, 210, 315, 473]
                 +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
@@ -495,8 +496,8 @@ class SurrogatePopulation:
             # a hack to have some grasp on zero evaluations from outside
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
         self.logger.add(evals.evaluations / len(X))
-        self.logger.push()  # TODO: check that we do not miss anything below
-        return evals.svalues(model, self.settings.return_true_fitnesses)
+        self.logger.push()
+        return evals.surrogate_values(model, self.settings.return_true_fitnesses)
 
 class ModelInjectionCallbackSettings(DefaultSettings):
     sigma_distance_lower_threshold = 0  # 0 == never decrease sigma
@@ -939,7 +940,7 @@ class Model:
         return self.hashes.index(hash) + 1 if hash in self.hashes else False
 
     def _hash(self, x):
-        return x[0], sum(x[1:])
+        return sum(x)  # with a tuple as hash ``self._hash(x) in self.hashes`` fails under Python 2.6 and 3.4
 
     def mahalanobis_norm_squared(self, dx):
         """caveat: this can be negative because hessian is not guarantied
