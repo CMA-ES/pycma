@@ -5,7 +5,6 @@ functions in `Mh`
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 # from future.builtins.disabled import *  # don't use any function which could lead to different results in Python 2 vs 3
 import numpy as np
-from .utils import rglen
 from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
@@ -423,7 +422,7 @@ class MathHelperFunctions(object):
         if np.isscalar(b):
             m = [max(x, b) for x in vec]
         else:
-            m = [max(vec[i], b[i]) for i in rglen((vec))]
+            m = [max(vec[i], b[i]) for i in range(len((vec)))]
         return m
     @staticmethod
     def minmax(val, min_val, max_val):
@@ -446,7 +445,7 @@ class MathHelperFunctions(object):
         if iss(b):
             return [min(x, b) for x in a]
         else:  # two non-scalars must have the same length
-            return [min(a[i], b[i]) for i in rglen((a))]
+            return [min(a[i], b[i]) for i in range(len((a)))]
     @staticmethod
     def norm(vec, expo=2):
         return sum(vec**expo)**(1 / expo)

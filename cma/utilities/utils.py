@@ -4,11 +4,8 @@ from __future__ import (absolute_import, division, print_function,
                         )  #unicode_literals, with_statement)
 import os, sys, time
 import warnings
-try:
-    from collections import MutableMapping
-except ImportError:
-    MutableMapping = object  # should never be actually used
 from collections import defaultdict  # since Python 2.5
+from collections import MutableMapping  # since Python 2.4?
 import ast  # ast.literal_eval is safe eval
 import numpy as np
 from .python3for2 import range
@@ -31,7 +28,10 @@ global_verbosity = 1
 def is_(var):
     """intuitive handling of variable truth value also for `numpy` arrays.
 
-    caveat: is_([0]) is True
+    Return `True` for any non-empty container, otherwise the truth value of the
+    scalar `var`.
+
+    Caveat of the most unintuitive case: [0] evaluates to True, like [0, 0].
 
     >>> import numpy as np
     >>> from cma.utilities.utils import is_
@@ -450,7 +450,7 @@ class DerivedDictBase(MutableMapping):
 
     """
     def __init__(self, *args, **kwargs):
-        # collections.MutableMapping.__init__(self)
+        # MutableMapping.__init__(self)
         super(DerivedDictBase, self).__init__()
         # super(SolutionDict, self).__init__()  # the same
         self.data = dict()
