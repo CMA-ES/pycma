@@ -48,6 +48,40 @@ def kendall_tau(x, y):
                     s += equal_correction * (x[i] == x[j]) * (y[i] == y[j])
     return s * 2. / (len(x) * (len(x) - 1))
 
+class FitnessFunctionDataQueue:  # TODO: could inherit from fitness_transformations.Function
+    """
+    >>> from cma.fitness_models import FitnessFunctionDataQueue, Model
+    >>> fun = FitnessFunctionDataQueue(lambda x: x[0], 5)
+    >>> for i in range(6):
+    ...     f = fun([i, i+1])
+    >>> assert len(fun.X) == 5
+    >>> m = Model()  # move data into model
+    >>> for x, f in zip(fun.X, fun.F):
+    ...     res = m.add_data_row(x, f)
+    >>> m.size
+    5
+
+    """
+    def __init__(self, fun, max_len=np.inf):
+        """keep max_len last x- and f-values"""
+        self.fun = fun
+        self.max_len = max_len
+        self.reset()
+    def reset(self):
+        self.X = []
+        self.F = []
+        self.evaluations = 0
+    def prune(self):
+        for name in ('X', 'F'):
+            while len(getattr(self, name)) > self.max_len:
+                getattr(self, name).pop(0)
+    def __call__(self, x, *args):
+        f = self.fun(x, *args)
+        self.X.append(list(x))
+        self.F.append(f)
+        self.evaluations += 1
+        self.prune()
+        return f
 
 class LoggerDummy:
     """use to fake a `Logger` in non-verbose setting"""
@@ -600,7 +634,7 @@ class Model:
     Check the Hessian in the rotated case:
 
     >>> fitness = cma.fitness_transformations.Rotated(cma.ff.elli)
-    >>> m = fm.Model(2)
+    >>> m = fm.Model(2, 2)
     >>> for i in range(30):
     ...     x = np.random.randn(4) - 5
     ...     y = fitness(x - 2.2)
