@@ -309,7 +309,7 @@ class DefaultSettings(object):
 class SurrogatePopulationSettings(DefaultSettings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
     n_for_tau = lambda popsi, nevaluated: int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
-    model_max_size_factor = 2  # times popsize, 3 is big!?
+    model_max_size_factor = 1  # times popsize, was: 3
     tau_truth_threshold = 0.85  # tau between model and ground truth
     min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
     model_sort_globally = True  # harmful under noise?
@@ -420,8 +420,8 @@ class SurrogatePopulation:
             The post condition is ``self.evaluations == min(number, len(self.X))``.
             """
             assert len(idx) == len(self.evaluated) == len(self.X)
-            if not self.evaluations < number <= len(self.X):
-                warnings.warn("Expected evaluations=%d < number=%d <= %d=popsize"
+            if not self.evaluations < number:
+                warnings.warn("Expected evaluations=%d < number=%d, popsize=%d"
                               % (self.evaluations, number, len(self.X)))
             self.last_evaluations = number - self.evaluations  # used in surrogate loop
             for i in idx:
@@ -455,10 +455,12 @@ class SurrogatePopulation:
         """
         model = self.model  # convenience shortcut
         # a trick to see whether the population size has increased (from a restart)
-        # max_absolute_size is by default initialized with zero
+        # model.max_absolute_size is by default initialized with zero
+        # TODO: remove dependency on the initial value of model.max_absolute_size
         if self.settings.model_max_size_factor * len(X) > model.settings.max_absolute_size:
+            if model.settings.max_absolute_size:  # do not reset in first call, in case model was initialized meaningfully
+                model.reset()  # reset, because the population size changed
             model.settings.max_absolute_size = self.settings.model_max_size_factor * len(X)
-            model.reset()  # reset, because the population size changed
         evals = SurrogatePopulation.FContainer(X)
         self.evals = evals  # only for the record
 
@@ -531,15 +533,15 @@ class ModelInjectionCallback:
 class Tau: "placeholder to store Kendall tau related things"
 
 class ModelSettings(DefaultSettings):
-    max_relative_size_init = 1.2  # times self.max_df: initial limit archive size
-    max_relative_size_end = 2  # times self.max_df: limit archive size
+    max_relative_size_init = 1.5  # times self.max_df: initial limit archive size
+    max_relative_size_end = 1.5  # times self.max_df: limit archive size
     max_relative_size_factor = 1.05  # factor to increment max_relevative_size
     tau_threshold_for_model_increase = 0.5
     min_relative_size = 1.1  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
     max_weight = 20  # min weight is one
     disallowed_types = ()
-    f_transformation = False  # a simultanious transformation of all Y values
+    f_transformation = False  # a simultaneous transformation of all Y values
 
     def _checking(self):
         if not 0 < self.min_relative_size <= self.max_relative_size_init <= self.max_relative_size_end:
