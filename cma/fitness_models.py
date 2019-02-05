@@ -378,10 +378,10 @@ class SurrogatePopulation:
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59
+    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59, 15 87
     ...     assert 'ftarget' in es.stop()
     15
-    59
+    87
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -469,8 +469,9 @@ class SurrogatePopulation:
             if true_values_if_all_available and self.evaluations == len(self.X):
                 return self.fvalues
             F_model = [model.eval(x) for x in self.X]
-            offset = np.nanmin(self.fvalues) - np.nanmin(F_model)
-            return [f + offset for f in F_model]
+            m_offset = -np.nanmin(F_model)  # must be added first to get close to zero
+            f_offset = np.nanmin(self.fvalues)  # must be added last to prevent numerical erasion
+            return [f + m_offset + f_offset for f in F_model]
         @property
         def evaluations(self):
             return sum(self.evaluated)
@@ -555,6 +556,9 @@ class ModelInjectionCallback:
     def __call__(self, es):
         if self.update_model:
             self.model.add_data(es.pop_sorted, es.fit.fit)
+        if 11 < 3 and not self.model.types:  # no injection in linear case
+            self.logger.add(0).push()
+            return
         es.inject([self.model.xopt])
         xdist = es.mahalanobis_norm(self.model.xopt - es.mean)
         self.logger.add(self.settings.sigma_distance_lower_threshold * es.N**0.5 / es.sp.weights.mueff)
@@ -657,25 +661,25 @@ class Model:
     >>> print(m.types)
     []
     >>> assert np.allclose(m.coefficients, [80, -10, 80, 80])
-    >>> assert np.allclose(m.xopt, [ 50,  -400, -400])  # depends on Hessian
+    >>> assert np.allclose(m.xopt, [22, -159, -159])  # [ 50,  -400, -400])  # depends on Hessian
     >>> fm.Logger = fm._Logger
 
     """
-    complexity = [  # must be ordered by complexity here
+    _complexities = [  # must be ordered by complexity here
         ['quadratic', lambda d: 2 * d + 1],
         ['full', lambda d: d * (d + 3) / 2 + 1]]
-    known_types = [c[0] for c in complexity]
-    complexity = dict(complexity)
+    known_types = [c[0] for c in _complexities]
+    complexity = dict(_complexities)
 
     @property
     def current_complexity(self):
         raise NotImplementedError
 
     def __init__(self,
-                 max_relative_size_init=None,    # when to prune, only applicable after last model switch
+                 max_relative_size_init=None,  # when to prune, only applicable after last model switch
                  max_relative_size_end=None,
                  min_relative_size=None,  # when to switch to next model
-                 max_absolute_size=None, # maximum archive size
+                 max_absolute_size=None,  # maximum archive size
                  ):
         """
 
@@ -1052,19 +1056,23 @@ class Model:
     def xopt(self):
         if self._xopt_count < self.count:
             self._xopt_count = self.count
-            try:
-                self._xopt = np.dot(np.linalg.pinv(self.hessian), self.b / -2.) - self._xoffset
-            except np.linalg.LinAlgError as laerror:
-                warnings.warn('Model.xopt(d=%d,m=%d,n=%d): np.linalg.pinv'
-                              ' raised an exception %s' % (
-                            self.dim or -1,
-                            len(self._coefficients),
-                            self.size,
-                            str(laerror)))
-                if not hasattr(self, '_xopt') and self.dim:
-                    # TODO: zeros is the right choice but is devistatingly good on test functions
-                    self._opt = np.zeros(self.dim)
-                    self._opt = np.random.randn(self.dim)
+            if not self.types:
+                # print(self.coefficients[1:], self.X[0])
+                self._xopt = self.X[0] - 2 * self.coefficients[1:]  # TODO: don't need xoffset here!?
+            else:
+                try:
+                    self._xopt = np.dot(np.linalg.pinv(self.hessian), self.b / -2.) - self._xoffset
+                except np.linalg.LinAlgError as laerror:
+                    warnings.warn('Model.xopt(d=%d,m=%d,n=%d): np.linalg.pinv'
+                                  ' raised an exception %s' % (
+                                self.dim or -1,
+                                len(self._coefficients),
+                                self.size,
+                                str(laerror)))
+                    if not hasattr(self, '_xopt') and self.dim:
+                        # TODO: zeros is the right choice but is devistatingly good on test functions
+                        self._opt = np.zeros(self.dim)
+                        self._opt = np.random.randn(self.dim)
         return self._xopt
 
     @property
