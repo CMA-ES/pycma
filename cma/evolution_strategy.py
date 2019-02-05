@@ -2785,6 +2785,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         """
         for solution in solutions:
+            if solution is None:
+                continue
             if len(solution) != self.N:
                 raise ValueError('method `inject` needs a list or array'
                     + (' each el with dimension (`len`) %d' % self.N))
