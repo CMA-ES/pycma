@@ -809,7 +809,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         from matplotlib import pyplot
         if not hasattr(self, 'std'):
             self.load()
-        dat = self
+        # quick fix of not cp issue without changing much code
+        class _tmp: pass
+        dat = _tmp()
+        dat.std = np.asarray(self.std).copy()
         self._enter_plotting()
         # remove sigma from stds (graphs become much better readible)
         dat.std[:, 5:] = np.transpose(dat.std[:, 5:].T / dat.std[:, 2].T)
