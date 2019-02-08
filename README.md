@@ -1,7 +1,10 @@
 # pycma &nbsp; &nbsp; &nbsp; &nbsp; 
 [![DOI](https://zenodo.org/badge/68926339.svg)](https://doi.org/10.5281/zenodo.2559634) [![CircleCI](https://circleci.com/gh/CMA-ES/pycma/tree/master.svg?style=shield)](https://circleci.com/gh/CMA-ES/pycma/tree/master)
-<!--- 34 points to the latest, this is 35: https://zenodo.org/badge/latestdoi/68926339 --->
+cite as ([BibTeX](http://cma.gforge.inria.fr/pycmabibtex.bib)):
+> Nikolaus Hansen, Youhei Akimoto, and Petr Baudis. CMA-ES/pycma on Github. Zenodo, [DOI:10.5281/zenodo.2559634](https://doi.org/10.5281/zenodo.2559634), February 2019. 
 
+<!--- 34 points to the latest, this is 35: https://zenodo.org/badge/latestdoi/68926339 --->
+  
 A Python implementation of CMA-ES and a few related numerical optimization tools.
 
 The [Covariance Matrix Adaptation Evolution Strategy](https://en.wikipedia.org/wiki/CMA-ES) 
@@ -17,7 +20,7 @@ Useful links:
 
 * [Hints for how to use this (kind of) optimization module in practice](http://cma.gforge.inria.fr/cmaes_sourcecode_page.html#practical)
 
-## Installation of the [latest release](https://pypi.python.org/pypi/cma)
+## Installation of the [(almost) latest release](https://pypi.python.org/pypi/cma)
 
 Type
 ```
