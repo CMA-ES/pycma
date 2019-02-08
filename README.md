@@ -1,4 +1,6 @@
-# pycma
+# pycma &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;[![DOI](https://zenodo.org/badge/68926339.svg)](https://doi.org/10.5281/zenodo.2559634)
+
+<!--- 34 points to the latest, this is 35: https://zenodo.org/badge/latestdoi/68926339 --->
 
 A Python implementation of CMA-ES and a few related numerical optimization tools.
 
