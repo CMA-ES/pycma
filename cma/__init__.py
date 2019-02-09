@@ -89,9 +89,9 @@ From a python shell::
 
 :See also: `fmin` (), `CMAOptions`, `CMAEvolutionStrategy`
 
-:Author: Nikolaus Hansen, 2008-2017
+:Author: Nikolaus Hansen, 2008-
 :Author: Petr Baudis, 2014
-:Author: Youhei Akimoto, 2017
+:Author: Youhei Akimoto, 2017-
 
 :License: BSD 3-Clause, see LICENSE file.
 
@@ -144,7 +144,7 @@ del division, print_function, absolute_import, with_statement  #, unicode_litera
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
 __author__ = 'Nikolaus Hansen'
-__version__ = "2.6.1  $Revision: 4424 $ $Date: 2018-11-18 20:02:58 +0100 (Sun, 18 Nov 2018) $"
+__version__ = "2.7.0  $Revision: 4426 $ $Date: 2019-04-24 18:03:09 +0200 (Wed, 24 Apr 2019) $"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
-# $Id: __init__.py 4424 2018-11-18 19:02:58Z hansen $
+# $Id: __init__.py 4426 2019-04-24 16:03:09Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py

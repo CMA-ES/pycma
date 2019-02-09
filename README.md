@@ -66,6 +66,8 @@ either of these with ``sudo``.
 
 ## Version History
 
+* Version ``2.7.0`` logger now writes into a folder, new fitness model module, various fixes
+
 * Version ``2.6.1`` allow possibly much larger condition numbers, fix corner case with growing more-to-write list.
 
 * Version ``2.6.0`` allows initial solution `x0` to be a callable.
