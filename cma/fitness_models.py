@@ -345,11 +345,12 @@ class SurrogatePopulationSettings(DefaultSettings):
     n_for_tau = lambda popsi, nevaluated: int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
     model_max_size_factor = 1  # times popsize, was: 3
     tau_truth_threshold = 0.85  # tau between model and ground truth
+    tau_truth_threshold_correction = 0  # loosen threshold for increasing evaluations
     min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
     model_sort_globally = True  # harmful under noise?
     return_true_fitnesses = True  # return true fitness if all solutions are evaluated
-    # add_xopt_condition = False  # not in use
-    change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
+    # change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
+    # crazy_sloppy = 0  # number of loops only done on the model, should depend on tau.tau?
 
 class SurrogatePopulation:
     """surrogate f-values for a population.
@@ -406,7 +407,6 @@ class SurrogatePopulation:
                  model_max_size_factor=None,
                  # model_min_size_factor=None,
                  tau_truth_threshold=None,
-                 # add_xopt_condition=None,
                  ):
         """
 
@@ -424,26 +424,35 @@ class SurrogatePopulation:
         self.logger = Logger(self, labels=['tau0', 'tau1', 'evaluated ratio'])
         self.logger_eigenvalues = Logger(self.model, ['eigenvalues'])
 
-    class FContainer:
+    class EvaluationManager:
         """Manage incremental evaluation of a population of solutions.
 
         Evaluate solutions, add them to the model and keep track of which
         solutions were evaluated.
 
         Uses `model.add_data_row` and `model.eval`.
+
+        Details: for simplicity and avoiding the copy construction, we do not
+        inherit from `list`. Hence we use ``self.X`` instead of ``self``.
+
         """
         def __init__(self, X):
             """all is based on the population (list of solutions) `X`"""
             self.X = X
             self.evaluated = len(X) * [False]
             self.fvalues = len(X) * [np.nan]
-        def eval(self, i, fitness, model):
-            """add fitness(self.X[i]) to model data"""
-            assert not self.evaluated[i]  # need to decide what to do in this case
+        def add_eval(self, i, fval):
+            """add fitness(self.X[i]), not in use"""
+            self.fvalues[i] = fval
+            self.evaluated[i] = True
+        def eval(self, i, fitness, model_add):
+            """add fitness(self.X[i]) to model data, mainly for internal use"""
+            if self.evaluated[i]:  # need to decide what to do in this case
+                raise ValueError("i=%d, evals=%d, len=%d" % (i, self.evaluations, len(self)))
             self.fvalues[i] = fitness(self.X[i])
             self.evaluated[i] = True
-            model.add_data_row(self.X[i], self.fvalues[i])
-        def eval_sequence(self, idx, number, fitness, model):
+            model_add(self.X[i], self.fvalues[i])
+        def eval_sequence(self, number, fitness, model_add, idx=None):
             """evaluate unevaluated entries of X[idx] until `number` entries are
             evaluated *overall*.
 
@@ -453,7 +462,9 @@ class SurrogatePopulation:
 
             The post condition is ``self.evaluations == min(number, len(self.X))``.
             """
-            assert len(idx) == len(self.evaluated) == len(self.X)
+            if idx is None:
+                idx = range(len(self.X))
+            assert len(self.evaluated) == len(self.X)
             if not self.evaluations < number:
                 warnings.warn("Expected evaluations=%d < number=%d, popsize=%d"
                               % (self.evaluations, number, len(self.X)))
@@ -462,16 +473,33 @@ class SurrogatePopulation:
                 if self.evaluations >= number:
                     break
                 if not self.evaluated[i]:
-                    self.eval(i, fitness, model)
+                    self.eval(i, fitness, model_add)
+            else:
+                if self.evaluations < number and self.evaluations < len(self.X):
+                    warnings.warn("After eval: evaluations=%d < number=%d, popsize=%d"
+                                  % (self.evaluations, number, len(self.X)))
+                return
             assert self.evaluations == number or self.evaluations == len(self.X) < number
-        def surrogate_values(self, model, true_values_if_all_available=True):
-            """assumes that model and `evaluated` is not empty"""
+        def surrogate_values(self, model_eval, true_values_if_all_available=True,
+                             f_offset=None):
+            """return surrogate values of `model_eval` with smart offset.
+            """
             if true_values_if_all_available and self.evaluations == len(self.X):
                 return self.fvalues
-            F_model = [model.eval(x) for x in self.X]
-            m_offset = -np.nanmin(F_model)  # must be added first to get close to zero
-            f_offset = np.nanmin(self.fvalues)  # must be added last to prevent numerical erasion
-            return [f + m_offset + f_offset for f in F_model]
+            F_model = [model_eval(x) for x in self.X]
+            if f_offset is None:
+                f_offset = np.nanmin(self.fvalues)  # must be added last to prevent numerical erasion
+            if np.isfinite(f_offset):
+                m_offset = np.nanmin(F_model)  # must be subtracted first to get close to zero
+                return [f - m_offset + f_offset for f in F_model]
+            else:
+                return F_model
+        def __len__(self):
+            """should replace ``len(self.X)`` etc, not fully in use yet"""
+            return len(self.fvalues)
+        @property
+        def evaluation_fraction(self):
+            return self.evaluations / len(self.fvalues)
         @property
         def evaluations(self):
             return sum(self.evaluated)
@@ -488,6 +516,7 @@ class SurrogatePopulation:
         Uses: `model.settings.max_absolute_size`, `len(model.X)`, `model.sort`, `model.eval`
 
         """
+        self.count += 1
         model = self.model  # convenience shortcut
         # a trick to see whether the population size has increased (from a restart)
         # model.max_absolute_size is by default initialized with zero
@@ -496,27 +525,30 @@ class SurrogatePopulation:
             if model.settings.max_absolute_size:  # do not reset in first call, in case model was initialized meaningfully
                 model.reset()  # reset, because the population size changed
             model.settings.max_absolute_size = self.settings.model_max_size_factor * len(X)
-        evals = SurrogatePopulation.FContainer(X)
+        evals = SurrogatePopulation.EvaluationManager(X)
         self.evals = evals  # only for the record
 
         # make minimum_model_size unconditional evals in the first call and quit
-        if len(model.X) < self.settings.minimum_model_size:
-            for i in range(self.settings.minimum_model_size - len(model.X)):
-                evals.eval(i, self.fitness, model)
+        if model.size < self.settings.minimum_model_size:
+            evals.eval_sequence(self.settings.minimum_model_size - model.size,
+                                self.fitness, model.add_data_row)
             self.evaluations += evals.evaluations
-            if self.settings.model_sort_globally:
-                model.sort()
-            return evals.surrogate_values(model, self.settings.return_true_fitnesses)
+            model.sort(self.settings.model_sort_globally or evals.evaluations)
+            return evals.surrogate_values(model.eval, self.settings.return_true_fitnesses)
+
+        if 11 < 3 and self.count % (1 + self.settings.crazy_sloppy):
+            return evals.surrogate_values(model.eval, f_offset=model.F[0])
 
         number_evaluated = int(1 + len(X) * self.settings.min_evals_percent / 100)
         while evals.remaining:
             idx = np.argsort([model.eval(x) for x in X])  # like previously, move down to recompute indices
-            evals.eval_sequence(idx, number_evaluated, self.fitness, model)
+            evals.eval_sequence(number_evaluated, self.fitness,
+                                model.add_data_row, idx)
             model.sort(number_evaluated)  # makes only a difference if elements of X are pushed out on later adds in evals
             tau = model.kendall(self.settings.n_for_tau(len(X), evals.evaluations))
             if evals.last_evaluations == number_evaluated:  # first call to evals.eval_sequence
                 self.logger.add(tau)  # log first tau
-            if tau >= self.settings.tau_truth_threshold:
+            if tau >= self.settings.tau_truth_threshold - self.settings.tau_truth_threshold_correction * evals.evaluation_fraction:
                 break
             number_evaluated += int(np.ceil(number_evaluated / 2))
             """multiply with 1.5 and take ceil
@@ -524,8 +556,7 @@ class SurrogatePopulation:
                 +[1, 1, 2, 3, 4,  6,  9, 14, 21, 31, 47,  70, 105, 158]
             """
 
-        if self.settings.model_sort_globally:
-            model.sort()
+        model.sort(self.settings.model_sort_globally or evals.evaluations)
         model.adapt_max_relative_size(tau)
         self.logger.add(tau)  # log last tau
         self.evaluations += evals.evaluations
@@ -534,7 +565,7 @@ class SurrogatePopulation:
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
         self.logger.add(evals.evaluations / len(X))
         self.logger.push()
-        return evals.surrogate_values(model, self.settings.return_true_fitnesses)
+        return evals.surrogate_values(model.eval, self.settings.return_true_fitnesses)
 
 class ModelInjectionCallbackSettings(DefaultSettings):
     sigma_distance_lower_threshold = 0  # 0 == never decrease sigma
@@ -721,8 +752,9 @@ class Model:
 
     @property
     def logging_trace(self):
+        """some data of the current state which may be interesting to display"""
         if len(self.X) < 2:
-            return [1, 1, 1, 1]
+            return [1, 1]
         trace = []
         d1 = np.asarray(self.X[0]) - self.X[1]
         d2 = np.asarray(self.X[0]) - self.xopt
@@ -754,6 +786,8 @@ class Model:
         """model type/size depends on the number of observed data
         """
         if not len(self.X):
+            if 11 < 3 and not self._current_type == 'linear':  # TODO: we could check that the model is linear
+                warnings.warn('empty model is not linear')
             return
         n, d = len(self.X), len(self.X[0])
         # d + 1 affine linear coefficients are always computed
@@ -762,11 +796,28 @@ class Model:
                 and type not in self.types
                 and type not in self.settings.disallowed_types):
                 self.types.append(type)
+                self._current_type = type  # not in use (yet)
                 self.reset_Z()
                 self.type_updates[self.count] += [type]
                 # print(self.count, self.types)
 
+    def type(self):
+        """one of the model `known_types`, depending on self.size.
+
+        This may replace `types`, but is not in use yet.
+        """
+        d = len(self.X[0])
+        for type in self.known_types[::-1]:  # most complex type first
+            if (self.size >= self.complexity[type](d) * self.settings.min_relative_size
+                and type not in self.settings.disallowed_types):
+                break
+        else:
+            type = 'linear'
+        self._current_type = type  # here we could check whether the type changed
+        return self._current_type
+
     def _prune(self):
+        "deprecated"
         while (len(self.X) > self.max_size and
                len(self.X) - 1 >= self.max_df * self.settings.min_relative_size):
             for name in self._fieldnames:
@@ -786,12 +837,14 @@ class Model:
                 for _ in range(remove):
                     field.pop()
 
-    def add_data_row(self, x, f, prune=True):
+    def add_data_row(self, x, f, prune=True, force=False):
+        """add `x` to `self` ``if `force` or x not in self``"""
         hash = self._hash(x)
         if hash in self.hashes:
-            warnings.warn("x value already in Model")
-            return
-        self.count += 1
+            warnings.warn("x value already in Model, " + (
+                "use `force` argument to force add" if force else "nothing added"))
+            if not force:
+                return
         if 11 < 3:
             # x = np.asarray(x)
             self.X.insert(0, x)
@@ -799,10 +852,11 @@ class Model:
             self.F.insert(0, f)
             self.Y.insert(0, f)
         else:  # in 10D reduces time in ﻿numpy.core.multiarray.array by a factor of five from 2nd to 8th largest consumer
-            self.X = np.vstack([x] + ([self.X] if self.count > 1 else []))
-            self.Z = np.vstack([self.expand_x(x)] + ([self.Z] if self.count > 1 else []))
-            self.F = np.hstack([f] + ([self.F] if self.count > 1 else []))
-            self.Y = np.hstack([f] + ([self.Y] if self.count > 1 else []))
+            self.X = np.vstack([x] + ([self.X] if self.count > 0 else []))  # stack x on top
+            self.Z = np.vstack([self.expand_x(x)] + ([self.Z] if self.count > 0 else []))
+            self.F = np.hstack([f] + ([self.F] if self.count > 0 else []))
+            self.Y = np.hstack([f] + ([self.Y] if self.count > 0 else []))
+        self.count += 1
         self.counts.insert(0, self.count)
         self.hashes.insert(0, hash)
         self.number_of_data_last_added = 1
@@ -825,7 +879,7 @@ class Model:
         return self
 
     def _sort(self, number=None, argsort=np.argsort):
-        """sort last `number` entries TODO: for some reason this seems not to pass the doctest"""
+        """old? sort last `number` entries TODO: for some reason this seems not to pass the doctest"""
         assert self.size == len(self.X)
         if number is None:
             number = len(self.X)
@@ -844,7 +898,7 @@ class Model:
 
     def sort(self, number=None, argsort=np.argsort):
         """sort last `number` entries"""
-        if number is None:
+        if number is None or number is True:  # True and 1 must be treated different here
             number = self.size
         if number <= 0:
             return self
@@ -908,7 +962,11 @@ class Model:
         return z
 
     def eval_true(self, x, max_number=None):
-        """return true value if ``x in self.X[:max_number]``, else Model value"""
+        """return true f-value if ``x in self.X[:max_number]``, else Model value.
+
+        Not clear whether this is useful, because the return value is unpredictably
+        incomparable.
+        """
         try:
             idx = self.hashes.index(self._hash(x))
         except ValueError:
@@ -990,7 +1048,12 @@ class Model:
 
     @property
     def pinv(self):
-        """should depend on something?"""
+        """return Pseudoinverse, computed unconditionally (not lazy).
+
+        `pinv` is usually not used directly but via the `coefficients` property.
+
+        Should this depend on something and/or become lazy?
+        """
         try:
             self._pinv = np.linalg.pinv(self.weights * np.asarray(self.Z).T).T
         except np.linalg.LinAlgError as laerror:
@@ -1004,6 +1067,7 @@ class Model:
 
     @property
     def coefficients(self):
+        """model coefficients that are linear in self.expand(.)"""
         if self._coefficients_count < self.count:
             self._coefficients_count = self.count
             self._coefficients = np.dot(self.pinv, self._weights * self.Y)
@@ -1056,7 +1120,7 @@ class Model:
     def xopt(self):
         if self._xopt_count < self.count:
             self._xopt_count = self.count
-            if not self.types:
+            if not self.types:  # linear case
                 # print(self.coefficients[1:], self.X[0])
                 self._xopt = self.X[0] - 2 * self.coefficients[1:]  # TODO: don't need xoffset here!?
             else:
