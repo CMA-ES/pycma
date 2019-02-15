@@ -387,6 +387,9 @@ class MathHelperFunctions(object):
     """static convenience math helper functions, if the function name
     is preceded with an "a", a numpy array is returned
 
+    TODO: there is probably no good reason why this should be a class and not a
+    module.
+
     """
     @staticmethod
     def aclamp(x, upper):
@@ -454,6 +457,29 @@ class MathHelperFunctions(object):
             return (x > 0) * x
         else:
             return lower + (x > lower) * (x - lower)
+
+    @staticmethod
+    def apenalty_quadlin(x, lower=0, upper=None):
+        """Huber-like smooth penality which starts at lower.
+
+        The penalty is zero below lower and affine linear above upper.
+
+        Return::
+
+            0, if x <= lower
+            quadratic in x, if lower <= x <= upper
+            affine linear in x with slope upper - lower, if x >= upper
+
+        `upper` defaults to ``lower + 1``.
+
+        """
+        if upper is None:
+            upper = np.asarray(lower) + 1
+        z = np.asarray(x) - lower
+        del x  # assert that x is not used anymore accidentally
+        u = np.asarray(upper) - lower
+        return (z > 0) * ((z <= u) * (z ** 2 / 2) + (z > u) * u * (z - u / 2))
+
     @staticmethod
     def prctile(data, p_vals=[0, 25, 50, 75, 100], sorted_=False):
         """``prctile(data, 50)`` returns the median, but p_vals can
@@ -481,15 +507,36 @@ class MathHelperFunctions(object):
         return d[0] if np.isscalar(p_vals) else d
     @staticmethod
     def iqr(data, percentile_function=np.percentile):  # MathHelperFunctions.prctile
-        """"""
+        """interquartile range"""
         q25, q75 = percentile_function(data, [25, 75])
         return np.asarray(q75) - np.asarray(q25)
+    def interdecilerange(data, percentile_function=np.percentile):
+        """return 10% to 90% range width"""
+        q10, q90 = percentile_function(data, [10, 90])
+        return np.asarray(q90) - np.asarray(q10)
+    @staticmethod
+    def logit10(x, lower=0, upper=1):
+        """map [lower, upper] -> R such that::
 
+            upper - 10^-x  ->   x, and
+            lower + 10^-x  ->  -x
+
+        for large enough x. By default, simplifies close to `log10(x / (1 - x))`.
+
+        >>> from cma.utilities.math import Mh
+        >>> l, u = -1, 2
+        >>> print(Mh.logit10([l+0.01, 0.5, u-0.01], l, u))
+        [-1.9949189  0.         1.9949189]
+
+        """
+        x = np.asarray(x)
+        z = (x - lower) / (upper - lower)  # between 0 and 1
+        return np.log10((x - lower)**(1-z) / (upper - x)**z)
+        return (1 - z) * np.log10(x - lower) - z * np.log10(upper - x)
     @staticmethod
     def sround(nb):  # TODO: to be vectorized
         """return stochastic round: int(nb) + (rand()<remainder(nb))"""
         return int(nb) + (1 if np.random.rand(1)[0] < (nb % 1) else 0)
-
     @staticmethod
     def cauchy_with_variance_one():
         n = np.random.randn() / np.random.randn()

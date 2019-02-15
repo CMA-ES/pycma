@@ -2042,7 +2042,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def random_rescale_to_mahalanobis(self, x):
         """change `x` like for injection, all on genotypic level"""
         x = x - self.mean  # -= fails if dtypes don't agree
-        if any(x):
+        if any(x):  # let's not divide by zero
             x *= sum(self.randn(1, len(x))[0]**2)**0.5 / self.mahalanobis_norm(x)
         x += self.mean
         return x
