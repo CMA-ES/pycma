@@ -1298,19 +1298,27 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     #         """
     #         raise RuntimeError("popsize cannot be changed")
 
-    def stop(self, check=True):
+    def stop(self, check=True, ignore_list=()):
         """return the termination status as dictionary.
 
         With ``check==False``, the termination conditions are not checked
         and the status might not reflect the current situation.
         ``stop().clear()`` removes the currently active termination
         conditions.
+
+        As a convenience feature, keywords in `ignore_list` are removed from
+        the conditions.
+
         """
         if (check and self.countiter > 0 and self.opts['termination_callback'] and
                 self.opts['termination_callback'] != str(self.opts['termination_callback'])):
             self.callbackstop = self.opts['termination_callback'](self)
 
-        return self._stopdict(self, check)  # update the stopdict and return a Dict
+        res = self._stopdict(self, check)  # update the stopdict and return a Dict (self)
+        if ignore_list:
+            for key in ignore_list:
+                res.pop(key, None)
+        return res
 
     def __init__(self, x0, sigma0, inopts=None):
         """see class `CMAEvolutionStrategy`
@@ -3694,7 +3702,7 @@ def fmin2(*args, **kwargs):
 
     """
     res = fmin(*args, **kwargs)
-    return res[0], res[-2]
+    return res[0], res[9]
 
 
 def fmin(objective_function, x0, sigma0,
