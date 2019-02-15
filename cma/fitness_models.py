@@ -898,11 +898,11 @@ class Model:
 
     def sort(self, number=None, argsort=np.argsort):
         """sort last `number` entries"""
-        if number is None or number is True:  # True and 1 must be treated different here
-            number = self.size
-        if number <= 0:
-            return self
+        if number is None or number is True:  # remark that ``1 in (True,) is True`` and
+            number = self.size                # True and 1 must be treated different here!
         number = min((number, self.size))
+        if number <= 1:  # nothing to sort
+            return self
         if number < self.size:
             idx = argsort(self.Y[:number])  # [:number] doesn't work on deque's
         else:
@@ -987,7 +987,15 @@ class Model:
         if self.count and len(x) != len(self.X[0]):
             raise ValueError("x = %s must be of len %d != %d"
                              % (str(x), len(self.X[0]), len(x)))
-        return 0 if self.count == 0 else np.dot(self.coefficients, self.expand_x(x))
+        if self.count <= 0:
+            return 0
+        # since Python 3.8: if (idx := self.index(x)) >= 0:
+        try:  # if self.isin(x):  # makes in case two calls to isin/index
+            z = self.Z[self.index(x)]
+        except ValueError:  # index of x not available
+            assert not self.isin(x)
+            z = self.expand_x(x)
+        return np.dot(self.coefficients, z)
 
     def evalpop(self, X):
         """return Model values of ``x for x in X``"""
@@ -1037,6 +1045,9 @@ class Model:
         hash = self._hash(x)
         return self.hashes.index(hash) + 1 if hash in self.hashes else False
 
+    def index(self, x):
+        return self.hashes.index(self._hash(x))
+
     def _hash(self, x):
         return sum(x)  # with a tuple as hash ``self._hash(x) in self.hashes`` fails under Python 2.6 and 3.4
 
@@ -1059,7 +1070,7 @@ class Model:
         except np.linalg.LinAlgError as laerror:
             warnings.warn('Model.pinv(d=%d,m=%d,n=%d): np.linalg.pinv'
                           ' raised an exception %s' % (
-                        len(self.X[0]) if self.X else -1,
+                        len(self.X[0]) if self.size else -1,
                         len(self._coefficients),
                         len(self.X),
                         str(laerror)))
