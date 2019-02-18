@@ -347,7 +347,7 @@ class SurrogatePopulationSettings(DefaultSettings):
     tau_truth_threshold = 0.85  # tau between model and ground truth
     tau_truth_threshold_correction = 0  # loosen threshold for increasing evaluations
     min_evals_percent = 2  # eval int(1 + min_evals_percent / 100) unconditionally
-    model_sort_globally = True  # harmful under noise?
+    model_sort_globally = False
     return_true_fitnesses = True  # return true fitness if all solutions are evaluated
     # change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
     # crazy_sloppy = 0  # number of loops only done on the model, should depend on tau.tau?
