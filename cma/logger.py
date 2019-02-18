@@ -438,7 +438,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         cinv = 1 / c
                         c_medminus = 1 / np.min(cinv)  # negative close to zero
                         c_medplus = 1 / np.max(cinv)  # positive close to zero
-
+                    if c_max <= 0:  # no positive values
+                        c_max = c_medplus = 0  # set both "positive" values to zero
+                    elif c_min >=0:  # no negative values
+                        c_min = c_medminus = 0
                     with open(fn, 'a') as f:
                         f.write(str(iteration) + ' '
                                 + str(evals) + ' '
@@ -890,10 +893,6 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         from matplotlib.pyplot import semilogy, text, grid, axis, title
         self._enter_plotting()
-        semilogy(x, y, '-c')
-        # hold(True)
-        semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
-        text(x[-1], np.max(y[-1, :]) / np.min(y[-1, :]), 'axis ratio')
         if ys is not None:
             semilogy(x, 1 + ys[:, 2], '-b')
             text(x[-1], 1 + ys[-1, 2], '1 + min(corr)')
@@ -903,6 +902,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
             text(x[-1], 1 + ys[-1, 3], '1 + max(neg corr)')
             semilogy(x[:], 1 - ys[:, 4], '-k')
             text(x[-1], 1 - ys[-1, 4], '1 - min(pos corr)')
+        semilogy(x, y, '-c')
+        semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
+        text(x[-1], np.max(y[-1, :]) / np.min(y[-1, :]), 'axis ratio')
         grid(True)
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
