@@ -4,6 +4,7 @@ del absolute_import, division, print_function  #, unicode_literals, with_stateme
 ___author__ = "Nikolaus Hansen"
 __license__ = "BSD 3-clause"
 
+import os
 import warnings
 from collections import defaultdict  # since Python 2.5
 import numpy as np
@@ -49,17 +50,19 @@ def kendall_tau(x, y):
     return s * 2. / (len(x) * (len(x) - 1))
 
 class FitnessFunctionDataQueue:  # TODO: could inherit from fitness_transformations.Function
-    """
-    >>> from cma.fitness_models import FitnessFunctionDataQueue, Model
-    >>> fun = FitnessFunctionDataQueue(lambda x: x[0], 5)
-    >>> for i in range(6):
-    ...     f = fun([i, i+1])
-    >>> assert len(fun.X) == 5
-    >>> m = Model()  # move data into model
-    >>> for x, f in zip(fun.X, fun.F):
-    ...     res = m.add_data_row(x, f)
-    >>> m.size
-    5
+    """never used, won't fix?
+
+        >> from cma.fitness_models import FitnessFunctionDataQueue, Model
+        >> # need to deactivate logger
+        >> fun = FitnessFunctionDataQueue(lambda x: x[0], 5)
+        >> for i in range(6):
+        ..     f = fun([i, i+1])
+        >> assert len(fun.X) == 5
+        >> m = Model()  # move data into model
+        >> for x, f in zip(fun.X, fun.F):
+        ..     res = m.add_data_row(x, f)
+        >> m.size
+        5
 
     """
     def __init__(self, fun, max_len=np.inf):
@@ -114,11 +117,11 @@ class Logger:
     Useless example::
 
         >> es = cma.CMAEvolutionStrategy
-        >> lg = Logger(es, ['countiter'])
-        >> lg.push()  # add the counter
+        >> lg = Logger(es, ['countiter'])  # prepare to log the countiter attribute of es
+        >> lg.push()  # execute logging
 
     """
-    def __init__(self, obj_or_name, attributes=None, callables=None, name=None, labels=None):
+    def __init__(self, obj_or_name, attributes=None, callables=None, path='outcmaes/', name=None, labels=None):
         """obj can also be a name"""
         self.format = "%.19e"
         if obj_or_name == str(obj_or_name) and attributes is not None:
@@ -126,7 +129,11 @@ class Logger:
                 str(obj_or_name), str(attributes)))
         self.obj = obj_or_name
         self.name = name
-        self._autoname(obj_or_name)
+        # handle output location, TODO: streamline
+        self.path = path
+        self._autoname(obj_or_name)  # set _name attribute
+        self._name = self._create_path(path) + self._name
+        print(self._name)
         self.attributes = attributes or []
         self.callables = callables or []
         self.labels = labels or []
@@ -134,8 +141,26 @@ class Logger:
         self.current_data = []
         # print('Logger:', self.name, self._name)
 
+    def _create_path(self, name_prefix=None):
+        """return absolute path or '' if not `name_prefix`"""
+        if not name_prefix:
+            return ''
+        path = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
+        if name_prefix.endswith((os.sep, '/')):
+            path = path + os.sep
+        # create path if necessary
+        if os.path.dirname(path):
+            try:
+                os.makedirs(os.path.dirname(path))
+            except OSError:
+                pass  # folder exists
+        return path
+
     def _autoname(self, obj):
-        """TODO: how to handle two loggers in the same class??"""
+        """set `name` and `_name` attributes.
+
+        TODO: how to handle two loggers in the same class??
+        """
         if str(obj) == obj:
             self.name = obj
         if self.name is None:
@@ -248,7 +273,8 @@ class Logger:
         plt.legend(framealpha=0.3)  # more opaque than not
         return self
 
-_Logger = Logger  # to reset Logger in doctest
+_Logger = Logger  # to reset Logger
+# Logger = LoggerDummy  # by default no logging
 
 class DefaultSettings(object):
     """resembling somewhat `types.SimpleNamespace` from Python >=3.3
@@ -364,7 +390,7 @@ class SurrogatePopulation:
     >>> import cma
     >>> import cma.fitness_models as fm
     >>> from cma.fitness_transformations import Function as FFun  # adds evaluations attribute
-    >>> fm.Logger = fm.LoggerDummy
+    >>> fm.Logger, Logger = fm.LoggerDummy, fm.Logger
     >>> surrogate = fm.SurrogatePopulation(cma.ff.elli)
 
     Example using the ask-and-tell interface:
@@ -379,10 +405,10 @@ class SurrogatePopulation:
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59, 15 87
+    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132
     ...     assert 'ftarget' in es.stop()
     15
-    87
+    132
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -398,7 +424,7 @@ class SurrogatePopulation:
     ...     assert fitfun.evaluations == es.result.evaluations
     ...     assert es.result[1] < 1e-12
     ...     assert es.result[2] < evals
-    >>> fm.Logger = fm._Logger
+    >>> fm.Logger = Logger
 
     """
     def __init__(self,
@@ -602,12 +628,13 @@ class ModelInjectionCallback:
 class Tau: "placeholder to store Kendall tau related things"
 
 class ModelSettings(DefaultSettings):
-    max_relative_size_init = 1.5  # times self.max_df: initial limit archive size
-    max_relative_size_end = 1.5  # times self.max_df: limit archive size
+    max_relative_size_init = 2  # 1.5  # times self.max_df: initial limit archive size
+    max_relative_size_end = 2  # 1.5  # times self.max_df: limit archive size
     max_relative_size_factor = 1.05  # factor to increment max_relevative_size
     tau_threshold_for_model_increase = 0.5
     min_relative_size = 1.1  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
+    remove_worse = lambda m: int(min((m.size - m.current_complexity - 2, m.size / 4)))
     max_weight = 20  # min weight is one
     disallowed_types = ()
     f_transformation = False  # a simultaneous transformation of all Y values
@@ -633,7 +660,7 @@ class Model:
     >>> import numpy as np
     >>> import cma
     >>> import cma.fitness_models as fm
-    >>> fm.Logger = fm.LoggerDummy
+    >>> fm.Logger, Logger = fm.LoggerDummy, fm.Logger
     >>> m = fm.Model()
     >>> for i in range(30):
     ...     x = np.random.randn(3)
@@ -693,7 +720,7 @@ class Model:
     []
     >>> assert np.allclose(m.coefficients, [80, -10, 80, 80])
     >>> assert np.allclose(m.xopt, [22, -159, -159])  # [ 50,  -400, -400])  # depends on Hessian
-    >>> fm.Logger = fm._Logger
+    >>> fm.Logger = Logger
 
     """
     _complexities = [  # must be ordered by complexity here
@@ -704,7 +731,9 @@ class Model:
 
     @property
     def current_complexity(self):
-        raise NotImplementedError
+        if self.types:
+            return max(self.complexity[t](self.dim) for t in self.types)
+        return self.dim + 1
 
     def __init__(self,
                  max_relative_size_init=None,  # when to prune, only applicable after last model switch
@@ -898,6 +927,7 @@ class Model:
 
     def sort(self, number=None, argsort=np.argsort):
         """sort last `number` entries"""
+        # print(number)
         if number is None or number is True:  # remark that ``1 in (True,) is True`` and
             number = self.size                # True and 1 must be treated different here!
         number = min((number, self.size))
@@ -1057,6 +1087,20 @@ class Model:
         """
         return np.dot(dx, np.dot(self.hessian, dx))
 
+    def weighted_array(self, Z):
+        """return weighted Z, worst entries are clipped if possible.
+
+        Z can be a vector or a matrix.
+        """
+        idx = np.argsort(self.Y)
+        clip = max((0, self.settings.remove_worse(self)))
+        if clip:
+            idx = idx[:-clip]
+            w = self.sorted_weights(self.size - clip)
+        else:
+            w = self.sorted_weights()
+        return w * np.asarray(Z)[idx].T
+
     @property
     def pinv(self):
         """return Pseudoinverse, computed unconditionally (not lazy).
@@ -1066,7 +1110,8 @@ class Model:
         Should this depend on something and/or become lazy?
         """
         try:
-            self._pinv = np.linalg.pinv(self.weights * np.asarray(self.Z).T).T
+            self._pinv = np.linalg.pinv(self.weighted_array(self.Z)).T
+            # self._pinv = np.linalg.pinv(self.weights * np.asarray(self.Z).T).T
         except np.linalg.LinAlgError as laerror:
             warnings.warn('Model.pinv(d=%d,m=%d,n=%d): np.linalg.pinv'
                           ' raised an exception %s' % (
@@ -1081,7 +1126,7 @@ class Model:
         """model coefficients that are linear in self.expand(.)"""
         if self._coefficients_count < self.count:
             self._coefficients_count = self.count
-            self._coefficients = np.dot(self.pinv, self._weights * self.Y)
+            self._coefficients = np.dot(self.pinv, self.weighted_array(self.Y))
             self.logger.push()  # use logging_trace attribute and xopt
             self.log_eigenvalues.push()
         return self._coefficients
@@ -1116,6 +1161,7 @@ class Model:
 
     @property
     def weights(self):
+        raise NotImplementedError('superseded by `weighted_array` which does indexing and multiplication')
         self._weights = np.zeros(len(self.Y))
         idx = np.argsort(self.Y)
         self._weights[idx] = self.sorted_weights()
