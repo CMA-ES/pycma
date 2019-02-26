@@ -289,9 +289,9 @@ class DefaultSettings(object):
     ...         self.settings = MyClassSettings(locals(), 1, self)
 
     The `1` signals, purely for consistency checking, that one parameter defined
-    in ``MyClassSettings`` is to be set. ``MyClassSettings`` doesn't use any
-    names which are already defined in ``self.__dict__``. The settings are
-    defined in a derived parameter class like
+    in ``MyClassSettings`` is to be set from ``locals()``. ``MyClassSettings``
+    doesn't use any names which are already defined in ``self.__dict__``. The
+    settings are defined in a derived parameter class like
 
     >>> from cma.fitness_models import DefaultSettings
     >>> class MyClassSettings(DefaultSettings):
@@ -627,23 +627,33 @@ class ModelInjectionCallback:
 
 class Tau: "placeholder to store Kendall tau related things"
 
+def _n_for_model_building(m):  # type: (Model) -> int
+    """truncate worst solutions for model building"""
+    if m.settings.max_relative_size_end > 2.5:
+        return int(max((m.current_complexity + 2, 0.5 * (m.size + 1))))  # with model max size 3
+    if m.settings.max_relative_size_end > 1.6:
+        return int(max((m.current_complexity + 2, 0.75 * (m.size + 1))))  # with model max size 2
+    return m.size  # previous default was no truncation
+
 class ModelSettings(DefaultSettings):
-    max_relative_size_init = 2  # 1.5  # times self.max_df: initial limit archive size
-    max_relative_size_end = 2  # 1.5  # times self.max_df: limit archive size
+    max_relative_size_init = None  # 1.5  # times self.max_df: initial limit archive size
+    max_relative_size_end = 1.5  # times self.max_df: limit archive size
     max_relative_size_factor = 1.05  # factor to increment max_relevative_size
     tau_threshold_for_model_increase = 0.5
     min_relative_size = 1.1  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
-    remove_worse = lambda m: int(min((m.size - m.current_complexity - 2, m.size / 4)))
+    # to be removed remove_worse = lambda m: int(min((m.size - m.current_complexity - 2, m.size / 4)))
+    n_for_model_building = _n_for_model_building
     max_weight = 20  # min weight is one
     disallowed_types = ()
     f_transformation = False  # a simultaneous transformation of all Y values
 
     def _checking(self):
-        if not 0 < self.min_relative_size <= self.max_relative_size_init <= self.max_relative_size_end:
+        max_init = self.max_relative_size_init or self.max_relative_size_end
+        if not 0 < self.min_relative_size <= max_init <= self.max_relative_size_end:
             raise ValueError(
-                'need max_relative_size_end=%f >= max_relative_size_init=%f >= min_relative_size=%f >= 0' %
-                (self.max_relative_size_end, self.max_relative_size_init, self.min_relative_size))
+                'need max_relative_size_end=%f >= max_relative_size_init=%s >= min_relative_size=%f >= 0' %
+                (self.max_relative_size_end, str(self.max_relative_size_init), self.min_relative_size))
         return self
 
 class Model:
@@ -767,7 +777,8 @@ class Model:
         self._type = 'linear'  # not in use yet
         "the model can have several types, for the time being"
         self.count = 0  # number of overall data seen
-        self.max_relative_size = self.settings.max_relative_size_init
+        self.max_relative_size = self.settings.max_relative_size_init or (
+                        self.settings.max_relative_size_end)
         self._coefficients_count = -1
         self._xopt_count = -1
         self._xoffset = 0
@@ -777,7 +788,8 @@ class Model:
 
     def sorted_weights(self, number=None):
         return np.linspace(self.settings.max_weight, 1,
-                           self.size if number is None else number)
+                           self.size if number is None or number > self.size
+                           else number)
 
     @property
     def logging_trace(self):
@@ -1087,7 +1099,7 @@ class Model:
         """
         return np.dot(dx, np.dot(self.hessian, dx))
 
-    def weighted_array(self, Z):
+    def old_weighted_array(self, Z):
         """return weighted Z, worst entries are clipped if possible.
 
         Z can be a vector or a matrix.
@@ -1100,6 +1112,17 @@ class Model:
         else:
             w = self.sorted_weights()
         return w * np.asarray(Z)[idx].T
+
+    def weighted_array(self, Z):
+        """return weighted Z, worst entries are clipped if possible.
+
+        Z can be a vector or a matrix.
+        """
+        size = self.settings.n_for_model_building(self)
+        idx = np.argsort(self.Y)
+        if size < self.size:
+            idx = idx[:size]
+        return self.sorted_weights(size) * np.asarray(Z)[idx].T
 
     @property
     def pinv(self):
