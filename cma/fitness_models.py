@@ -629,17 +629,16 @@ class Tau: "placeholder to store Kendall tau related things"
 
 def _n_for_model_building(m):  # type: (Model) -> int
     """truncate worst solutions for model building"""
-    if m.settings.max_relative_size_end > 2.5:
-        return int(max((m.current_complexity + 2, 0.5 * (m.size + 1))))  # with model max size 3
-    if m.settings.max_relative_size_end > 1.6:
-        return int(max((m.current_complexity + 2, 0.75 * (m.size + 1))))  # with model max size 2
-    return m.size  # previous default was no truncation
+    n = int(max((m.current_complexity + 2,
+                 m.settings.truncation_ratio * (m.size + 1))))
+    return min((m.size, n))
 
 class ModelSettings(DefaultSettings):
     max_relative_size_init = None  # 1.5  # times self.max_df: initial limit archive size
     max_relative_size_end = 1.5  # times self.max_df: limit archive size
     max_relative_size_factor = 1.05  # factor to increment max_relevative_size
-    tau_threshold_for_model_increase = 0.5
+    truncation_ratio = 3/4 if max_relative_size_end > 1.7 else 1  # use only truncation_ratio best in _n_for_model_building
+    tau_threshold_for_model_increase = 0.5  # rarely in use
     min_relative_size = 1.1  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
     # to be removed remove_worse = lambda m: int(min((m.size - m.current_complexity - 2, m.size / 4)))
