@@ -8,11 +8,11 @@ import os
 import warnings
 from collections import defaultdict  # since Python 2.5
 import numpy as np
-from scipy.stats import kendalltau as _kendalltau
+import scipy.stats as _stats  # for kendalltau
 from .utilities import utils
 
 
-def kendall_tau(x, y):
+def _kendall_tau(x, y):
     """return Kendall tau rank correlation coefficient.
 
     Implemented only to potentially remove dependency on `scipy.stats`.
@@ -20,34 +20,53 @@ def kendall_tau(x, y):
     This
 
     >>> import numpy as np
-    >>> from cma.fitness_models import kendall_tau
-    >>> kendalltau = lambda x, y: (kendall_tau(x, y), 0)
+    >>> from cma.fitness_models import _kendall_tau
+    >>> kendalltau = lambda x, y: (_kendall_tau(x, y), 0)
     >>> from scipy.stats import kendalltau  # incomment if not available
     >>> for dim in np.random.randint(3, 22, 5):
     ...     x, y = np.random.randn(dim), np.random.randn(dim)
-    ...     t1, t2 = kendall_tau(x, y), kendalltau(x, y)[0]
+    ...     t1, t2 = _kendall_tau(x, y), kendalltau(x, y)[0]
     ...     # print(t1, t2)
     ...     assert np.isclose(t1, t2)
 
     """
-    equal_correction = 1 / 2
+    equal_value_contribution = 1 / 2  # value used in case of agreeing equality
 
     assert len(x) == len(y)
     x, y = np.asarray(x), np.asarray(y)
-    s = 0
+    s = 0  # sum of products of two signs (mostly in -1/1)
     for i in range(len(x)):
         if 1 < 3:  # 20 times faster with len(x)=200
             dx = np.sign(x[i] - x[:i])
             dy = np.sign(y[i] - y[:i])
             s += sum(dx * dy)
-            if equal_correction:
-                s += equal_correction * sum((dx == 0) * (dy == 0))
+            if equal_value_contribution:
+                s += equal_value_contribution * sum((dx == 0) * (dy == 0))
         else:
             for j in range(i):
                 s += np.sign(x[i] - x[j]) * np.sign(y[i] - y[j])
-                if equal_correction:
-                    s += equal_correction * (x[i] == x[j]) * (y[i] == y[j])
-    return s * 2. / (len(x) * (len(x) - 1))
+                if equal_value_contribution:
+                    s += equal_value_contribution * (x[i] == x[j]) * (y[i] == y[j])
+    tau = s * 2. / (len(x) * (len(x) - 1))
+    if 1 < 3:  # TODO: testing should be commented out some time
+        from scipy.stats import kendalltau
+        t = kendalltau(x, y)[0]
+        if np.isfinite(t):  # kendalltau([3,3,3], [3,3,3]) is nan
+            if t < tau - 1 / len(x) or t > tau + 1 / len(x):
+                warnings.warn('tau=%f not close to stats.tau=%f' % (tau, t))
+    return tau
+
+def kendall_tau(x, y):
+    if 11 < 3:  # TODO: make default
+        tau = _kendall_tau(x, y)
+    else:
+        try:
+            tau = _stats.kendalltau(x, y)[0]
+        except TypeError:  # kendalltau([3,3,3], [3,3,3]) == 1
+            tau = 0
+        if not np.isfinite(tau):  # kendalltau([3,3,3], [3,3,3]) is nan
+            tau = 0
+    return tau
 
 class FitnessFunctionDataQueue:  # TODO: could inherit from fitness_transformations.Function
     """never used, won't fix?
@@ -1071,14 +1090,8 @@ class Model:
             self.tau.result = None
             self.tau.tau, self.tau.pvalue = 0, 0
             return 0
-        self.tau.result = _kendalltau(self.Y[:number],
-                                      [self.eval(self.X[i]) for i in range(number)])
-        try:
-            self.tau.tau, self.tau.pvalue = self.tau.result[:2]
-        except TypeError:  # kendalltau([3,3,3], [3,3,3]) == 1
-            self.tau.tau, self.tau.pvalue = 0, 0
-        if not np.isfinite(self.tau.tau):
-            self.tau.tau = 0
+        self.tau.tau = kendall_tau(self.Y[:number],
+                                   [self.eval(self.X[i]) for i in range(number)])
         return self.tau.tau
 
     def isin(self, x):
