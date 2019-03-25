@@ -105,7 +105,7 @@ class FitnessFunctionDataQueue:  # TODO: could inherit from fitness_transformati
         self.prune()
         return f
 
-class LoggerDummy:
+class LoggerDummy(object):
     """use to fake a `Logger` in non-verbose setting"""
     def __init__(self, *args, **kwargs):
         self.count = 0
@@ -121,7 +121,7 @@ class LoggerDummy:
         warnings.warn("loggers is in dummy (silent) mode,"
                       " there is nothing to plot")
 
-class Logger:
+class Logger(object):
     """log an arbitrary number of data (a data row) per "timestep".
 
     The `add` method can be called several times per timestep, the
@@ -152,7 +152,7 @@ class Logger:
         self.path = path
         self._autoname(obj_or_name)  # set _name attribute
         self._name = self._create_path(path) + self._name
-        print(self._name)
+        # print(self._name)
         self.attributes = attributes or []
         self.callables = callables or []
         self.labels = labels or []
@@ -293,7 +293,7 @@ class Logger:
         return self
 
 _Logger = Logger  # to reset Logger
-# Logger = LoggerDummy  # by default no logging
+Logger = LoggerDummy  # by default no logging
 
 class DefaultSettings(object):
     """resembling somewhat `types.SimpleNamespace` from Python >=3.3
@@ -397,8 +397,10 @@ class SurrogatePopulationSettings(DefaultSettings):
     # change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
     # crazy_sloppy = 0  # number of loops only done on the model, should depend on tau.tau?
 
-class SurrogatePopulation:
+class SurrogatePopulation(object):
     """surrogate f-values for a population.
+
+    See also `__call__` method.
 
     What is new:
 
@@ -556,7 +558,9 @@ class SurrogatePopulation:
     def __call__(self, X):
         """return population f-values.
 
-        The smallest value is never smaller than a truly evaluated value.
+        Also update the underlying model. Evaluate at least one solution on the
+        true fitness. The smallest returned value is never smaller than the
+        smallest truly evaluated value.
 
         Uses: `model.settings.max_absolute_size`, `len(model.X)`, `model.sort`, `model.eval`
 
@@ -616,7 +620,7 @@ class ModelInjectionCallbackSettings(DefaultSettings):
     sigma_distance_lower_threshold = 0  # 0 == never decrease sigma
     sigma_factor = 1 / 1.1
 
-class ModelInjectionCallback:
+class ModelInjectionCallback(object):
     """inject `model.xopt` and decrease `sigma` if `mean` is close to `model.xopt`.
 
     New, simpler callback class.
@@ -644,7 +648,7 @@ class ModelInjectionCallback:
         else:
             self.logger.add(-xdist).push()
 
-class Tau: "placeholder to store Kendall tau related things"
+class Tau(object): "placeholder to store Kendall tau related things"
 
 def _n_for_model_building(m):  # type: (Model) -> int
     """truncate worst solutions for model building"""
@@ -654,7 +658,7 @@ def _n_for_model_building(m):  # type: (Model) -> int
 
 class ModelSettings(DefaultSettings):
     max_relative_size_init = None  # 1.5  # times self.max_df: initial limit archive size
-    max_relative_size_end = 1.5  # times self.max_df: limit archive size
+    max_relative_size_end = 2  # was: 1.5  # times self.max_df: limit archive size
     max_relative_size_factor = 1.05  # factor to increment max_relevative_size
     truncation_ratio = 3/4 if max_relative_size_end > 1.7 else 1  # use only truncation_ratio best in _n_for_model_building
     tau_threshold_for_model_increase = 0.5  # rarely in use
@@ -674,7 +678,7 @@ class ModelSettings(DefaultSettings):
                 (self.max_relative_size_end, str(self.max_relative_size_init), self.min_relative_size))
         return self
 
-class Model:
+class Model(object):
     """Up to a full quadratic model using the pseudo inverse to compute
     the model coefficients.
 
