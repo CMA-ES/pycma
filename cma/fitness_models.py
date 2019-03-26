@@ -426,10 +426,10 @@ class SurrogatePopulation(object):
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83
+    ...     print(fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55
     ...     assert 'ftarget' in es.stop()
     18
-    83
+    55
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -577,20 +577,22 @@ class SurrogatePopulation(object):
         evals = SurrogatePopulation.EvaluationManager(X)
         self.evals = evals  # only for the record
 
-        # make minimum_model_size unconditional evals in the first call and quit
-        if model.size < self.settings.minimum_model_size:
-            evals.eval_sequence(self.settings.minimum_model_size - model.size,
-                                self.fitness, model.add_data_row)
-            self.evaluations += evals.evaluations
-            model.sort(self.settings.model_sort_globally or evals.evaluations)
-            return evals.surrogate_values(model.eval, self.settings.return_true_fitnesses)
+        if 11 < 3:
+            # make minimum_model_size unconditional evals in the first call and quit
+            if model.size < self.settings.minimum_model_size:
+                evals.eval_sequence(self.settings.minimum_model_size - model.size,
+                                    self.fitness, model.add_data_row)
+                self.evaluations += evals.evaluations
+                model.sort(self.settings.model_sort_globally or evals.evaluations)
+                return evals.surrogate_values(model.eval, self.settings.return_true_fitnesses)
 
         if 11 < 3 and self.count % (1 + self.settings.crazy_sloppy):
             return evals.surrogate_values(model.eval, f_offset=model.F[0])
 
-        number_evaluated = int(1 + len(X) * self.settings.min_evals_percent / 100)
+        number_evaluated = int(1 + max((len(X) * self.settings.min_evals_percent / 100,
+                                        3 / model.settings.truncation_ratio - model.size)))
         while evals.remaining:
-            idx = np.argsort([model.eval(x) for x in X])  # like previously, move down to recompute indices
+            idx = np.argsort([model.eval(x) for x in X]) if model.size > 1 else None
             evals.eval_sequence(number_evaluated, self.fitness,
                                 model.add_data_row, idx)
             model.sort(number_evaluated)  # makes only a difference if elements of X are pushed out on later adds in evals
@@ -1029,7 +1031,7 @@ class Model(object):
         return z
 
     def eval_true(self, x, max_number=None):
-        """return true f-value if ``x in self.X[:max_number]``, else Model value.
+        """never used, return true f-value if ``x in self.X[:max_number]``, else Model value.
 
         Not clear whether this is useful, because the return value is unpredictably
         incomparable.
@@ -1065,7 +1067,7 @@ class Model(object):
         return np.dot(self.coefficients, z)
 
     def evalpop(self, X):
-        """return Model values of ``x for x in X``"""
+        """never used, return Model values of ``x for x in X``"""
         return [0 if self.count == 0 else self.eval(x)
                 for x in X]
 
