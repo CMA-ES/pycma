@@ -426,10 +426,10 @@ class SurrogatePopulation(object):
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132
+    ...     print(fitfun.evaluations)  # was: 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83
     ...     assert 'ftarget' in es.stop()
-    15
-    132
+    18
+    83
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
@@ -671,11 +671,15 @@ class ModelSettings(DefaultSettings):
     f_transformation = False  # a simultaneous transformation of all Y values
 
     def _checking(self):
-        max_init = self.max_relative_size_init or self.max_relative_size_end
-        if not 0 < self.min_relative_size <= max_init <= self.max_relative_size_end:
+        if not 0 < self.truncation_ratio <= 1:
             raise ValueError(
-                'need max_relative_size_end=%f >= max_relative_size_init=%s >= min_relative_size=%f >= 0' %
-                (self.max_relative_size_end, str(self.max_relative_size_init), self.min_relative_size))
+                'need: 0 < truncation_ratio <= 1, was: truncation_ratio=%f' %
+                self.truncation_ratio)
+        max_init = self.max_relative_size_init or self.max_relative_size_end
+        if not 0 < self.min_relative_size / self.truncation_ratio <= max_init <= self.max_relative_size_end:
+            raise ValueError(
+                'need max_relative_size_end=%f >= max_relative_size_init=%s >= min_relative_size/self.truncation_ratio=%f/%f >= 0' %
+                (self.max_relative_size_end, str(self.max_relative_size_init), self.min_relative_size, self.truncation_ratio))
         return self
 
 class Model(object):
@@ -710,7 +714,7 @@ class Model(object):
     Check the same before the full model is build:
 
     >>> m = fm.Model()
-    >>> m.settings.min_relative_size = 3
+    >>> m.settings.min_relative_size = 3 * m.settings.truncation_ratio
     >>> for i in range(30):
     ...     x = np.random.randn(4)
     ...     y = cma.ff.elli(x - 1.2)
@@ -855,7 +859,7 @@ class Model(object):
         n, d = len(self.X), len(self.X[0])
         # d + 1 affine linear coefficients are always computed
         for type in self.known_types[::-1]:  # most complex type first
-            if (n >= self.complexity[type](d) * self.settings.min_relative_size
+            if (n * self.settings.truncation_ratio >= self.complexity[type](d) * self.settings.min_relative_size
                 and type not in self.types
                 and type not in self.settings.disallowed_types):
                 self.types.append(type)
@@ -871,7 +875,7 @@ class Model(object):
         """
         d = len(self.X[0])
         for type in self.known_types[::-1]:  # most complex type first
-            if (self.size >= self.complexity[type](d) * self.settings.min_relative_size
+            if (self.size * self.settings.truncation_ratio >= self.complexity[type](d) * self.settings.min_relative_size
                 and type not in self.settings.disallowed_types):
                 break
         else:
@@ -882,14 +886,13 @@ class Model(object):
     def _prune(self):
         "deprecated"
         while (len(self.X) > self.max_size and
-               len(self.X) - 1 >= self.max_df * self.settings.min_relative_size):
+               len(self.X) * self.settings.truncation_ratio - 1 >= self.max_df * self.settings.min_relative_size):
             for name in self._fieldnames:
                 getattr(self, name).pop()
 
     def prune(self):
         remove = int(self.size - max((self.max_size,
-                                      # self.min_absolute_size,
-                                      self.max_df * self.settings.min_relative_size)))
+                                      self.max_df * self.settings.min_relative_size / self.settings.truncation_ratio)))
         if remove <= 0:
             return
         for name in self._fieldnames:
