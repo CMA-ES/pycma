@@ -2937,7 +2937,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         As a result, `C` is a correlation matrix, i.e., all diagonal
         entries of `C` are `1`.
         """
-        if max(self.dC) / min(self.dC) > condition:
+        if condition and np.isfinite(condition) and max(self.dC) / min(self.dC) > condition:
             # allows for much larger condition numbers, if axis-parallel
             if hasattr(self, 'sm') and isinstance(self.sm, sampler.GaussFullSampler):
                 old_coordinate_condition = max(self.dC) / min(self.dC)
@@ -2964,7 +2964,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         respective linear transformation is "added" to `self.gp`.
         """
         # new interface: if sm.condition_number > condition ...
-        if not self.gp.isidentity or self.condition_number < condition:
+        if not self.gp.isidentity or not condition or self.condition_number < condition:
             return
         try:
             old_condition_number = self.condition_number
