@@ -660,9 +660,9 @@ def _n_for_model_building(m):  # type: (Model) -> int
 
 class ModelSettings(DefaultSettings):
     max_relative_size_init = None  # 1.5  # times self.max_df: initial limit archive size
-    max_relative_size_end = 2  # was: 1.5  # times self.max_df: limit archive size
+    max_relative_size_end = 2  # times self.max_df: limit archive size including truncated data
     max_relative_size_factor = 1.05  # factor to increment max_relevative_size
-    truncation_ratio = 3/4 if max_relative_size_end > 1.7 else 1  # use only truncation_ratio best in _n_for_model_building
+    truncation_ratio = max((3/4, (3 - max_relative_size_end) / 2))  # use only truncation_ratio best in _n_for_model_building
     tau_threshold_for_model_increase = 0.5  # rarely in use
     min_relative_size = 1.1  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
