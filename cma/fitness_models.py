@@ -10,6 +10,7 @@ from collections import defaultdict  # since Python 2.5
 import numpy as np
 import scipy.stats as _stats  # for kendalltau
 from .utilities import utils
+# from .logger import LoggerDummy as Logger
 
 
 def _kendall_tau(x, y):
@@ -457,13 +458,13 @@ class SurrogatePopulation(object):
                  ):
         """
 
-        If ``model is None``, a default `Model` instance is used. By
+        If ``model is None``, a default `LQModel` instance is used. By
         setting `self.model` to `None`, only the `fitness` for each
         population member is evaluated in each call.
 
         """
         self.fitness = fitness
-        self.model = model if model else Model()
+        self.model = model if model else LQModel()
         # set 2 parameters of settings from locals() which are not attributes of self
         self.settings = SurrogatePopulationSettings(locals(), 2, self)
         self.count = 0
@@ -562,7 +563,11 @@ class SurrogatePopulation(object):
         true fitness. The smallest returned value is never smaller than the
         smallest truly evaluated value.
 
-        Uses: `model.settings.max_absolute_size`, `len(model.X)`, `model.sort`, `model.eval`
+        Uses (this may not be a complete list):
+        `model.settings.max_absolute_size`, `model.settings.truncation_ratio`,
+        `model.size`, `model.sort`, `model.eval`, `model.reset`, `model.add_data_row`,
+        `model.kendall`, `model.adapt_max_relative_size`, relies on default value
+        zero for ``max_absolute_size``.
 
         """
         self.count += 1
@@ -652,13 +657,13 @@ class ModelInjectionCallback(object):
 
 class Tau(object): "placeholder to store Kendall tau related things"
 
-def _n_for_model_building(m):  # type: (Model) -> int
+def _n_for_model_building(m):  # type: (LQModel) -> int
     """truncate worst solutions for model building"""
     n = int(max((m.current_complexity + 2,
                  m.settings.truncation_ratio * (m.size + 1))))
     return min((m.size, n))
 
-class ModelSettings(DefaultSettings):
+class LQModelSettings(DefaultSettings):
     max_relative_size_init = None  # 1.5  # times self.max_df: initial limit archive size
     max_relative_size_end = 2  # times self.max_df: limit archive size including truncated data
     max_relative_size_factor = 1.05  # factor to increment max_relevative_size
@@ -684,7 +689,7 @@ class ModelSettings(DefaultSettings):
                 (self.max_relative_size_end, str(self.max_relative_size_init), self.min_relative_size, self.truncation_ratio))
         return self
 
-class Model(object):
+class LQModel(object):
     """Up to a full quadratic model using the pseudo inverse to compute
     the model coefficients.
 
@@ -699,7 +704,7 @@ class Model(object):
     >>> import cma
     >>> import cma.fitness_models as fm
     >>> fm.Logger, Logger = fm.LoggerDummy, fm.Logger
-    >>> m = fm.Model()
+    >>> m = fm.LQModel()
     >>> for i in range(30):
     ...     x = np.random.randn(3)
     ...     y = cma.ff.elli(x - 1.2)
@@ -715,7 +720,7 @@ class Model(object):
 
     Check the same before the full model is build:
 
-    >>> m = fm.Model()
+    >>> m = fm.LQModel()
     >>> m.settings.min_relative_size = 3 * m.settings.truncation_ratio
     >>> for i in range(30):
     ...     x = np.random.randn(4)
@@ -734,7 +739,7 @@ class Model(object):
     Check the Hessian in the rotated case:
 
     >>> fitness = cma.fitness_transformations.Rotated(cma.ff.elli)
-    >>> m = fm.Model(2, 2)
+    >>> m = fm.LQModel(2, 2)
     >>> for i in range(30):
     ...     x = np.random.randn(4) - 5
     ...     y = fitness(x - 2.2)
@@ -750,7 +755,7 @@ class Model(object):
     Check a simple linear case, the optimum is not necessarily at the
     expected position (the Hessian matrix is chosen somewhat arbitrarily)
 
-    >>> m = fm.Model()
+    >>> m = fm.LQModel()
     >>> m.settings.min_relative_size = 4
     >>> _ = m.add_data_row([1, 1, 1], 220 + 10)
     >>> _ = m.add_data_row([2, 1, 1], 220)
@@ -788,7 +793,7 @@ class Model(object):
         ``max(max_absolute_size, max_relative_size * max_df)``.
 
         """
-        self.settings = ModelSettings(locals(), 4, self)._checking()
+        self.settings = LQModelSettings(locals(), 4, self)._checking()
         self._fieldnames = ['X', 'F', 'Y', 'Z', 'counts', 'hashes']
         self.logger = Logger(self, ['logging_trace'],
                              labels=[# 'H(X[0]-X[1])', 'H(X[0]-Xopt)',
