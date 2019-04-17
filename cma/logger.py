@@ -1416,3 +1416,190 @@ def disp(name=None, idx=None):
 
 # END cmaplt.py
 
+class LoggerDummy(object):
+    """use to fake a `Logger` in non-verbose setting"""
+    def __init__(self, *args, **kwargs):
+        self.count = 0
+    def __call__(self, *args, **kwargs):
+        self.push()
+    def add(self, *args, **kwargs):
+        return self
+    def push(self, *args, **kwargs):
+        self.count += 1
+    def load(self, *args, **kwargs):
+        return self
+    def plot(self, *args, **kwargs):
+        warnings.warn("loggers is in dummy (silent) mode,"
+                      " there is nothing to plot")
+
+class Logger(object):
+    """log an arbitrary number of data (a data row) per "timestep".
+
+    The `add` method can be called several times per timestep, the
+    `push` method must be called once per timestep. `load` and `plot`
+    will only work if each time the same number of data was pushed.
+
+    For the time being, the data is saved to a file after each timestep.
+
+    To append data, set `self.counter` > 0 before to call `push` the first
+    time. ``len(self.load().data)`` is the number of current data.
+
+    Useless example::
+
+        >> es = cma.CMAEvolutionStrategy
+        >> lg = Logger(es, ['countiter'])  # prepare to log the countiter attribute of es
+        >> lg.push()  # execute logging
+
+    """
+    def __init__(self, obj_or_name, attributes=None, callables=None, path='outcmaes/', name=None, labels=None):
+        """obj can also be a name"""
+        self.format = "%.19e"
+        if obj_or_name == str(obj_or_name) and attributes is not None:
+            raise ValueError('string obj %s has no attributes %s' % (
+                str(obj_or_name), str(attributes)))
+        self.obj = obj_or_name
+        self.name = name
+        # handle output location, TODO: streamline
+        self.path = path
+        self._autoname(obj_or_name)  # set _name attribute
+        self._name = self._create_path(path) + self._name
+        # print(self._name)
+        self.attributes = attributes or []
+        self.callables = callables or []
+        self.labels = labels or []
+        self.count = 0
+        self.current_data = []
+        # print('Logger:', self.name, self._name)
+
+    def _create_path(self, name_prefix=None):
+        """return absolute path or '' if not `name_prefix`"""
+        if not name_prefix:
+            return ''
+        path = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
+        if name_prefix.endswith((os.sep, '/')):
+            path = path + os.sep
+        # create path if necessary
+        if os.path.dirname(path):
+            try:
+                os.makedirs(os.path.dirname(path))
+            except OSError:
+                pass  # folder exists
+        return path
+
+    def _autoname(self, obj):
+        """set `name` and `_name` attributes.
+
+        TODO: how to handle two loggers in the same class??
+        """
+        if str(obj) == obj:
+            self.name = obj
+        if self.name is None:
+            s = str(obj)
+            s = s.split('class ')[-1]
+            s = s.split('.')[-1]
+            # print(s)
+            if ' ' in s:
+                s = s.split(' ')[0]
+            if "'" in s:
+                s = s.split("'")[-2]
+            self.name = s
+        self._name = self.name
+        if '.' not in self._name:
+            self._name = self._name + '.logdata'
+        if not self._name.startswith(('._', '_')):
+            self._name = '._' + self._name
+
+    def _stack(self, data):
+        """stack data into current row managing the different access...
+
+        ... and type formats.
+        """
+        if isinstance(data, list):
+            self.current_data += data
+        else:
+            try:  # works for numpy array
+                self.current_data += [d for d in data]
+            except TypeError:
+                self.current_data += [data]
+
+    def __call__(self, obj=None):
+        """see also method `push`.
+
+        TODO: replacing `obj` here is somewhat inconsistent, but maybe
+        an effective hack.
+        """
+        if obj is not None:
+            self.obj = obj
+        return self.push()
+
+    def add(self, data):
+        """data may be a value, or a `list`, or a `numpy` array.
+
+        See also `push` to complete the iteration.
+        """
+        # if data is not None:
+        self._stack(data)
+        return self
+
+    def _add_defaults(self):
+        for name in self.attributes:
+            data = getattr(self.obj, name)
+            self._stack(data)
+        for callable in self.callables:
+            self._stack(callable())
+        return self
+
+    def push(self, *args):
+        """call ``stack()`` and finalize the current timestep, ignore
+        input arguments."""
+        self._add_defaults()
+        if self.count == 0:
+            self.push_header()
+        with open(self._name, 'at') as file_:
+            file_.write(' '.join(self.format % val
+                                 for val in self.current_data) + '\n')
+        self.current_data = []
+        self.count += 1
+
+    def push_header(self):
+        mode = 'at' if self.count else 'wt'
+        with open(self._name, mode) as file_:
+            if self.labels:
+                file_.write('# %s\n' % repr(self.labels))
+            if self.attributes:
+                file_.write('# %s\n' % repr(self.attributes))
+
+    def load(self):
+        import ast
+        self.data = np.loadtxt(self._name)
+        with open(self._name, 'rt') as file_:
+            first_line = file_.readline()
+        if first_line.startswith('#'):
+            self.labels = ast.literal_eval((first_line[1:].lstrip()))
+        return self
+
+    def plot(self, plot=None):
+        try:
+            from matplotlib import pyplot as plt
+        except ImportError: pass
+        if plot is None:
+            from matplotlib.pyplot import plot
+        self.load()
+        n = len(self.data)  # number of data rows
+        try:
+            m = len(self.data[0])  # number of "variables"
+        except TypeError:
+            m = 0
+        plt.gca().clear()
+        if not m or len(self.labels) == 1:  # data cannot be indexed like data[:,0]
+            plot(range(1, n + 1), self.data,
+                 label=self.labels[0] if self.labels else None)
+            return
+        color=iter(plt.cm.winter_r(np.linspace(0.15, 1, m)))
+        for i in range(m):
+            plot(range(1, n + 1), self.data[:, i],
+                 label=self.labels[i] if i < len(self.labels) else None)
+            plt.gca().get_lines()[0].set_color(next(color))
+        plt.legend(framealpha=0.3)  # more opaque than not
+        return self
+

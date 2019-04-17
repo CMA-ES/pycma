@@ -777,3 +777,94 @@ class MoreToWrite(list):
             if all(np.diff(self._lenhist) > 0):
                 del self[:]
             self._lenhist = []
+
+class DefaultSettings(object):
+    """resembling somewhat `types.SimpleNamespace` from Python >=3.3
+    but with instantiation and resembling even more the `dataclass` decorator
+    from Python >=3.7.
+
+    ``MyClassSettings(DefaultSettings)`` is preferably used by assigning a settings
+    attribute in ``__init__`` like:
+
+    >>> class MyClass:
+    ...     def __init__(self, a, b=None, param1=None, c=3):
+    ...         self.settings = MyClassSettings(locals(), 1, self)
+
+    The `1` signals, purely for consistency checking, that one parameter defined
+    in ``MyClassSettings`` is to be set from ``locals()``. ``MyClassSettings``
+    doesn't use any names which are already defined in ``self.__dict__``. The
+    settings are defined in a derived parameter class like
+
+    >>> from cma.fitness_models import DefaultSettings
+    >>> class MyClassSettings(DefaultSettings):
+    ...     param1 = 123
+    ...     val2 = False
+    ...     another_par = None  # we need to assign at least None always
+
+    The main purpose is, with the least effort, (i) to separate
+    parameters/settings of a class from its remaining attributes, and (ii) to be
+    flexible as to which of these parameters are arguments to ``__init__``.
+    Parameters can always be modified after instantiation. Further advantages
+    are (a) no typing of ``self.`` to assign the default value or the passed
+    parameter value (the latter are assigned "automatically") and (b) no
+    confusing name change between the passed option and attribute name is
+    possible.
+
+    The class does not allow to overwrite the default value with `None`.
+
+    Now any of these parameters can be used or re-assigned like
+
+    >>> c = MyClass(0.1)
+    >>> c.settings.param1 == 123
+    True
+    >>> c = MyClass(2, param1=False)
+    >>> c.settings.param1 is False
+    True
+
+    """
+    def __init__(self, params, number_of_params, obj):
+        """Overwrite default settings in case.
+
+        :param params: A dictionary (usually locals()) containing the parameters to set/overwrite
+        :param number_of_params: Number of parameters to set/overwrite
+        :param obj: elements of obj.__dict__ are in the ignore list.
+        """
+        self.inparams = dict(params)
+        self._number_of_params = number_of_params
+        self.obj = obj
+        self.inparams.pop('self', None)
+        self._set_from_defaults()
+        self._set_from_input()
+
+    def __str__(self):
+        # return str(self.__dict__)
+        return ("{" + '\n'.join(r"%s: %s" % (str(k), str(v)) for k, v in self.items()) + "}")
+
+    def _set_from_defaults(self):
+        """defaults are taken from the class attributes"""
+        self.__dict__.update(((key, val)
+                              for (key, val) in type(self).__dict__.items()
+                              if not key.startswith('_')))
+    def _set_from_input(self):
+        """Only existing parameters/attributes and non-None values are set.
+
+        The number of parameters is cross-checked.
+
+        Remark: we could select only the last arguments
+        of obj.__init__.__func__.__code__.co_varnames
+        which have defaults obj.__init__.__func__.__defaults__ (we do
+        not need the defaults)
+        """
+        discarded = {}  # discard name if not in self.__dict__
+        for key in list(self.inparams):
+            if key not in self.__dict__ or key in self.obj.__dict__:
+                discarded[key] = self.inparams.pop(key)
+            elif self.inparams[key] is not None:
+                setattr(self, key, self.inparams[key])
+        if len(self.inparams) != self._number_of_params:
+            warnings.warn("%s: %d parameters desired; remaining: %s; discarded: %s "
+                          % (str(type(self)), self._number_of_params, str(self.inparams),
+                             str(discarded)))
+        # self.__dict__.update(self.inparams)
+        delattr(self, 'obj')  # prevent circular reference self.obj.settings where settings is self
+

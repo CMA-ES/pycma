@@ -10,7 +10,8 @@ from collections import defaultdict  # since Python 2.5
 import numpy as np
 import scipy.stats as _stats  # for kendalltau
 from .utilities import utils
-# from .logger import LoggerDummy as Logger
+from .logger import LoggerDummy as Logger
+from .utilities.utils import DefaultSettings as DefaultSettings
 
 
 def _kendall_tau(x, y):
@@ -106,286 +107,6 @@ class FitnessFunctionDataQueue:  # TODO: could inherit from fitness_transformati
         self.prune()
         return f
 
-class LoggerDummy(object):
-    """use to fake a `Logger` in non-verbose setting"""
-    def __init__(self, *args, **kwargs):
-        self.count = 0
-    def __call__(self, *args, **kwargs):
-        self.push()
-    def add(self, *args, **kwargs):
-        return self
-    def push(self, *args, **kwargs):
-        self.count += 1
-    def load(self, *args, **kwargs):
-        return self
-    def plot(self, *args, **kwargs):
-        warnings.warn("loggers is in dummy (silent) mode,"
-                      " there is nothing to plot")
-
-class Logger(object):
-    """log an arbitrary number of data (a data row) per "timestep".
-
-    The `add` method can be called several times per timestep, the
-    `push` method must be called once per timestep. `load` and `plot`
-    will only work if each time the same number of data was pushed.
-
-    For the time being, the data is saved to a file after each timestep.
-
-    To append data, set `self.counter` > 0 before to call `push` the first
-    time. ``len(self.load().data)`` is the number of current data.
-
-    Useless example::
-
-        >> es = cma.CMAEvolutionStrategy
-        >> lg = Logger(es, ['countiter'])  # prepare to log the countiter attribute of es
-        >> lg.push()  # execute logging
-
-    """
-    def __init__(self, obj_or_name, attributes=None, callables=None, path='outcmaes/', name=None, labels=None):
-        """obj can also be a name"""
-        self.format = "%.19e"
-        if obj_or_name == str(obj_or_name) and attributes is not None:
-            raise ValueError('string obj %s has no attributes %s' % (
-                str(obj_or_name), str(attributes)))
-        self.obj = obj_or_name
-        self.name = name
-        # handle output location, TODO: streamline
-        self.path = path
-        self._autoname(obj_or_name)  # set _name attribute
-        self._name = self._create_path(path) + self._name
-        # print(self._name)
-        self.attributes = attributes or []
-        self.callables = callables or []
-        self.labels = labels or []
-        self.count = 0
-        self.current_data = []
-        # print('Logger:', self.name, self._name)
-
-    def _create_path(self, name_prefix=None):
-        """return absolute path or '' if not `name_prefix`"""
-        if not name_prefix:
-            return ''
-        path = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
-        if name_prefix.endswith((os.sep, '/')):
-            path = path + os.sep
-        # create path if necessary
-        if os.path.dirname(path):
-            try:
-                os.makedirs(os.path.dirname(path))
-            except OSError:
-                pass  # folder exists
-        return path
-
-    def _autoname(self, obj):
-        """set `name` and `_name` attributes.
-
-        TODO: how to handle two loggers in the same class??
-        """
-        if str(obj) == obj:
-            self.name = obj
-        if self.name is None:
-            s = str(obj)
-            s = s.split('class ')[-1]
-            s = s.split('.')[-1]
-            # print(s)
-            if ' ' in s:
-                s = s.split(' ')[0]
-            if "'" in s:
-                s = s.split("'")[-2]
-            self.name = s
-        self._name = self.name
-        if '.' not in self._name:
-            self._name = self._name + '.logdata'
-        if not self._name.startswith(('._', '_')):
-            self._name = '._' + self._name
-
-    def _stack(self, data):
-        """stack data into current row managing the different access...
-
-        ... and type formats.
-        """
-        if isinstance(data, list):
-            self.current_data += data
-        else:
-            try:  # works for numpy array
-                self.current_data += [d for d in data]
-            except TypeError:
-                self.current_data += [data]
-
-    def __call__(self, obj=None):
-        """see also method `push`.
-
-        TODO: replacing `obj` here is somewhat inconsistent, but maybe
-        an effective hack.
-        """
-        if obj is not None:
-            self.obj = obj
-        return self.push()
-
-    def add(self, data):
-        """data may be a value, or a `list`, or a `numpy` array.
-
-        See also `push` to complete the iteration.
-        """
-        # if data is not None:
-        self._stack(data)
-        return self
-
-    def _add_defaults(self):
-        for name in self.attributes:
-            data = getattr(self.obj, name)
-            self._stack(data)
-        for callable in self.callables:
-            self._stack(callable())
-        return self
-
-    def push(self, *args):
-        """call ``stack()`` and finalize the current timestep, ignore
-        input arguments."""
-        self._add_defaults()
-        if self.count == 0:
-            self.push_header()
-        with open(self._name, 'at') as file_:
-            file_.write(' '.join(self.format % val
-                                 for val in self.current_data) + '\n')
-        self.current_data = []
-        self.count += 1
-
-    def push_header(self):
-        mode = 'at' if self.count else 'wt'
-        with open(self._name, mode) as file_:
-            if self.labels:
-                file_.write('# %s\n' % repr(self.labels))
-            if self.attributes:
-                file_.write('# %s\n' % repr(self.attributes))
-
-    def load(self):
-        import ast
-        self.data = np.loadtxt(self._name)
-        with open(self._name, 'rt') as file_:
-            first_line = file_.readline()
-        if first_line.startswith('#'):
-            self.labels = ast.literal_eval((first_line[1:].lstrip()))
-        return self
-
-    def plot(self, plot=None):
-        try:
-            from matplotlib import pyplot as plt
-        except ImportError: pass
-        if plot is None:
-            from matplotlib.pyplot import plot
-        self.load()
-        n = len(self.data)  # number of data rows
-        try:
-            m = len(self.data[0])  # number of "variables"
-        except TypeError:
-            m = 0
-        plt.gca().clear()
-        if not m or len(self.labels) == 1:  # data cannot be indexed like data[:,0]
-            plot(range(1, n + 1), self.data,
-                 label=self.labels[0] if self.labels else None)
-            return
-        color=iter(plt.cm.winter_r(np.linspace(0.15, 1, m)))
-        for i in range(m):
-            plot(range(1, n + 1), self.data[:, i],
-                 label=self.labels[i] if i < len(self.labels) else None)
-            plt.gca().get_lines()[0].set_color(next(color))
-        plt.legend(framealpha=0.3)  # more opaque than not
-        return self
-
-_Logger = Logger  # to reset Logger
-Logger = LoggerDummy  # by default no logging
-
-class DefaultSettings(object):
-    """resembling somewhat `types.SimpleNamespace` from Python >=3.3
-    but with instantiation and resembling even more the `dataclass` decorator
-    from Python >=3.7.
-
-    ``MyClassSettings(DefaultSettings)`` is preferably used by assigning a settings
-    attribute in ``__init__`` like:
-
-    >>> class MyClass:
-    ...     def __init__(self, a, b=None, param1=None, c=3):
-    ...         self.settings = MyClassSettings(locals(), 1, self)
-
-    The `1` signals, purely for consistency checking, that one parameter defined
-    in ``MyClassSettings`` is to be set from ``locals()``. ``MyClassSettings``
-    doesn't use any names which are already defined in ``self.__dict__``. The
-    settings are defined in a derived parameter class like
-
-    >>> from cma.fitness_models import DefaultSettings
-    >>> class MyClassSettings(DefaultSettings):
-    ...     param1 = 123
-    ...     val2 = False
-    ...     another_par = None  # we need to assign at least None always
-
-    The main purpose is, with the least effort, (i) to separate
-    parameters/settings of a class from its remaining attributes, and (ii) to be
-    flexible as to which of these parameters are arguments to ``__init__``.
-    Parameters can always be modified after instantiation. Further advantages
-    are (a) no typing of ``self.`` to assign the default value or the passed
-    parameter value (the latter are assigned "automatically") and (b) no
-    confusing name change between the passed option and attribute name is
-    possible.
-
-    The class does not allow to overwrite the default value with `None`.
-
-    Now any of these parameters can be used or re-assigned like
-
-    >>> c = MyClass(0.1)
-    >>> c.settings.param1 == 123
-    True
-    >>> c = MyClass(2, param1=False)
-    >>> c.settings.param1 is False
-    True
-
-    """
-    def __init__(self, params, number_of_params, obj):
-        """Overwrite default settings in case.
-
-        :param params: A dictionary (usually locals()) containing the parameters to set/overwrite
-        :param number_of_params: Number of parameters to set/overwrite
-        :param obj: elements of obj.__dict__ are in the ignore list.
-        """
-        self.inparams = dict(params)
-        self._number_of_params = number_of_params
-        self.obj = obj
-        self.inparams.pop('self', None)
-        self._set_from_defaults()
-        self._set_from_input()
-
-    def __str__(self):
-        # return str(self.__dict__)
-        return ("{" + '\n'.join(r"%s: %s" % (str(k), str(v)) for k, v in self.items()) + "}")
-
-    def _set_from_defaults(self):
-        """defaults are taken from the class attributes"""
-        self.__dict__.update(((key, val)
-                              for (key, val) in type(self).__dict__.items()
-                              if not key.startswith('_')))
-    def _set_from_input(self):
-        """Only existing parameters/attributes and non-None values are set.
-
-        The number of parameters is cross-checked.
-
-        Remark: we could select only the last arguments
-        of obj.__init__.__func__.__code__.co_varnames
-        which have defaults obj.__init__.__func__.__defaults__ (we do
-        not need the defaults)
-        """
-        discarded = {}  # discard name if not in self.__dict__
-        for key in list(self.inparams):
-            if key not in self.__dict__ or key in self.obj.__dict__:
-                discarded[key] = self.inparams.pop(key)
-            elif self.inparams[key] is not None:
-                setattr(self, key, self.inparams[key])
-        if len(self.inparams) != self._number_of_params:
-            warnings.warn("%s: %d parameters desired; remaining: %s; discarded: %s "
-                          % (str(type(self)), self._number_of_params, str(self.inparams),
-                             str(discarded)))
-        # self.__dict__.update(self.inparams)
-        delattr(self, 'obj')  # prevent circular reference self.obj.settings where settings is self
-
 class SurrogatePopulationSettings(DefaultSettings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
     n_for_tau = lambda popsi, nevaluated: int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
@@ -412,7 +133,7 @@ class SurrogatePopulation(object):
     >>> import cma
     >>> import cma.fitness_models as fm
     >>> from cma.fitness_transformations import Function as FFun  # adds evaluations attribute
-    >>> fm.Logger, Logger = fm.LoggerDummy, fm.Logger
+    >>> # fm.Logger, Logger = fm.LoggerDummy, fm.Logger
     >>> surrogate = fm.SurrogatePopulation(cma.ff.elli)
 
     Example using the ask-and-tell interface:
@@ -446,7 +167,7 @@ class SurrogatePopulation(object):
     ...     assert fitfun.evaluations == es.result.evaluations
     ...     assert es.result[1] < 1e-12
     ...     assert es.result[2] < evals
-    >>> fm.Logger = Logger
+    >>> # fm.Logger = Logger
 
     """
     def __init__(self,
@@ -703,7 +424,7 @@ class LQModel(object):
     >>> import numpy as np
     >>> import cma
     >>> import cma.fitness_models as fm
-    >>> fm.Logger, Logger = fm.LoggerDummy, fm.Logger
+    >>> # fm.Logger, Logger = fm.LoggerDummy, fm.Logger
     >>> m = fm.LQModel()
     >>> for i in range(30):
     ...     x = np.random.randn(3)
@@ -763,7 +484,7 @@ class LQModel(object):
     []
     >>> assert np.allclose(m.coefficients, [80, -10, 80, 80])
     >>> assert np.allclose(m.xopt, [22, -159, -159])  # [ 50,  -400, -400])  # depends on Hessian
-    >>> fm.Logger = Logger
+    >>> # fm.Logger = Logger
 
     """
     _complexities = [  # must be ordered by complexity here
