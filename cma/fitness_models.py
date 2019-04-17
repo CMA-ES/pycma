@@ -70,43 +70,6 @@ def kendall_tau(x, y):
             tau = 0
     return tau
 
-class FitnessFunctionDataQueue:  # TODO: could inherit from fitness_transformations.Function
-    """never used, won't fix?
-
-        >> from cma.fitness_models import FitnessFunctionDataQueue, Model
-        >> # need to deactivate logger
-        >> fun = FitnessFunctionDataQueue(lambda x: x[0], 5)
-        >> for i in range(6):
-        ..     f = fun([i, i+1])
-        >> assert len(fun.X) == 5
-        >> m = Model()  # move data into model
-        >> for x, f in zip(fun.X, fun.F):
-        ..     res = m.add_data_row(x, f)
-        >> m.size
-        5
-
-    """
-    def __init__(self, fun, max_len=np.inf):
-        """keep max_len last x- and f-values"""
-        self.fun = fun
-        self.max_len = max_len
-        self.reset()
-    def reset(self):
-        self.X = []
-        self.F = []
-        self.evaluations = 0
-    def prune(self):
-        for name in ('X', 'F'):
-            while len(getattr(self, name)) > self.max_len:
-                getattr(self, name).pop(0)
-    def __call__(self, x, *args):
-        f = self.fun(x, *args)
-        self.X.append(list(x))
-        self.F.append(f)
-        self.evaluations += 1
-        self.prune()
-        return f
-
 class SurrogatePopulationSettings(DefaultSettings):
     minimum_model_size = 3  # absolute minimum number of true evaluations before to build the model
     n_for_tau = lambda popsi, nevaluated: int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
