@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""logger class to be used with `CMAEvolutionStrategy`
+"""logger class mainly to be used with `CMAEvolutionStrategy`
 
 """
 

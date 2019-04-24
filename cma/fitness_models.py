@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+"""Fitness surrogate model classes and handler for incremental evaluations.
+"""
 from __future__ import absolute_import, division, print_function  #, unicode_literals, with_statement
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 ___author__ = "Nikolaus Hansen"
@@ -63,6 +65,8 @@ def _kendall_tau(x, y):
     return tau
 
 def kendall_tau(x, y):
+    """return rank correlation coefficient between data `x` and `y`
+    """
     if 11 < 3:  # TODO: make default
         tau = _kendall_tau(x, y)
     else:
@@ -453,6 +457,13 @@ class LQModel(object):
     >>> assert np.allclose(m.xopt, [22, -159, -159])  # [ 50,  -400, -400])  # depends on Hessian
     >>> # fm.Logger = Logger
 
+    For results see:
+    
+    Hansen (2019). A Global Surrogate Model for CMA-ES. In Genetic and Evolutionary
+    Computation Conference (GECCO 2019), Proceedings, ACM.
+    
+    lq-CMA-ES at http://lq-cma.gforge.inria.fr/ppdata-archives/pap-gecco2019/figure5/
+
     """
     _complexities = [  # must be ordered by complexity here
         ['quadratic', lambda d: 2 * d + 1],
@@ -462,6 +473,7 @@ class LQModel(object):
 
     @property
     def current_complexity(self):
+        """degrees of freedom (nb of parameters) of the current model"""
         if self.types:
             return max(self.complexity[t](self.dim) for t in self.types)
         return self.dim + 1
@@ -508,6 +520,7 @@ class LQModel(object):
         self.tau.tau, self.tau.n = 0, 0
 
     def sorted_weights(self, number=None):
+        """regression weights in decreasing order"""
         return np.linspace(self.settings.max_weight, 1,
                            self.size if number is None or number > self.size
                            else number)
@@ -586,6 +599,7 @@ class LQModel(object):
                 getattr(self, name).pop()
 
     def prune(self):
+        """prune data depending on size parameters"""
         remove = int(self.size - max((self.max_size,
                                       self.max_df * self.settings.min_relative_size / self.settings.truncation_ratio)))
         if remove <= 0:
@@ -897,20 +911,6 @@ class LQModel(object):
         return self.coefficients[1:len(self.X[0]) + 1]
 
     @property
-    def weights(self):
-        raise NotImplementedError('superseded by `weighted_array` which does indexing and multiplication')
-        self._weights = np.zeros(len(self.Y))
-        idx = np.argsort(self.Y)
-        self._weights[idx] = self.sorted_weights()
-        assert np.all(np.argsort(self._weights) == idx[::-1])
-        # self._weights = 1
-        # self._weights = idx
-        # ymax = max(self.Y)
-        # dy = ymax - min(self.Y)
-        # self._weights =  ((ymax - np.asarray(self.Y)) / dy if dy else 0)**self.wexpo + 1 / self.wdecay
-        return self._weights
-
-    @property
     def xopt(self):
         if self._xopt_count < self.count:
             self._xopt_count = self.count
@@ -935,9 +935,11 @@ class LQModel(object):
 
     @property
     def minY(self):
+        """smallest f-values in data queue"""
         return min(self.F)
 
     @property
     def eigenvalues(self):
+        """eigenvalues of the Hessian of the model"""
         return sorted(np.linalg.eigvals(self.hessian))
 
