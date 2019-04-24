@@ -8,7 +8,11 @@ import os
 import warnings
 from collections import defaultdict  # since Python 2.5
 import numpy as np
-import scipy.stats as _stats  # for kendalltau
+try:  # TODO: remove dependency
+    from scipy.stats import kendalltau as _kendalltau
+except ImportError:
+    def _kendalltau(x, y):
+        return _kendall_tau(x, y), None
 from .utilities import utils
 from .logger import LoggerDummy as Logger
 from .utilities.utils import DefaultSettings as DefaultSettings
@@ -24,7 +28,7 @@ def _kendall_tau(x, y):
     >>> import numpy as np
     >>> from cma.fitness_models import _kendall_tau
     >>> kendalltau = lambda x, y: (_kendall_tau(x, y), 0)
-    >>> from scipy.stats import kendalltau  # incomment if not available
+    >>> # from scipy.stats import kendalltau  # incomment if not available
     >>> for dim in np.random.randint(3, 22, 5):
     ...     x, y = np.random.randn(dim), np.random.randn(dim)
     ...     t1, t2 = _kendall_tau(x, y), kendalltau(x, y)[0]
@@ -50,7 +54,7 @@ def _kendall_tau(x, y):
                 if equal_value_contribution:
                     s += equal_value_contribution * (x[i] == x[j]) * (y[i] == y[j])
     tau = s * 2. / (len(x) * (len(x) - 1))
-    if 1 < 3:  # TODO: testing should be commented out some time
+    if 11 < 3:  # TODO: testing should be commented out some time
         from scipy.stats import kendalltau
         t = kendalltau(x, y)[0]
         if np.isfinite(t):  # kendalltau([3,3,3], [3,3,3]) is nan
@@ -63,7 +67,7 @@ def kendall_tau(x, y):
         tau = _kendall_tau(x, y)
     else:
         try:
-            tau = _stats.kendalltau(x, y)[0]
+            tau = _kendalltau(x, y)[0]
         except TypeError:  # kendalltau([3,3,3], [3,3,3]) == 1
             tau = 0
         if not np.isfinite(tau):  # kendalltau([3,3,3], [3,3,3]) is nan
