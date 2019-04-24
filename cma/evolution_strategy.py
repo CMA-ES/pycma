@@ -3702,7 +3702,7 @@ def fmin2(*args, **kwargs):
 
     """
     res = fmin(*args, **kwargs)
-    return res[0], res[9]
+    return res[0], res[-2]
 
 
 def fmin(objective_function, x0, sigma0,
