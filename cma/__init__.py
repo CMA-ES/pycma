@@ -5,8 +5,8 @@ Evolution Strategy).
 CMA-ES is a stochastic optimizer for robust non-linear non-convex
 derivative- and function-value-free numerical optimization.
 
-This implementation can be used with Python versions >= 2.6, namely
-2.6, 2.7, 3.3, 3.4, 3.5, 3.6.
+This implementation can be used with Python versions >= 2.6, namely,
+it was tested with 2.6, 2.7, 3.3, 3.4, 3.5, 3.6.
 
 CMA-ES searches for a minimizer (a solution x in :math:`R^n`) of an
 objective function f (cost function), such that f(x) is minimal.
@@ -144,7 +144,7 @@ del division, print_function, absolute_import, with_statement  #, unicode_litera
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
 __author__ = 'Nikolaus Hansen'
-__version__ = "2.7.0  $Revision: 4426 $ $Date: 2019-04-24 18:03:09 +0200 (Wed, 24 Apr 2019) $"
+__version__ = "2.7.1  $Revision: 4427 $ $Date: 2019-09-18 19:19:24 +0200 (Wed, 18 Sep 2019) $"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
-# $Id: __init__.py 4426 2019-04-24 16:03:09Z hansen $
+# $Id: __init__.py 4427 2019-09-18 17:19:24Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py
