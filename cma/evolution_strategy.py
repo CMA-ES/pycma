@@ -1706,6 +1706,23 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.x0.resize(self.x0.shape[0])  # 1-D array, not really necessary?!
         except NotImplementedError:
             pass
+    
+    def _copy_light(self):
+        """tentative copy of self, versatile (interface and functionalities may change).
+        
+        This may not work depending on the used sampler.
+        
+        Copy mean and sample distribution parameters and input options.
+
+        Do not copy evolution paths, termination status or other state variables.
+        """
+        es = CMAEvolutionStrategy(self.mean[:], self.sigma, dict(self.inopts))
+        es.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec.scaling)
+        try: es.sm.C = self.sm.C.copy()
+        except: warnings.warn("self.sm.C.copy failed")
+        es.sm.update_now(-1)  # make B and D consistent with C
+        return es    
+    
     # ____________________________________________________________
     # ____________________________________________________________
     def ask(self, number=None, xmean=None, sigma_fac=1,
