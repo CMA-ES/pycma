@@ -2,8 +2,6 @@
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 import numpy as np
-try: from matplotlib import pyplot as plt
-except: pass
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.math import Mh
 # from .transformations import BoundTransform  # only to make it visible but gives circular import anyways
@@ -30,6 +28,7 @@ def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1,
     be useful if extremely small non-zero values occur in the data.
 
     """
+    from matplotlib import pyplot as plt
     if y is None:
         if x is not None:
             x, y = y, x
