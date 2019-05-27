@@ -1707,7 +1707,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except NotImplementedError:
             pass
     
-    def _copy_light(self):
+    def _copy_light(self, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
         
         This may not work depending on the used sampler.
@@ -1716,7 +1716,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Do not copy evolution paths, termination status or other state variables.
         """
-        es = CMAEvolutionStrategy(self.mean[:], self.sigma, dict(self.inopts))
+        opts = dict(self.inopts)
+        if inopts is not None:
+            opts.update(inopts)
+        es = CMAEvolutionStrategy(self.mean[:], self.sigma, opts)
         es.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec.scaling)
         try: es.sm.C = self.sm.C.copy()
         except: warnings.warn("self.sm.C.copy failed")
