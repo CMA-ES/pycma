@@ -1729,7 +1729,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     # ____________________________________________________________
     # ____________________________________________________________
     def ask(self, number=None, xmean=None, sigma_fac=1,
-            gradf=None, args=()):
+            gradf=None, args=(), **kwargs):
         """get/sample new candidate solutions.
 
         Solutions are sampled from a multi-variate
@@ -1772,6 +1772,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         """
         assert self.countiter >= 0
+        if kwargs:
+            utils.print_warning("""Optional argument%s \n\n  %s\n\nignored""" % (
+                                    '(s)' if len(kwargs) > 1 else '', str(kwargs)),
+                                "ask", "CMAEvolutionStrategy",
+                                self.countiter, maxwarns=1)
         if self.countiter == 0:
             self.timer = utils.ElapsedWCTime()
         else:
