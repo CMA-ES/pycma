@@ -14,7 +14,34 @@ del absolute_import, division, print_function  #, unicode_literals
 
 _assertions_quadratic = True
 
-class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
+class GaussSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
+    def __init__(self):
+        """declarative init, doesn't need to be executed"""
+        self.dimension = -1  # to prevent IDE error
+
+    @property
+    def chin(self):
+        """approximation of the expected length when isotropic with variance 1.
+
+        The exact value could be computed by::
+
+            from scipy.special import gamma
+            return 2**0.5 * gamma((self.dimension+1) / 2) / gamma(self.dimension / 2)
+
+        The approximation obeys ``chin < chin_hat < (1 + 5e-5) * chin``.
+        """
+        values = {1: 0.7978845608028656, 2: 1.2533141373156,
+                  3: 1.59576912160574,   4: 1.87997120597326}
+        try:
+            val = values[self.dimension]
+        except KeyError:
+            # for dim > 4 we have chin < chin_hat < (1 + 5e-5) * chin
+            N = self.dimension
+            val = N**0.5 * (1 - 1. / (4 * N) + 1. / (26 * N**2)) # was: 21
+        return val
+
+
+class GaussStandardConstant(GaussSampler):
     """Standard Multi-variate normal distribution with zero mean.
 
     No update/change of distribution parameters.
@@ -41,7 +68,7 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
         arz = self.randn(number, self.dimension)
         if same_length:
             if same_length is True:
-                len_ = self.chiN
+                len_ = self.chin
             else:
                 len_ = same_length # presumably N**0.5, useful if self.opts['CSA_squared']
             for i in rglen(arz):
@@ -96,28 +123,8 @@ class GaussStandardConstant(StatisticalModelSamplerWithZeroMeanBaseClass):
     def correlation_matrix(self):
         return np.diag(np.ones(self.dimension)) if self.quadratic else None
 
-    @property
-    def chin(self):
-        """approximation of the expected length.
 
-        The exact value could be computed by::
-
-            from scipy.special import gamma
-            return 2**0.5 * gamma((self.dimension+1) / 2) / gamma(self.dimension / 2)
-
-        The approximation obeys ``chin < chin_hat < (1 + 5e-5) * chin``.
-        """
-        values = {1: 0.7978845608028656, 2: 1.2533141373156,
-                  3: 1.59576912160574,   4: 1.87997120597326}
-        try:
-            val = values[self.dimension]
-        except KeyError:
-            # for dim > 4 we have chin < chin_hat < (1 + 5e-5) * chin
-            N = self.dimension
-            val = N**0.5 * (1 - 1. / (4 * N) + 1. / (26 * N**2)) # was: 21
-        return val
-
-class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
+class GaussFullSampler(GaussSampler):
     """Multi-variate normal distribution with zero mean.
 
     Provides methods to `sample` from and `update` a multi-variate
@@ -228,7 +235,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         arz = self.randn(number, self.dimension)
         if same_length:
             if same_length is True:
-                len_ = self.chiN
+                len_ = self.chin
             else:
                 len_ = same_length # presumably N**0.5, useful if self.opts['CSA_squared']
             for i in rglen(arz):
@@ -566,27 +573,6 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """
         return sum((np.dot(self.B.T, x) / self.D)**2)**0.5
 
-    @property
-    def chin(self):
-        """approximation of the expected length.
-
-        The exact value could be computed by::
-
-            from scipy.special import gamma
-            return 2**0.5 * gamma((self.dimension+1) / 2) / gamma(self.dimension / 2)
-
-        The approximation obeys ``chin < chin_hat < (1 + 5e-5) * chin``.
-        """
-        values = {1: 0.7978845608028656, 2: 1.2533141373156,
-                  3: 1.59576912160574,   4: 1.87997120597326}
-        try:
-            val = values[self.dimension]
-        except KeyError:
-            # for dim > 4 we have chin < chin_hat < (1 + 5e-5) * chin
-            N = self.dimension
-            val = N**0.5 * (1 - 1. / (4 * N) + 1. / (26 * N**2)) # was: 21
-        return val
-
     def inverse_hessian_scalar_correction(self, mean, sigma, f):
         # find points to evaluate
         fac = 10  # try to go beyond the true optimum such that
@@ -596,7 +582,7 @@ class GaussFullSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         F = [f(x) for x in X]
         raise NotImplementedError
 
-class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
+class GaussDiagonalSampler(GaussSampler):
     """Multi-variate normal distribution with zero mean and diagonal
     covariance matrix.
 
@@ -833,26 +819,4 @@ class GaussDiagonalSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         `d` is the Euclidean distance, because C = I.
         """
         return sum(np.asarray(x)**2 / self.C)**0.5
-
-    @property
-    def chin(self):
-        """approximation of the expected length.
-
-        The exact value could be computed by::
-
-            from scipy.special import gamma
-            return 2**0.5 * gamma((self.dimension+1) / 2) / gamma(self.dimension / 2)
-
-        The approximation obeys ``chin < chin_hat < (1 + 5e-5) * chin``.
-
-        """
-        values = {1: 0.7978845608028656, 2: 1.2533141373156,
-                  3: 1.59576912160574,   4: 1.87997120597326}
-        try:
-            val = values[self.dimension]
-        except KeyError:
-            # for dim > 4 we have chin < chin_hat < (1 + 5e-5) * chin
-            N = self.dimension
-            val = N**0.5 * (1 - 1. / (4 * N) + 1. / (26 * N**2)) # was: 21
-        return val
 
