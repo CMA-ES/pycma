@@ -323,6 +323,14 @@ class GaussFullSampler(GaussSampler):
     def _updateC(self):
         pass
 
+    def _sortBD(self):
+        """sort columns of B and D according to the values in D"""
+        idx = np.argsort(self.D)
+        self.D = self.D[idx]
+        # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
+        self.B = self.B[:, idx]  # seems to be slightly quicker than B[:,:] = ...
+        assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
+
     def _decompose_C(self):
         """eigen-decompose self.C thereby updating self.B and self.D.
 
@@ -356,11 +364,7 @@ class GaussFullSampler(GaussSampler):
             self.count_eigen += 1
             assert all(np.isfinite(self.D))
             if 1 < 3:  # is only n*log(n) compared to n**3 of eig right above
-                idx = np.argsort(self.D)
-                self.D = self.D[idx]
-                # self.B[i] is a row, column B[:,i] == B.T[i] is eigenvector
-                self.B = self.B[:, idx]
-                assert (min(self.D), max(self.D)) == (self.D[0], self.D[-1])
+                self._sortBD()
 
             self.limit_condition()
             try:
