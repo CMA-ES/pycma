@@ -873,3 +873,67 @@ class DefaultSettings(object):
         # self.__dict__.update(self.inparams)
         delattr(self, 'obj')  # prevent circular reference self.obj.settings where settings is self
 
+class ListOfCallables(list):
+    """A `list` of callables that can be called like a single `callable`.
+
+    The simplest usecase of this minitool is single-shot usage like::
+
+        res = ListOfCallables(callable_or_list_of_callables)(args)
+
+    as a one-line simplification of either::
+
+        if callable(callable_or_list_of_callables):
+            res = [callable_or_list_of_callables(args)]
+        else:
+            res = [c(args) for c in callable_or_list_of_callables]
+
+    or::
+
+        try:
+            res = [c(args) for c in callable_or_list_of_callables]
+        except TypeError:
+            res = [callable_or_list_of_callables(args)]
+
+    """
+    def __init__(self, callback):
+        """return a list of callables as a `callable` itself.
+
+        ``callback`` can be a `callable` or a `list` (or iterable) of
+        callables. Otherwise a `ValueError` exception is raised.
+
+        Possible usecase: termination callback(s) of CMA-ES::
+
+            self.opts['termination_callback'](self)
+
+        becomes::
+
+            ListOfCallables(self.opts['termination_callback'])(self)
+
+        """
+        self._input_callback = callback
+        if callback is None:
+            callback = []
+        if callable(callback):
+            callback = [callback]
+        try:
+            for c in callback:
+                if not callable(c):
+                    raise ValueError("""callback argument %s is not
+                        callable""" % str(c))
+        except TypeError:
+            raise ValueError("""callback argument must be a `callable` or
+                an iterable (e.g. a list) of callables, after some
+                processing it was %s""" % str(callback))
+        list.__init__(self, callback)
+
+    def __call__(self, *args, **kwargs):
+        """call each element of the list and return a list of return values
+        """
+        res = [c(*args, **kwargs) for c in self]
+        if 11 < 3 and self._input_callback is None:
+            assert len(res) == 0
+            return None
+        if 11 < 3 and callable(self._input_callback):
+            assert len(self) == len(res) == 1
+            return res[0]  # for backwards compatibility when a single callable is used
+        return res
