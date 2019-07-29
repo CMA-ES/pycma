@@ -459,7 +459,7 @@ cma_default_options = {
             Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`''',
     'seed': 'time  # random number seed for `numpy.random`; `None` and `0` equate to `time`, `np.nan` means "do nothing", see also option "randn"',
     'signals_filename': 'None  # cma_signals.in  # read versatile options from this file which contains a single options dict, e.g. ``{"timeout": 0}`` to stop, string-values are evaluated, e.g. "np.inf" is valid',
-    'termination_callback': 'None  #v a function returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
+    'termination_callback': '[]  #v a function or list of functions returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
     'timeout': 'inf  #v stop if timeout seconds are exceeded, the string "2.5 * 60**2" evaluates to 2 hours and 30 minutes',
     'tolconditioncov': '1e14  #v stop if the condition of the covariance matrix is above `tolconditioncov`',
     'tolfacupx': '1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial step-size was chosen far too small and better solutions were found far away from the initial solution x0',
@@ -1320,7 +1320,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         if (check and self.countiter > 0 and self.opts['termination_callback'] and
                 self.opts['termination_callback'] != str(self.opts['termination_callback'])):
-            self.callbackstop = self.opts['termination_callback'](self)
+            self.callbackstop = utils.ListOfCallables(self.opts['termination_callback'])(self)
 
         res = self._stopdict(self, check)  # update the stopdict and return a Dict (self)
         if ignore_list:
@@ -1624,10 +1624,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.logger = CMADataLogger(opts['verb_filenameprefix'],
                                                      modulo=opts['verb_log']).register(self)
 
-        # attribute for stopping criteria in function stop
         self._stopdict = _CMAStopDict()
-        self.callbackstop = 0
-
+        "    attribute for stopping criteria in function stop"
+        self.callbackstop = ()
+        "    return values of callbacks, used like ``if any(callbackstop)``"
         self.fit = _BlancClass()
         self.fit.fit = []  # not really necessary
         self.fit.hist = []  # short history of best
@@ -3486,7 +3486,7 @@ class _CMAStopDict(dict):
                           opts['tolconditioncov'] and
                           es.D[-1] > opts['tolconditioncov']**0.5 * es.D[0], opts['tolconditioncov'])
 
-            self._addstop('callback', es.callbackstop)  # termination_callback
+            self._addstop('callback', any(es.callbackstop), es.callbackstop)  # termination_callback
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:  # warn, in case
