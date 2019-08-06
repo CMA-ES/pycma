@@ -156,12 +156,17 @@ def recycled(vec, dim=None, as_=None):
 
 def argsort(a, reverse=False):
     """return index list to get `a` in order, ie
-    ``a[argsort(a)[i]] == sorted(a)[i]``
+    ``a[argsort(a)[i]] == sorted(a)[i]``, which leads to unexpected
+    results with `np.nan` entries, because any comparison with `np.nan`
+    is `False`.
     """
     return sorted(range(len(a)), key=a.__getitem__, reverse=reverse)  # a.__getitem__(i) is a[i]
 
 def ranks(a, reverse=False):
-    """return ranks of entries starting with zero"""
+    """return ranks of entries starting with zero based on Pythons `sorted`.
+
+    This leads to unreasonable results with `np.nan` values.
+    """
     idx = argsort(a)
     return [len(idx) - 1 - idx.index(i) if reverse else idx.index(i)
             for i in range(len(idx))]
