@@ -1318,7 +1318,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         the conditions.
 
         """
-        if (check and self.countiter > 0 and self.opts['termination_callback'] and
+        if (check and self.countiter > 0 and
                 self.opts['termination_callback'] != str(self.opts['termination_callback'])):
             self.callbackstop = utils.ListOfCallables(self.opts['termination_callback'])(self)
 
