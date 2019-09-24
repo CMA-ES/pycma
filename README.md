@@ -66,7 +66,9 @@ either of these with ``sudo``.
 
 ## Version History
 
-* Version ``2.7.0`` logger now writes into a folder, new fitness model module, various fixes
+* Version ``2.7.1`` allows for a list of termination callbacks and a light copy of `CMAEvolutionStrategy` instances.
+
+* Version ``2.7.0`` logger now writes into a folder, new fitness model module, various fixes.
 
 * Version ``2.6.1`` allow possibly much larger condition numbers, fix corner case with growing more-to-write list.
 
