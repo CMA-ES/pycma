@@ -205,7 +205,7 @@ from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import pprint
-# from .utilities.math import Mh
+from .utilities.math import Mh
 from .sigma_adaptation import *
 from . import restricted_gaussian_sampler as _rgs
 
@@ -939,9 +939,9 @@ else:
           CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
         - 7 ``stop`` termination conditions in a dictionary
 
-        The best solution of the last completed iteration can be accessed via
-        attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy` and the
-        respective objective function value via ``fit.fit[0]``.
+        The penalized best solution of the last completed iteration can be
+        accessed via attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy`
+        and the respective objective function value via ``fit.fit[0]``.
 
         Details:
 
@@ -970,9 +970,9 @@ class _CMAEvolutionStrategyResult(tuple):
       ~ std_i * dimension**0.5 / min(popsize / 0.4, dimension) / 5, where
       mueff = CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
 
-    The best solution of the last completed iteration can be accessed via
-    attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy` and the
-    respective objective function value via ``fit.fit[0]``.
+    The penalized best solution of the last completed iteration can be
+    accessed via attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy`
+    and the respective objective function value via ``fit.fit[0]``.
 
     Details:
 
@@ -2539,7 +2539,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # self.out['recent_f'] = fit.fit[0]
 
         # fitness histories
-        fit.hist.insert(0, fit.fit[0])
+        fit.hist.insert(0, fit.fit[0])  # caveat: this may neither be the best nor the best in-bound fitness, TODO
         # if len(self.fit.histbest) < 120+30*N/sp.popsize or  # does not help, as tablet in the beginning is the critical counter-case
         if ((self.countiter % 5) == 0):  # 20 percent of 1e5 gen.
             fit.histbest.insert(0, fit.fit[0])
@@ -2972,8 +2972,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                            "manage_plateaus", "CMAEvolutionStrategy",
                                 self.countiter)
             return
-        idx = Mh.sround(sample_fraction * (self.popsize - 1))
-        if self.fit.fit[0] == self.fit.fit[idx]:
+        f0, fm = Mh.prctile(self.fit.fit, [0, sample_fraction * 100])
+        if f0 == fm:
             self.sigma *= sigma_fac
 
     @property
@@ -3420,7 +3420,7 @@ class _CMAStopDict(dict):
                       np.any(es.sigma * es.sigma_vec.scaling * es.dC**0.5 >
                           es.sigma0 * es.sigma_vec0 * opts['tolfacupx']))
         self._addstop('tolfun',
-                      es.fit.fit[-1] - es.fit.fit[0] < opts['tolfun'] and
+                      max(es.fit.fit) - min(es.fit.fit) < opts['tolfun'] and  # fit.fit is sorted including bound penalties
                       max(es.fit.hist) - min(es.fit.hist) < opts['tolfun'])
         self._addstop('tolfunhist',
                       len(es.fit.hist) > 9 and
@@ -3490,7 +3490,7 @@ class _CMAStopDict(dict):
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:  # warn, in case
-                if es.fit.fit[0] == es.fit.fit[-1] == es.best.last.f:
+                if max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:
                     utils.print_warning(
                     """flat fitness (f=%f, sigma=%.2e).
                     For small sigma, this could indicate numerical convergence.
@@ -3500,7 +3500,7 @@ class _CMAStopDict(dict):
                 self._addstop('flat fitness',  # message via stopdict
                          len(es.fit.hist) > 9 and
                          max(es.fit.hist) == min(es.fit.hist) and
-                              es.fit.fit[0] == es.fit.fit[-2],
+                              max(es.fit.fit) == min(es.fit.fit),
                          "please (re)consider how to compute the fitness more elaborately if sigma=%.2e is large" % es.sigma)
         if 11 < 3 and opts['vv'] == 321:
             self._addstop('||xmean||^2<ftarget', sum(es.mean**2) <= opts['ftarget'])
@@ -4595,7 +4595,7 @@ class old_CMADataLogger(interfaces.BaseDataLogger):
         # TODO: find a different way to communicate current x and f?
         try:
             besteverf = es.best.f
-            bestf = es.fit.fit[0]
+            bestf = es.fit.fit[0]  # caveat: fit.fit is sorted with added the bound penalty
             worstf = es.fit.fit[-1]
             medianf = es.fit.fit[es.sp.popsize // 2]
         except:
