@@ -1724,6 +1724,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         try: es.sm.C = self.sm.C.copy()
         except: warnings.warn("self.sm.C.copy failed")
         es.sm.update_now(-1)  # make B and D consistent with C
+        es._updateBDfromSM()
         return es    
     
     # ____________________________________________________________
