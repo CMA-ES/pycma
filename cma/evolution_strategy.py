@@ -2053,7 +2053,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         " are not mirrors.",
                         "ask_geno", "CMAEvolutionStrategy",
                         self.countiter)
-                    arinj[1] /= sum(arinj[0]**2)**0.5 / s1  # revert change
+                    # arinj[1] /= sum(arinj[0]**2)**0.5 / s1  # revert change
             self.number_of_injections_delivered += len(arinj)
             assert (self.countiter < 2 or not self.mean_shift_samples
                     or self.number_of_injections_delivered >= 2)
