@@ -1707,19 +1707,35 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except NotImplementedError:
             pass
     
-    def _copy_light(self, inopts=None):
+    def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
         
-        This may not work depending on the used sampler.
-        
-        Copy mean and sample distribution parameters and input options.
+        `sigma` overwrites the original initial `sigma`.
+        `inopts` allows to overwrite any of the original options.
 
-        Do not copy evolution paths, termination status or other state variables.
+        This copy may not work as expected depending on the used sampler.
+        
+        Copy mean and sample distribution parameters and input options. Do
+        not copy evolution paths, termination status or other state variables.
+
+        >>> import cma
+        >>> es = cma.CMAEvolutionStrategy(3 * [1], 0.1,
+        ...          {'verbose':-9}).optimize(cma.ff.elli, iterations=10)
+        >>> es2 = es._copy_light()
+        >>> assert es2.sigma == es.sigma
+        >>> assert sum((es.sm.C - es2.sm.C).flat < 1e-12)
+        >>> es3 = es._copy_light(sigma=10)
+        >>> assert es3.sigma == es3.sigma0 == 10
+        >>> es4 = es._copy_light(inopts={'CMA_on': False})
+        >>> assert es4.sp.c1 == es4.sp.cmu == 0
+
         """
+        if sigma is None:
+            sigma = self.sigma
         opts = dict(self.inopts)
         if inopts is not None:
             opts.update(inopts)
-        es = CMAEvolutionStrategy(self.mean[:], self.sigma, opts)
+        es = type(self)(self.mean[:], sigma, opts)
         es.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec.scaling)
         try: es.sm.C = self.sm.C.copy()
         except: warnings.warn("self.sm.C.copy failed")
