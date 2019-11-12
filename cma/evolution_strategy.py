@@ -4194,7 +4194,7 @@ def fmin(objective_function, x0, sigma0,
                             unsuccessful_iterations_count = 0
                     es.tell(X, fit)  # prepare for next iteration
                     if noise_handling:  # it would be better to also use these f-evaluations in tell
-                        es.sigma *= noisehandler(X, fit, objective_function, es.ask,
+                        es.sigma *= noisehandler(X, fit, objective_function or parallel_objective, es.ask,
                                                  args=args)**fmin_opts['noise_change_sigma_exponent']
 
                         es.countevals += noisehandler.evaluations_just_done  # TODO: this is a hack, not important though
