@@ -197,26 +197,31 @@ class BestSolution(object):
         assert arf is not None
         # find failsave minimum
         try:
+            arf = np.squeeze(arf)
             minidx = np.nanargmin(arf)
         except ValueError:
             return
         if minidx is np.nan:
             return
-        minarf = arf[minidx]
+
+        minarf = arf[minidx] if arf.ndim else np.ascontiguousarray(arf)
+        minarx = arx[minidx] if arf.ndim else list(np.squeeze(arx))
+
         # minarf = reduce(lambda x, y: y if y and y is not np.nan
         #                   and y < x else x, arf, np.inf)
         if minarf < np.inf and (minarf < self.f or self.f is None):
-            self.x, self.f = arx[minidx], arf[minidx]
+            self.x, self.f = minarx, minarf
             if xarchive is not None and xarchive.get(self.x) is not None:
                 self.x_geno = xarchive[self.x].get('geno')
             else:
                 self.x_geno = None
-            self.evals = None if not evals else evals - len(arf) + minidx + 1
+            self.evals = None if not evals else evals - arf.size + minidx + 1
             self.evalsall = evals
         elif evals:
             self.evalsall = evals
-        self.last.x = arx[minidx]
+        self.last.x = minarx
         self.last.f = minarf
+
     def get(self):
         """return ``(x, f, evals)`` """
         return self.x, self.f, self.evals  # , self.x_geno
