@@ -1439,20 +1439,45 @@ class Logger(object):
     `push` method must be called once per timestep. `load` and `plot`
     will only work if each time the same number of data was pushed.
 
+    To-be-logged "values" can be scalars or iterables (like lists
+    or nparrays).
+
     For the time being, the data is saved to a file after each timestep.
 
     To append data, set `self.counter` > 0 before to call `push` the first
     time. ``len(self.load().data)`` is the number of current data.
 
-    Useless example::
+    A minimal practical example logging some nicely transformed attribute
+    values of an object:
 
-        >> es = cma.CMAEvolutionStrategy
-        >> lg = Logger(es, ['countiter'])  # prepare to log the countiter attribute of es
-        >> lg.push()  # execute logging
+        >> import numpy as np
+        >> import cma
+        >> from cma.logger import Logger
+        >> es = cma.CMAEvolutionStrategy(3 * [1], 2)
+        >> lg = Logger(es, callables=[lambda es: es.best.f,
+        ..                            lambda es: np.log10(np.abs(es.best.f)),
+        ..                            lambda es: np.log10(es.sigma),
+        ..                           ],
+        ..                 labels=['best f', 'lg(best f)', 'lg($\sigma$)'])
+        >> es.optimize(cma.ff.sphere, callback=lg.push)
+        >> lg.plot()  # caveat: clears current figure like gcf().clear()
 
     """
     def __init__(self, obj_or_name, attributes=None, callables=None, path='outcmaes/', name=None, labels=None):
-        """obj can also be a name"""
+        """`obj_or_name` is an instance that we are interested in to observe,
+
+        but it can also be a name.
+
+        `attributes` are attributes of `obj_or_name`, however
+
+        `callables` are more general in their usage and hence recommended.
+
+        When a `callable` accepts an argument, it is called with
+        `obj_or_name` as argument. The returned value of `callables` and
+        the current values of `attributes` are automatically logged when
+        `push` is called.
+
+        """
         self.format = "%.19e"
         if obj_or_name == str(obj_or_name) and attributes is not None:
             raise ValueError('string obj %s has no attributes %s' % (
@@ -1546,7 +1571,10 @@ class Logger(object):
             data = getattr(self.obj, name)
             self._stack(data)
         for callable in self.callables:
-            self._stack(callable())
+            try:
+                self._stack(callable(self.obj))
+            except TypeError:
+                self._stack(callable())
         return self
 
     def push(self, *args):
@@ -1579,6 +1607,7 @@ class Logger(object):
         return self
 
     def plot(self, plot=None):
+        """Caveat: this calls `matplotlib.pyplot.gca().clear()`"""
         try:
             from matplotlib import pyplot as plt
         except ImportError: pass
