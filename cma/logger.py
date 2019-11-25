@@ -1606,8 +1606,13 @@ class Logger(object):
             self.labels = ast.literal_eval((first_line[1:].lstrip()))
         return self
 
-    def plot(self, plot=None):
-        """Caveat: this calls `matplotlib.pyplot.gca().clear()`"""
+    def plot(self, plot=None, clear=True):
+        """plot logged data using the `plot` function.
+
+        If `clear`, this calls `matplotlib.pyplot.gca().clear()` before
+        to plot in the current figure. The default value of `clear` may
+        change in future.
+        """
         try:
             from matplotlib import pyplot as plt
         except ImportError: pass
@@ -1619,7 +1624,8 @@ class Logger(object):
             m = len(self.data[0])  # number of "variables"
         except TypeError:
             m = 0
-        plt.gca().clear()
+        if clear:
+            plt.gca().clear()
         if not m or len(self.labels) == 1:  # data cannot be indexed like data[:,0]
             plot(range(1, n + 1), self.data,
                  label=self.labels[0] if self.labels else None)
