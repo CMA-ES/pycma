@@ -1441,23 +1441,28 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.sp = _CMAParameters(N, opts, verbose=opts['verbose'] > 0)
         self.sp0 = self.sp  # looks useless, as it is not a copy
 
-        self.adapt_sigma = opts['AdaptSigma']
-        if self.adapt_sigma is None:
-            utils.print_warning("""Value `None` for option 'AdaptSigma' is
-    ambiguous and hence depreciated. AdaptSigma can be set to `True` or
-    `False` or a class or class instance which inherited from
-    cma.sigma_adaptation.CMAAdaptSigmaBase""")
-            self.adapt_sigma = CMAAdaptSigmaCSA
-        elif self.adapt_sigma is True:
-            if opts['CMA_diagonal'] is True and N > 299:
-                self.adapt_sigma = CMAAdaptSigmaTPA
-            else:
-                self.adapt_sigma = CMAAdaptSigmaCSA
-        elif self.adapt_sigma is False:
-            self.adapt_sigma = CMAAdaptSigmaNone()
-        if isinstance(self.adapt_sigma, type):  # Is a class?
-            # Then we want the instance.
-            self.adapt_sigma = self.adapt_sigma(dimension=N, popsize=self.sp.popsize)
+        def instantiate_adapt_sigma(adapt_sigma, self):
+            """return instantiated sigma adaptation object"""
+            if adapt_sigma is None:
+                utils.print_warning(
+                    "Value `None` for option 'AdaptSigma' is ambiguous and\n"
+                    "hence deprecated. AdaptSigma can be set to `True` or\n"
+                    "`False` or a class or class instance which inherited from\n"
+                    "`cma.sigma_adaptation.CMAAdaptSigmaBase`")
+                adapt_sigma = CMAAdaptSigmaCSA
+            elif adapt_sigma is True:
+                if self.opts['CMA_diagonal'] is True and self.N > 299:
+                    adapt_sigma = CMAAdaptSigmaTPA
+                else:
+                    adapt_sigma = CMAAdaptSigmaCSA
+            elif adapt_sigma is False:
+                adapt_sigma = CMAAdaptSigmaNone()
+            if isinstance(adapt_sigma, type):  # is a class?
+                # then we want the instance
+                adapt_sigma = adapt_sigma(dimension=self.N, popsize=self.sp.popsize)
+            return adapt_sigma
+        self.adapt_sigma = instantiate_adapt_sigma(opts['AdaptSigma'], self)
+
         self.mean_shift_samples = True if (isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) or
             opts['mean_shift_line_samples']) else False
 
