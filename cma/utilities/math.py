@@ -509,6 +509,7 @@ class MathHelperFunctions(object):
         """interquartile range"""
         q25, q75 = percentile_function(data, [25, 75])
         return np.asarray(q75) - np.asarray(q25)
+    @staticmethod
     def interdecilerange(data, percentile_function=np.percentile):
         """return 10% to 90% range width"""
         q10, q90 = percentile_function(data, [10, 90])

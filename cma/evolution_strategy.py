@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """CMA-ES (evolution strategy), the main sub-module of `cma` providing
 in particular `CMAOptions`, `CMAEvolutionStrategy`, and `fmin`
 """
@@ -2589,18 +2590,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     # self.sent_solutions.pop(s)
                 except KeyError:
                     pass
-            else:  # to be removed:
-                x = self.sent_solutions.pop(s, None)  # 12.7s vs 11.3s with N,lambda=20,200
-                if x is not None:
-                    pop.append(x['geno'])
-                    if x['iteration'] + 1 < self.countiter and check_points not in (False, 0, [], ()):
-                        self.repair_genotyp(pop[-1])
-                    # TODO: keep additional infos or don't pop s from sent_solutions in the first place
-                else:
-                    # this case is expected for injected solutions
-                    pop.append(self.gp.geno(s, self.boundary_handler.inverse, copy=copy))  # cannot recover the original genotype with boundary handling
-                    if check_points not in (False, 0, [], ()):
-                        self.repair_genotype(pop[-1])  # necessary if pop[-1] was changed or injected by the user.
         # check that TPA mirrors are available
         self.pop = pop  # used in check_consistency of CMAAdaptSigmaTPA
         self.adapt_sigma.check_consistency(self)
@@ -2952,16 +2941,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # adapt also sigma: which are the trust-worthy/injected solutions?
             elif 11 < 3:
                 return np.exp(np.tanh(((upper_length * fac)**2 / self.N - 1) / 2) / 2)
-        else:
-            if 'checktail' not in self.__dict__:  # hasattr(self, 'checktail')
-                raise NotImplementedError
-                # from check_tail_smooth import CheckTail  # for the time being
-                # self.checktail = CheckTail()
-                # print('untested feature checktail is on')
-            fac = self.checktail.addchin(self.mahalanobis_norm(x - mold))
-
-            if fac < 1:
-                x = fac * (x - mold) + mold
 
         return x
 
@@ -4213,15 +4192,15 @@ def fmin(objective_function, x0, sigma0,
                             X[0] = 0 + opts['vv'] * es.sigma**0 * np.random.randn(es.N)
                             fit[0] = objective_function(X[0], *args)
                             # print fit[0]
-                    if es.opts['verbose'] > 4:
-                        if es.countiter > 1 and min(fit) > es.best.last.f:
-                            unsuccessful_iterations_count += 1
-                            if unsuccessful_iterations_count > 4:
-                                utils.print_message('%d unsuccessful iterations'
-                                                    % unsuccessful_iterations_count,
+                    if es.opts['verbose'] > 4:  # may be undesirable with dynamic fitness (e.g. Augmented Lagrangian)
+                        if es.countiter < 2 or min(fit) <= es.best.last.f:
+                            degrading_iterations_count = 0  # comes first to avoid code check complaint
+                        else:  # min(fit) > es.best.last.f:
+                            degrading_iterations_count += 1
+                            if degrading_iterations_count > 4:
+                                utils.print_message('%d f-degrading iterations (set verbose<=4 to suppress)'
+                                                    % degrading_iterations_count,
                                                     iteration=es.countiter)
-                        else:
-                            unsuccessful_iterations_count = 0
                     es.tell(X, fit)  # prepare for next iteration
                     if noise_handling:  # it would be better to also use these f-evaluations in tell
                         es.sigma *= noisehandler(X, fit, objective_function, es.ask,
