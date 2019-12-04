@@ -378,7 +378,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             minD = min(diagD)
         try:
             correlation_matrix = es.sm.correlation_matrix
-        except (AttributeError, NotImplemented, NotImplementedError):
+        except (AttributeError, NotImplementedError):
             correlation_matrix = None
         more_to_write = es.more_to_write
         es.more_to_write = utils.MoreToWrite()
@@ -560,6 +560,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
             ``1==plot`` versus function evaluation number
         `iteridx`
             iteration indices to plot, e.g. ``range(100)`` for the first 100 evaluations.
+        `x_opt`
+            if ``len(x_opt) == dimension``, the difference to `x_opt` is
+            plotted, otherwise the first row of ``x_opt`` are the indices of
+            the variables to be plotted and the second row, if present, is used
+            to take the difference.
 
         Return `CMADataLogger` itself.
 
@@ -652,7 +657,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         # standard deviations
         subplot(2, 2, 4)
-        self.plot_stds(iabscissa)
+        self.plot_stds(iabscissa, idx=x_opt)
 
         self._finalize_plotting = finalize
         self._finalize_plotting()
@@ -672,6 +677,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
             ``1==plot`` versus function evaluation number
         `iteridx`
             iteration indices to plot
+        `x_opt`
+            if ``len(x_opt) == dimension``, the difference to `x_opt` is
+            plotted, otherwise the first row of ``x_opt`` are the indices of
+            the variables to be plotted and the second row, if present, is used
+            to take the difference.
 
         Return `CMADataLogger` itself.
 
@@ -752,7 +762,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
             # standard deviations
             subplot(3, 2, 6)
-            self.plot_stds(iabscissa)
+            self.plot_stds(iabscissa, idx=x_opt)
         else:
             subplot(2, 3, 1)
             self.plot_divers(iabscissa, foffset)
@@ -760,7 +770,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
             # standard deviations
             subplot(2, 3, 4)
-            self.plot_stds(iabscissa)
+            self.plot_stds(iabscissa, idx=x_opt)
 
             # Scaling
             subplot(2, 3, 2)
@@ -808,15 +818,22 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_stds(self, iabscissa=1):
+    def plot_stds(self, iabscissa=1, idx=None):
+        """``iabscissa==0`` means vs iterations, `idx` picks variables to plot"""
         from matplotlib import pyplot
         if not hasattr(self, 'std'):
             self.load()
         # quick fix of not cp issue without changing much code
         class _tmp: pass
         dat = _tmp()
-        dat.std = np.asarray(self.std).copy()
+        dat.std = np.array(self.std, copy=True)
         self._enter_plotting()
+        try:
+            if len(np.shape(idx)) > 1:
+                idx = idx[0]  # take only first row
+            if len(idx) < dat.std.shape[1] - 5:  # idx reduces the displayed variables
+                dat.std = dat.std[:, list(range(5)) + [5 + i for i in idx]]
+        except TypeError: pass  # idx has no len
         # remove sigma from stds (graphs become much better readible)
         dat.std[:, 5:] = np.transpose(dat.std[:, 5:].T / dat.std[:, 2].T)
         # ax = array(pyplot.axis())
@@ -1108,7 +1125,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                       else 'function evaluations')
     def _plot_x(self, iabscissa=1, x_opt=None, remark=None,
                 annotations=None, xsemilog=None):
-        """If ``x_opt is not None`` the difference to x_opt is plotted
+        """If ``len(x_opt) == dimension``, the difference to `x_opt` is plotted.
+        Otherwise, the first row of ``x_opt`` is taken as indices and the second
+        row, if present, is used to take the difference.
         """
         if not hasattr(self, 'x'):
             utils.print_warning('no x-attributed found, use methods ' +
@@ -1123,7 +1142,20 @@ class CMADataLogger(interfaces.BaseDataLogger):
             dat_x = dat.x
         else:
             dat_x = dat.x[:,:]
-            dat_x[:, 5:] -= x_opt
+            try:
+                dat_x[:, 5:] -= x_opt
+            except ValueError:  # interpret x_opt as index
+                def apply_xopt(dat_x, x_opt_idx):
+                    """first row of `x_opt_idx` are indices, second (optional) row are values"""
+                    x_opt_vals = None
+                    if len(np.shape(x_opt_idx)) > 1:
+                        x_opt_vals = x_opt_idx[1]
+                        x_opt_idx = np.asarray(x_opt_idx[0])
+                    dat_x = dat_x[:, list(range(5)) + [5 + i for i in x_opt_idx]]
+                    if x_opt_vals is not None:
+                        dat_x[:, 5:] -= x_opt_vals
+                    return dat_x
+                dat_x = apply_xopt(dat_x, x_opt)
 
         # modify fake last entry in x for line extension-annotation
         if dat_x.shape[1] < 100:
@@ -1138,32 +1170,37 @@ class CMADataLogger(interfaces.BaseDataLogger):
             minxend = 0
         self._enter_plotting()
         if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
-            semilogy_signed(dat_x[:, iabscissa], dat_x[:, 5:])
+            labels = [('' + str(i) + ': ' if annotations is None
+                        else str(i) + ':' + annotations[i] + "=")
+                       + utils.num2str(dat_x[-2, 5 + i],
+                                    significant_digits=2,
+                                    desired_length=4)
+                      for i in range(dat_x.shape[1] - 5)
+                     ] if dat_x.shape[1] < 14 else []
+            semilogy_signed(dat_x[:-1, iabscissa], dat_x[:-1, 5:],
+                            labels=labels)
         else:
             plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
-        # hold(True)
+            if dat_x.shape[1] < 100:  # annotations
+                ax = array(axis())
+                axis(ax)
+                # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat_x.shape[1] - 5)
+                # yyl = np.sort(dat_x[-1,5:])
+                # plot([dat_x[-1, iabscissa], ax[1]], [dat_x[-1,5:], yy[idx2]], 'k-') # line from last data point
+                plot(np.dot(dat_x[-2, iabscissa], [1, 1]),
+                    array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
+                # plot(array([dat_x[-1, iabscissa], ax[1]]),
+                #      reshape(array([dat_x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
+                for i in range(len(idx)):
+                    # TODOqqq: annotate phenotypic value!?
+                    # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
+                    text(dat_x[-1, iabscissa], dat_x[-1, 5 + i],
+                        ('' + str(i) + ': ' if annotations is None
+                            else str(i) + ':' + annotations[i] + "=")
+                        + utils.num2str(dat_x[-2, 5 + i],
+                                        significant_digits=2,
+                                        desired_length=4))
         grid(True)
-        ax = array(axis())
-        # ax[1] = max(minxend, ax[1])
-        axis(ax)
-        ax[1] -= 1e-6  # to prevent last x-tick annotation, probably superfluous
-        if dat_x.shape[1] < 100:
-            # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat_x.shape[1] - 5)
-            # yyl = np.sort(dat_x[-1,5:])
-            # plot([dat_x[-1, iabscissa], ax[1]], [dat_x[-1,5:], yy[idx2]], 'k-') # line from last data point
-            plot(np.dot(dat_x[-2, iabscissa], [1, 1]),
-                 array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
-            # plot(array([dat_x[-1, iabscissa], ax[1]]),
-            #      reshape(array([dat_x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
-            for i in range(len(idx)):
-                # TODOqqq: annotate phenotypic value!?
-                # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
-                text(dat_x[-1, iabscissa], dat_x[-1, 5 + i],
-                     ('' + str(i) + ': ' if annotations is None
-                        else str(i) + ':' + annotations[i] + "=")
-                     + utils.num2str(dat_x[-2, 5 + i],
-                                     significant_digits=2,
-                                     desired_length=4))
         i = 2  # find smallest i where iteration count differs (in case the same row appears twice)
         while i < len(dat.f) and dat.f[-i][0] == dat.f[-1][0]:
             i += 1
@@ -1342,7 +1379,10 @@ def plot(name=None, fig=None, abscissa=1, iteridx=None,
     `iteridx`
         iteration indices to plot
     `x_opt`
-        negative offset for plotting x-values
+        if ``len(x_opt) == dimension``, the difference to `x_opt` is
+        plotted, otherwise the first row of ``x_opt`` are the indices of
+        the variables to be plotted and the second row, if present, is used
+        to take the difference.
     `xsemilog`
         customized semilog plot for x-values
 
@@ -1463,7 +1503,8 @@ class Logger(object):
         >> lg.plot()  # caveat: clears current figure like gcf().clear()
 
     """
-    def __init__(self, obj_or_name, attributes=None, callables=None, path='outcmaes/', name=None, labels=None):
+    def __init__(self, obj_or_name, attributes=None, callables=None,
+                 path='outcmaes/', name=None, labels=None):
         """`obj_or_name` is an instance that we are interested in to observe,
 
         but it can also be a name.
@@ -1630,11 +1671,14 @@ class Logger(object):
             plot(range(1, n + 1), self.data,
                  label=self.labels[0] if self.labels else None)
             return
-        color=iter(plt.cm.winter_r(np.linspace(0.15, 1, m)))
+        color = iter(plt.cm.plasma(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
+        idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
+        labels = iter(self.labels)
         for i in range(m):
             plot(range(1, n + 1), self.data[:, i],
-                 label=self.labels[i] if i < len(self.labels) else None)
-            plt.gca().get_lines()[0].set_color(next(color))
+                 color=next(color),
+                 label=next(labels) if i in idx_labels else None)
+            # plt.gca().get_lines()[0].set_color(next(color))
         plt.legend(framealpha=0.3)  # more opaque than not
         return self
 
