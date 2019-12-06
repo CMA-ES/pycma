@@ -464,6 +464,7 @@ cma_default_options = {
     'tolconditioncov': '1e14  #v stop if the condition of the covariance matrix is above `tolconditioncov`',
     'tolfacupx': '1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial step-size was chosen far too small and better solutions were found far away from the initial solution x0',
     'tolupsigma': '1e20  #v sigma/sigma0 > tolupsigma * max(eivenvals(C)**0.5) indicates "creeping behavior" with usually minor improvements',
+    'tolflatfitness': '1  #v iterations tolerated with flat fitness before termination',
     'tolfun': '1e-11  #v termination criterion: tolerance in function value, quite useful',
     'tolfunhist': '1e-12  #v termination criterion: tolerance in function value history',
     'tolstagnation': 'int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
@@ -1633,6 +1634,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit.hist = []  # short history of best
         self.fit.histbest = []  # long history of best
         self.fit.histmedian = []  # long history of median
+        self.fit.flatfit_iterations = 0
 
         self.more_to_write = utils.MoreToWrite()  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
 
@@ -3506,14 +3508,22 @@ class _CMAStopDict(dict):
             self._addstop('callback', any(es.callbackstop), es.callbackstop)  # termination_callback
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
-            if 1 < 3:  # warn, in case
-                if max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:
-                    utils.print_warning(
-                    """flat fitness (f=%f, sigma=%.2e).
-                    For small sigma, this could indicate numerical convergence.
-                    Otherwise, please (re)consider how to compute the fitness more elaborately.""" %
-                    (es.fit.fit[0], es.sigma), iteration=es.countiter)
-            if 1 < 3:  # add stop condition, in case
+            if 1 < 3:
+                if max(es.fit.fit) == min(es.fit.fit):
+                    es.fit.flatfit_iterations += 1
+                    if (es.fit.flatfit_iterations > opts['tolflatfitness'] or  # mainly for historical reasons:
+                        max(es.fit.hist[:1 + int(opts['tolflatfitness'])]) == min(es.fit.hist[:1 + int(opts['tolflatfitness'])])
+                       ):
+                        self._addstop('tolflatfitness')
+                    elif max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:  # keep warning for historical reasons for the time being
+                        utils.print_warning(
+                        """flat fitness (f=%f, sigma=%.2e).
+                        For small sigma, this could indicate numerical convergence.
+                        Otherwise, please (re)consider how to compute the fitness more elaborately.""" %
+                        (es.fit.fit[0], es.sigma), iteration=es.countiter)
+                else:
+                    es.fit.flatfit_iterations = 0
+            if 11 < 3:  # add stop condition, in case, replaced by above, subject to removal
                 self._addstop('flat fitness',  # message via stopdict
                          len(es.fit.hist) > 9 and
                          max(es.fit.hist) == min(es.fit.hist) and
@@ -3524,7 +3534,7 @@ class _CMAStopDict(dict):
 
         return self
 
-    def _addstop(self, key, cond, val=None):
+    def _addstop(self, key, cond=True, val=None):
         if cond:
             self.stoplist.append(key)  # can have the same key twice
             self[key] = val if val is not None \
