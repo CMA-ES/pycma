@@ -419,7 +419,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             self.initialized = True
         if 1 < 3:
             f_vals = np.asarray(function_values)
-            z = sum(f_vals < f_vals[1]) - sum(f_vals < f_vals[0])
+            z = np.sum(f_vals < f_vals[1]) - np.sum(f_vals < f_vals[0])
             z /= len(f_vals) - 1  # z in [-1, 1]
         elif 1 < 3:
             # use the ranking difference of the mirrors for adaptation
