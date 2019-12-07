@@ -3414,10 +3414,10 @@ class _CMAStopDict(dict):
         # tolx, tolfacupx: generic criteria
         # tolfun, tolfunhist (CEC:tolfun includes hist)
         self._addstop('tolx',
-                      all([es.sigma * xi < opts['tolx'] for xi in es.sigma_vec * es.pc]) and
-                      all([es.sigma * xi < opts['tolx'] for xi in es.sigma_vec * np.sqrt(es.dC)]))
+                      np.all(es.sigma * (es.sigma_vec * es.pc) < opts['tolx']) and
+                      np.all(es.sigma * (es.sigma_vec * np.sqrt(es.dC)) < opts['tolx']))
         self._addstop('tolfacupx',
-                      any(es.sigma * es.sigma_vec.scaling * es.dC**0.5 >
+                      np.any(es.sigma * es.sigma_vec.scaling * es.dC**0.5 >
                           es.sigma0 * es.sigma_vec0 * opts['tolfacupx']))
         self._addstop('tolfun',
                       es.fit.fit[-1] - es.fit.fit[0] < opts['tolfun'] and
