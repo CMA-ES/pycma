@@ -68,7 +68,7 @@ class CMAAdaptSigmaBase(object):
         self._update_ps(es)
         if self.ps is None:
             return True
-        squared_sum = sum(self.ps**2) / (1 - (1 - self.cs)**(2 * es.countiter))
+        squared_sum = np.sum(self.ps**2) / (1 - (1 - self.cs)**(2 * es.countiter))
         # correction with self.countiter seems not necessary,
         # as pc also starts with zero
         return squared_sum / es.N - 1 < 1 + 4. / (es.N + 1)
