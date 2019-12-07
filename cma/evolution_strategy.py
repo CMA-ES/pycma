@@ -2107,7 +2107,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                            "_random_rescaling_factor_to_mahalanobis_size",
                                 iteration=self.countiter)
             return 1.0
-        return sum(self.randn(1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
+        return np.sum(self.randn(1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
 
 
     def get_mirror(self, x, preserve_length=False):
