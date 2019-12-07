@@ -2996,10 +2996,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         As a result, `C` is a correlation matrix, i.e., all diagonal
         entries of `C` are `1`.
         """
-        if condition and np.isfinite(condition) and max(self.dC) / min(self.dC) > condition:
+        if condition and np.isfinite(condition) and np.max(self.dC) / np.min(self.dC) > condition:
             # allows for much larger condition numbers, if axis-parallel
             if hasattr(self, 'sm') and isinstance(self.sm, sampler.GaussFullSampler):
-                old_coordinate_condition = max(self.dC) / min(self.dC)
+                old_coordinate_condition = np.max(self.dC) / np.min(self.dC)
                 old_condition = self.sm.condition_number
                 factors = self.sm.to_correlation_matrix()
                 self.sigma_vec *= factors
@@ -3008,7 +3008,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 utils.print_message('\ncondition in coordinate system exceeded'
                                     ' %.1e, rescaled to %.1e, '
                                     '\ncondition changed from %.1e to %.1e'
-                                      % (old_coordinate_condition, max(self.dC) / min(self.dC),
+                                      % (old_coordinate_condition, np.max(self.dC) / np.min(self.dC),
                                          old_condition, self.sm.condition_number),
                                     iteration=self.countiter)
 
