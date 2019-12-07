@@ -3477,7 +3477,7 @@ class _CMAStopDict(dict):
                 i = es.countiter % N
                 try:
                     self._addstop('noeffectaxis',
-                                 sum(es.mean == es.mean + 0.1 * es.sigma *
+                                 np.sum(es.mean == es.mean + 0.1 * es.sigma *
                                      es.sm.D[i] * es.sigma_vec.scaling *
                                      (es.sm.B[:, i] if len(es.sm.B.shape) > 1 else es.sm.B[0])) == N)
                 except AttributeError:
