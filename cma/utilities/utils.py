@@ -502,8 +502,13 @@ class SolutionDict(DerivedDictBase):
         super(SolutionDict, self).__init__(*args, **kwargs)
         self.data_with_same_key = {}
         self.last_iteration = 0
-    def key(self, x):
+    @staticmethod
+    def key(x):
         """compute key of ``x``"""
+        # numpy fast path
+        if type(x) is np.ndarray:
+            return hash(x.data.tobytes())
+        # fall-back to default path
         try:
             return tuple(x)
             # using sum(x) is slower, using x[0] is slightly faster
