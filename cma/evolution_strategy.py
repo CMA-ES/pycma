@@ -2045,14 +2045,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # for TPA, set both vectors to the same length and don't
                 # ever keep the original length
                 arinj[0] *= self._random_rescaling_factor_to_mahalanobis_size(arinj[0]) / self.sigma
-                arinj[1] *= (sum(arinj[0]**2) / sum(arinj[1]**2))**0.5
+                arinj[1] *= (np.sum(arinj[0]**2) / np.sum(arinj[1]**2))**0.5
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
                     utils.print_warning(
                         "mean_shift_samples, but the first two solutions"
                         " are not mirrors.",
                         "ask_geno", "CMAEvolutionStrategy",
                         self.countiter)
-                    arinj[1] /= sum(arinj[0]**2)**0.5 / s1  # revert change
+                    arinj[1] /= np.sum(arinj[0]**2)**0.5 / s1  # revert change
             self.number_of_injections_delivered += len(arinj)
             assert (self.countiter < 2 or not self.mean_shift_samples
                     or self.number_of_injections_delivered >= 2)
