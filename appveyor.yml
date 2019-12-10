@@ -2,12 +2,18 @@ build: false
 
 environment:
   matrix:
+    # - PYTHON_VERSION: 3.8  # not there yet
+    #   MINICONDA: C:\Miniconda38
     - PYTHON_VERSION: 2.7
-      MINICONDA: C:\Miniconda
+      # Python 2.7 life ends by end of 2019, conda install numpy gives "cannot import name _distributor_init" error, hence using pip
+      MINICONDA: C:\Miniconda27
       # CYGWIN: C:\cygwin
+    - PYTHON_VERSION: 3.7
+      MINICONDA: C:\Miniconda37
+    - PYTHON_VERSION: 3.5  # works only with matplotlib<3.1
+      MINICONDA: C:\Miniconda35
     - PYTHON_VERSION: 3.6
       MINICONDA: C:\Miniconda36
-      # CYGWIN: C:\cygwin
 
 init:
   - cmd: "ECHO %PYTHON_VERSION% %MINICONDA%"
@@ -15,7 +21,11 @@ init:
   # - cmd: "set PATH=%CYGWIN%;%CYGWIN%\\bin;%PATH%"
 
 install:
-  - cmd: conda install -y matplotlib numpy  # scipy setuptools six pytest
+  # - cmd: conda install -y conda=4.6.12  # scipy setuptools six pytest
+  - cmd: python --version
+  - cmd: pip install numpy  # scipy setuptools six pytest
+  # - cmd: pip install matplotlib  # scipy setuptools six pytest
+  # - cmd: conda install -y matplotlib numpy  # scipy setuptools six pytest  # conda install numpy works only with Python 3.6
   # - cmd: python do.py run-python
   # - cmd: python do.py install-postprocessing
 
