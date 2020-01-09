@@ -229,7 +229,90 @@ class BestSolution(object):
         """return ``(x, f, evals)`` """
         return self.x, self.f, self.evals  # , self.x_geno
 
-class EvolutionPath(object):
+class ExponentialSmoothing(object):
+    """not in use (yet)
+
+    Exponentially smoothened vector, new data are added via
+    calling the class instance. The `normalizer` is applied to
+    the weight ``1 / time_constant`` used for the new data.
+
+    """
+    def __init__(self, time_constant=None, normalizer=lambda x: x):
+        self.time_constant = time_constant
+        if self.time_constant is not None and self.time_constant < 1:
+            raise ValueError("time_constant = %d must be >=1" % self.time_constant)
+        self.normalizer = normalizer
+        self.values = None
+        self.count = 0
+
+    def _init_(self, v):
+        self.values = np.array(v, dtype=float)
+        if self.time_constant is None:
+            self.time_constant = 1 + len(v)**0.5
+
+    def __getitem__(self, i):
+        return self.values[i]
+
+    def __call__(self, v):
+        if self.values is None:
+            self._init_(v)
+        self.count += 1
+        tc = np.min((self.count, self.time_constant))
+        self.values *= 1 - 1 / tc
+        self.values += self.normalizer(1 / tc) * np.asarray(v)
+        return self
+
+class EvolutionPath(ExponentialSmoothing):
+    """not in use (yet)
+
+    A variance-neutral exponentially smoothened vector.
+    """
+    def __init__(self, time_constant=None):
+        super(EvolutionPath, self).__init__(
+            time_constant, lambda x: np.sqrt(x * (2 - x)))
+
+    @property
+    def path(self):
+        return self.values
+
+class BinaryEvolutionPath(EvolutionPath):
+
+    @property
+    def probability_larger_than_one_from_binary(self):
+        """propability of path entries to be larger than one,
+
+        given the input is ``sign(randn())``. Check out::
+
+            n = int(1e4)
+            greater_than_one = []
+            ar_tc = [1.2, 1.5, 1.9, 2, 4, 8, 16, 32, 100]
+            for tc in ar_tc:
+                p = cma.optimization_tools.EvolutionPath(tc)
+                for i in range(int(10 * tc)):
+                    p(np.sign(np.random.randn(n)))
+                # plot(*step_data(p.path))
+                greater_than_one += [(np.mean(p.path > 1) + np.mean(p.path < -1)) / 2]
+
+        """
+        return np.minimum(0.25, 0.15865525393145707  # these come from the math for tc=1 and tc=infty
+                          + 0.2 / np.asarray(self.time_constant)**1.9)  # empirical fit to the data
+
+    @property
+    def raw_binary_s(self):
+        """return one of two possible values with expectation of zero.
+
+        the maximum for the larger value is 1 - 0.15865525393145707 for tc\to\infty.
+        """
+        # p * (I - p) + (1 - p) * (0 - p) = p - p^2  - p + p^2 = 0
+        return (np.abs(self.values) > 1) - self.probability_larger_than_one_from_binary
+
+    def binary_s(self, odds_of_increment=1):
+        """how many increments for one decrement in stationary state"""
+        s = self.raw_binary_s
+        s[s > 0] /= odds_of_increment
+        return s
+
+class OldEvolutionPath(object):
     """not in use (yet)
 
     A variance-neutral exponentially smoothened vector.

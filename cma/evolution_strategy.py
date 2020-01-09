@@ -173,6 +173,7 @@ from __future__ import (absolute_import, division, print_function,
 from .utilities.python3for2 import range  # redefine range in Python 2
 
 import sys
+import os
 import time  # not really essential
 import warnings  # catch numpy warnings
 import ast  # for literal_eval
@@ -458,12 +459,13 @@ cma_default_options = {
     'scaling_of_variables': '''None  # depreciated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
             Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`''',
     'seed': 'time  # random number seed for `numpy.random`; `None` and `0` equate to `time`, `np.nan` means "do nothing", see also option "randn"',
-    'signals_filename': 'None  # cma_signals.in  # read versatile options from this file which contains a single options dict, e.g. ``{"timeout": 0}`` to stop, string-values are evaluated, e.g. "np.inf" is valid',
+    'signals_filename': 'cma_signals.in  # read versatile options from this file (use `None` or `""` for no file) which contains a single options dict, e.g. ``{"timeout": 0}`` to stop, string-values are evaluated, e.g. "np.inf" is valid',
     'termination_callback': '[]  #v a function or list of functions returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
     'timeout': 'inf  #v stop if timeout seconds are exceeded, the string "2.5 * 60**2" evaluates to 2 hours and 30 minutes',
     'tolconditioncov': '1e14  #v stop if the condition of the covariance matrix is above `tolconditioncov`',
     'tolfacupx': '1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial step-size was chosen far too small and better solutions were found far away from the initial solution x0',
     'tolupsigma': '1e20  #v sigma/sigma0 > tolupsigma * max(eivenvals(C)**0.5) indicates "creeping behavior" with usually minor improvements',
+    'tolflatfitness': '1  #v iterations tolerated with flat fitness before termination',
     'tolfun': '1e-11  #v termination criterion: tolerance in function value, quite useful',
     'tolfunhist': '1e-12  #v termination criterion: tolerance in function value history',
     'tolstagnation': 'int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
@@ -1633,6 +1635,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit.hist = []  # short history of best
         self.fit.histbest = []  # long history of best
         self.fit.histmedian = []  # long history of median
+        self.fit.flatfit_iterations = 0
 
         self.more_to_write = utils.MoreToWrite()  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
 
@@ -3398,26 +3401,27 @@ class _CMAStopDict(dict):
         opts = es.opts
         self.opts = opts  # a hack to get _addstop going
 
-        # check user signals
+        # check user versatile options from signals file
         try:
-            # adds about 40% time in 5-D, 15% if file is not present
-            # simple resolution: set signals_filename to None or ''
-            if 1 < 3 and self.opts['signals_filename']:
-                with open(self.opts['signals_filename'], 'r') as f:
+            # in 5-D: adds 0% if file does not exist and 25% = 0.2ms per iteration if it exists and verbose=-9
+            # old measure: adds about 40% time in 5-D, 15% if file is not present
+            # to avoid any file checking set signals_filename to None or ''
+            if opts['signals_filename'] and os.path.isfile(self.opts['signals_filename']):
+                with open(opts['signals_filename'], 'r') as f:
                     s = f.read()
                 d = dict(ast.literal_eval(s.strip()))
                 for key in list(d):
                     if key not in opts.versatile_options():
-                        utils.print_warning(
-        """\n        unkown or non-versatile option '%s' found in file %s.
-        Check out the #v annotation in ``cma.CMAOptions()``.
-        """ % (key, self.opts['signals_filename']))
+                        utils.print_warning("        unkown or non-versatile option '%s' found in file %s.\n"
+                                            "        Check out the #v annotation in ``cma.CMAOptions()``."
+                                            % (key, self.opts['signals_filename']))
                         d.pop(key)
                 opts.update(d)
                 for key in d:
                     opts.eval(key, {'N': N, 'dim': N})
-        except IOError:
-            pass  # no warning, as signals file doesn't need to be present
+        except SyntaxError:
+            warnings.warn("SyntaxError when `ast.literal_eval` contents\n"
+                          "of file %s" % str(self.opts['signals_filename']))
 
         # fitness: generic criterion, user defined w/o default
         self._addstop('ftarget',
@@ -3506,14 +3510,22 @@ class _CMAStopDict(dict):
             self._addstop('callback', any(es.callbackstop), es.callbackstop)  # termination_callback
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
-            if 1 < 3:  # warn, in case
-                if max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:
-                    utils.print_warning(
-                    """flat fitness (f=%f, sigma=%.2e).
-                    For small sigma, this could indicate numerical convergence.
-                    Otherwise, please (re)consider how to compute the fitness more elaborately.""" %
-                    (es.fit.fit[0], es.sigma), iteration=es.countiter)
-            if 1 < 3:  # add stop condition, in case
+            if 1 < 3:
+                if max(es.fit.fit) > min(es.fit.fit):
+                    es.fit.flatfit_iterations = 0
+                else:
+                    es.fit.flatfit_iterations += 1
+                    if (es.fit.flatfit_iterations > opts['tolflatfitness'] or  # mainly for historical reasons:
+                        max(es.fit.hist[:1 + int(opts['tolflatfitness'])]) == min(es.fit.hist[:1 + int(opts['tolflatfitness'])])
+                       ):
+                        self._addstop('tolflatfitness')
+                    elif max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:  # keep warning for historical reasons for the time being
+                        utils.print_warning(
+                        """flat fitness (f=%f, sigma=%.2e).
+                        For small sigma, this could indicate numerical convergence.
+                        Otherwise, please (re)consider how to compute the fitness more elaborately.""" %
+                        (es.fit.fit[0], es.sigma), iteration=es.countiter)
+            if 11 < 3:  # add stop condition, in case, replaced by above, subject to removal
                 self._addstop('flat fitness',  # message via stopdict
                          len(es.fit.hist) > 9 and
                          max(es.fit.hist) == min(es.fit.hist) and
@@ -3524,7 +3536,7 @@ class _CMAStopDict(dict):
 
         return self
 
-    def _addstop(self, key, cond, val=None):
+    def _addstop(self, key, cond=True, val=None):
         if cond:
             self.stoplist.append(key)  # can have the same key twice
             self[key] = val if val is not None \
