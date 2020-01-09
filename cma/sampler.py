@@ -94,7 +94,7 @@ class GaussStandardConstant(GaussSampler):
         return x
 
     def norm(self, x):
-        return sum(self.transform_inverse(x)**2)**0.5
+        return np.sqrt(np.sum(self.transform_inverse(x)**2))
 
     def __imul__(self, factor):
         """variance multiplier"""

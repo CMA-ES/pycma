@@ -2065,7 +2065,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # for TPA, set both vectors to the same length and don't
                 # ever keep the original length
                 arinj[0] *= self._random_rescaling_factor_to_mahalanobis_size(arinj[0]) / self.sigma
-                arinj[1] *= (sum(arinj[0]**2) / sum(arinj[1]**2))**0.5
+                arinj[1] *= (np.sum(arinj[0]**2) / np.sum(arinj[1]**2))**0.5
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
                     utils.print_warning(
                         "mean_shift_samples, but the first two solutions"
@@ -2127,7 +2127,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                            "_random_rescaling_factor_to_mahalanobis_size",
                                 iteration=self.countiter)
             return 1.0
-        return sum(self.randn(1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
+        return np.sum(self.randn(1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
 
 
     def get_mirror(self, x, preserve_length=False):
@@ -3016,10 +3016,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         As a result, `C` is a correlation matrix, i.e., all diagonal
         entries of `C` are `1`.
         """
-        if condition and np.isfinite(condition) and max(self.dC) / min(self.dC) > condition:
+        if condition and np.isfinite(condition) and np.max(self.dC) / np.min(self.dC) > condition:
             # allows for much larger condition numbers, if axis-parallel
             if hasattr(self, 'sm') and isinstance(self.sm, sampler.GaussFullSampler):
-                old_coordinate_condition = max(self.dC) / min(self.dC)
+                old_coordinate_condition = np.max(self.dC) / np.min(self.dC)
                 old_condition = self.sm.condition_number
                 factors = self.sm.to_correlation_matrix()
                 self.sigma_vec *= factors
@@ -3028,7 +3028,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 utils.print_message('\ncondition in coordinate system exceeded'
                                     ' %.1e, rescaled to %.1e, '
                                     '\ncondition changed from %.1e to %.1e'
-                                      % (old_coordinate_condition, max(self.dC) / min(self.dC),
+                                      % (old_coordinate_condition, np.max(self.dC) / np.min(self.dC),
                                          old_condition, self.sm.condition_number),
                                     iteration=self.countiter)
 
@@ -3435,10 +3435,10 @@ class _CMAStopDict(dict):
         # tolx, tolfacupx: generic criteria
         # tolfun, tolfunhist (CEC:tolfun includes hist)
         self._addstop('tolx',
-                      all([es.sigma * xi < opts['tolx'] for xi in es.sigma_vec * es.pc]) and
-                      all([es.sigma * xi < opts['tolx'] for xi in es.sigma_vec * np.sqrt(es.dC)]))
+                      np.all(es.sigma * (es.sigma_vec * es.pc) < opts['tolx']) and
+                      np.all(es.sigma * (es.sigma_vec * np.sqrt(es.dC)) < opts['tolx']))
         self._addstop('tolfacupx',
-                      any(es.sigma * es.sigma_vec.scaling * es.dC**0.5 >
+                      np.any(es.sigma * es.sigma_vec.scaling * es.dC**0.5 >
                           es.sigma0 * es.sigma_vec0 * opts['tolfacupx']))
         self._addstop('tolfun',
                       max(es.fit.fit) - min(es.fit.fit) < opts['tolfun'] and  # fit.fit is sorted including bound penalties
@@ -3498,7 +3498,7 @@ class _CMAStopDict(dict):
                 i = es.countiter % N
                 try:
                     self._addstop('noeffectaxis',
-                                 sum(es.mean == es.mean + 0.1 * es.sigma *
+                                 np.sum(es.mean == es.mean + 0.1 * es.sigma *
                                      es.sm.D[i] * es.sigma_vec.scaling *
                                      (es.sm.B[:, i] if len(es.sm.B.shape) > 1 else es.sm.B[0])) == N)
                 except AttributeError:
