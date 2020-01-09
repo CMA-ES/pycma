@@ -1538,14 +1538,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                                       self.sp.c1_sep,
                                                       self.sp.cmu_sep,
                                                       pos_def=False)
+            elif self.opts['CMA_diagonal'] == 1:
+                raise ValueError("""Option 'CMA_diagonal' == 1 is disallowed.
+                Use either `True` or an iteration number > 1 up to which C should be diagonal.
+                Only `True` has linear memory demand.""")
             else:  # would ideally be done when switching
                 self.sp.weights.finalize_negative_weights(N,
                                                       self.sp.c1,
                                                       self.sp.cmu)
-            if self.opts['CMA_diagonal'] is 1:
-                raise ValueError("""Option 'CMA_diagonal' == 1 is disallowed.
-                Use either `True` or an iteration number > 1 up to which C should be diagonal.
-                Only `True` has linear memory demand.""")
         else:
             if 11 < 3:
                 if hasattr(self.opts['vv'], '__getitem__') and \

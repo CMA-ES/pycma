@@ -1138,7 +1138,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             annotations = self.persistent_communication_dict.get('variable_annotations')
         from matplotlib.pyplot import plot, semilogy, text, grid, axis, title
         dat = self  # for convenience and historical reasons
-        if x_opt is None or x_opt is 0:
+        if not np.any(x_opt):
             dat_x = dat.x
         else:
             dat_x = dat.x[:,:]
