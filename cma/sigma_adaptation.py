@@ -68,7 +68,7 @@ class CMAAdaptSigmaBase(object):
         self._update_ps(es)
         if self.ps is None:
             return True
-        squared_sum = sum(self.ps**2) / (1 - (1 - self.cs)**(2 * es.countiter))
+        squared_sum = np.sum(self.ps**2) / (1 - (1 - self.cs)**(2 * es.countiter))
         # correction with self.countiter seems not necessary,
         # as pc also starts with zero
         return squared_sum / es.N - 1 < 1 + 4. / (es.N + 1)
@@ -419,7 +419,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             self.initialized = True
         if 1 < 3:
             f_vals = np.asarray(function_values)
-            z = sum(f_vals < f_vals[1]) - sum(f_vals < f_vals[0])
+            z = np.sum(f_vals < f_vals[1]) - np.sum(f_vals < f_vals[0])
             z /= len(f_vals) - 1  # z in [-1, 1]
         elif 1 < 3:
             # use the ranking difference of the mirrors for adaptation
