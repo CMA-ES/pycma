@@ -503,17 +503,17 @@ class SolutionDict(DerivedDictBase):
         self.data_with_same_key = {}
         self.last_iteration = 0
     @staticmethod
-    def key(x):
+    def _hash(x):
+        return x
+    def key(self, x):
         """compute key of ``x``"""
-        # numpy fast path
-        if type(x) is np.ndarray:
-            return hash(x.data.tobytes())
-        # fall-back to default path
         try:
-            return tuple(x)
-            # using sum(x) is slower, using x[0] is slightly faster
-        except TypeError:
-            return x
+            return self._hash(np.ascontiguousarray(x).data.tobytes())  # much faster than tuple(.)
+        except AttributeError:
+            try:
+                return self._hash(tuple(x))  # using sum(x) is slower, using x[0] is slightly faster
+            except TypeError:
+                return self._hash(x)
     def __setitem__(self, key, value):
         """define ``self[key] = value``"""
         key = self.key(key)
