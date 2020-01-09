@@ -60,7 +60,15 @@ def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1,
 
     if x is None:
         x = range(1, y.shape[0] + 1)
-    plt.plot(x, y, **kwargs)
+    if 'labels' in kwargs:
+        kwargs_labels = kwargs.pop('labels')
+        for i, yi in enumerate(np.asarray(y).T):
+            plt.plot(x, yi, label=kwargs_labels[i] if i < len(kwargs_labels) else None, **kwargs)
+        plt.legend(framealpha=0.1)  # more opaque than not
+    else:
+        plt.plot(x, y, **kwargs)
+        if 'label' in kwargs:
+            plt.legend(framealpha=0.1)  # more opaque than not
 
     # the remainder is changing y-labels
     ax = plt.gca()
