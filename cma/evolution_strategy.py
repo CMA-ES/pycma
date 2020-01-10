@@ -206,6 +206,7 @@ from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import pprint
+from .utilities.utils import seval as eval
 from .utilities.math import Mh
 from .sigma_adaptation import *
 from . import restricted_gaussian_sampler as _rgs
