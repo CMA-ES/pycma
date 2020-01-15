@@ -201,7 +201,7 @@ from . import interfaces
 from . import transformations
 from . import optimization_tools as ot
 from . import sampler
-from .constraints_handler import BoundNone, BoundPenalty, BoundTransform
+from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
 from .recombination_weights import RecombinationWeights
 from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
@@ -1223,18 +1223,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     >>> bestever = cma.optimization_tools.BestSolution()
     >>> for lam in 10 * 2**np.arange(8):  # 10, 20, 40, 80, ..., 10 * 2**7
-    ...     es = cma.CMAEvolutionStrategy('6 - 8 * np.random.rand(9)',  # 9-D
+    ...     es = cma.CMAEvolutionStrategy(6 - 8 * np.random.rand(4),  # 4-D
     ...                                   5,  # initial std sigma0
     ...                                   {'popsize': lam,  # options
     ...                                    'verb_append': bestever.evalsall})
-    ...     logger = cma.CMADataLogger().register(es, append=bestever.evalsall)
+    ...     # logger = cma.CMADataLogger().register(es, append=bestever.evalsall)
     ...     while not es.stop():
     ...         X = es.ask()    # get list of new solutions
     ...         fit = [cma.ff.rastrigin(x) for x in X]  # evaluate each solution
     ...         es.tell(X, fit) # besides for termination only the ranking in fit is used
     ...
     ...         # display some output
-    ...         logger.add()  # add a "data point" to the log, writing in files
+    ...         # logger.add()  # add a "data point" to the log, writing in files
     ...         es.disp()  # uses option verb_disp with default 100
     ...
     ...     print('termination:', es.stop())
@@ -4385,6 +4385,82 @@ def fmin(objective_function, x0, sigma0,
         if eval(str(options['verb_disp'])) > 0:
             print(' in/outcomment ``raise`` in last line of cma.fmin to prevent/restore KeyboardInterrupt exception')
         raise KeyboardInterrupt  # cave: swallowing this exception can silently mess up experiments, if ctrl-C is hit
+
+def no_constraints(x):
+    return []
+
+def fmin_con(objective_function, x0, sigma0,
+             g=no_constraints, h=no_constraints, **kwargs):
+    """optimize f with constraints g (inequalities) and h (equalities).
+
+    Construct an Augmented Lagrangian instance ``f_aug_lag`` of class
+    `cma.constraints_handler.AugmentedLagrangian` from f and g and h and
+    ``return cma.fmin2(f_aug_lag, x0, sigma0, **kwargs)``.
+
+    See `cma.fmin` for further parameters.
+
+    >>> import cma
+    >>> x, es = cma.evolution_strategy.fmin_con(
+    ...             cma.ff.sphere, 3 * [0], 1, h=lambda x: [x[0]**2 - 1],
+    ...             options={'termination_callback': lambda es: -1e-5 < es.mean[0]**2 - 1 < 1e-5,
+    ...                      'verbose':-9})
+    >>> assert 'callback' in es.stop()
+    >>> assert es.result.evaluations < 1500  # 10%-ish above 1000, 1%-ish above 1300
+    >>> assert (sum(es.mean**2) - 1)**2 < 1e-9
+
+    Details: this is a versatile function subject to changes. It is possible to access
+    the `AugmentedLagrangian` instance like
+
+    >>> al = es.objective_function_complements[0]
+    >>> isinstance(al, cma.constraints_handler.AugmentedLagrangian)
+    True
+    >>> # al.logger.plot()  # plots the evolution of AL coefficients
+
+    """
+    # TODO: need to rethink equality/inequality interface?
+
+    if 'parallel_objective' in kwargs:
+        raise ValueError("`parallel_objective` parameter is not supported by cma.fmin_con")
+    # prepare callback list
+    if callable(kwargs.setdefault('callback', [])):
+        kwargs['callback'] = [kwargs['callback']]
+
+    global _al  # for debugging, may be removed at some point
+    F = []
+    G = []
+    _al = AugmentedLagrangian(len(x0))
+    # _al.chi_domega = 1.1
+    # al.dgamma = 1.5
+
+    def f(x):
+        F.append(objective_function(x))
+        return F[-1]
+    def constraints(x):
+        gvals, hvals = g(x), h(x)
+        # set m and equality attributes of al
+        if _al.lam is None:  # TODO: better abide by an "official" interface?
+            _al.set_m(len(gvals) + len(hvals))
+            _al._equality = np.asarray(len(gvals) * [False] + len(hvals) * [True],
+                                       dtype='bool')
+        G.append(list(gvals) + list(hvals))
+        return G[-1]
+    def auglag(x):
+        return f(x) + sum(_al(constraints(x)))
+    def set_coefficients(es):
+        _al.set_coefficients(F, G)
+        F[:], G[:] = [], []
+    def update(es):
+        x = es.ask(1, sigma_fac=0)[0]
+        _al.update(f(x), constraints(x))
+
+    kwargs['callback'].extend([set_coefficients, update])
+    # The smallest observed f-values may be below the limit value f(x^*_feas)
+    # because f-values depend on the adaptive multipliers. Hence we overwrite
+    # the default tolstagnation value:
+    kwargs.setdefault('options', {}).setdefault('tolstagnation', 0)
+    xopt, es = fmin2(auglag, x0, sigma0, **kwargs)
+    es.objective_function_complements = [_al]
+    return xopt, es
 
 
 # BEGIN cmaplt.py
