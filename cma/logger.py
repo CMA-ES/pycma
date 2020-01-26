@@ -1037,7 +1037,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             [dfit1, r'$f_\mathsf{best} - f_\mathsf{min}$']]:
             idx = np.isfinite(dfit)
             if any(idx):
-                idx_nan = _where(~idx)[0]  # gaps
+                idx_nan = _where(np.logical_not(idx))[0]  # gaps
                 if not len(idx_nan):  # should never happen
                     semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
                 else:
@@ -1460,14 +1460,26 @@ class LoggerDummy(object):
     """use to fake a `Logger` in non-verbose setting"""
     def __init__(self, *args, **kwargs):
         self.count = 0
+        self.name = None
+        self.attributes = []
+        self.callables = []
+        self.labels = []
     def __call__(self, *args, **kwargs):
-        self.push()
+        return self.push()
     def add(self, *args, **kwargs):
         return self
     def push(self, *args, **kwargs):
-        self.count += 1
-    def load(self, *args, **kwargs):
         return self
+    def push_header(self, *args, **kwargs):
+        pass
+    def load(self, *args, **kwargs):
+        self.data = []
+        return self
+    def delete(self):
+        self.count = 0
+    @property
+    def filename(self):
+        return ""
     def plot(self, *args, **kwargs):
         warnings.warn("loggers is in dummy (silent) mode,"
                       " there is nothing to plot")
@@ -1475,49 +1487,77 @@ class LoggerDummy(object):
 class Logger(object):
     """log an arbitrary number of data (a data row) per "timestep".
 
-    The `add` method can be called several times per timestep, the
-    `push` method must be called once per timestep. `load` and `plot`
-    will only work if each time the same number of data was pushed.
+    The `add` method can be called several times per timestep, the `push`
+    method must be called once per timestep. Callables are called in the
+    `push` method and their output is logged. `push` finally also dumps the
+    current data row to disk. `load` reads all logged data in and, like
+    `plot`, will only work if the same number of data was pushed each and
+    every time.
 
     To-be-logged "values" can be scalars or iterables (like lists
     or nparrays).
 
-    For the time being, the data is saved to a file after each timestep.
+    The current data is saved to a file and cleared after each timestep.
+    The `name` and `filename` attributes are based on either the name or
+    the logged instance class as given as first argument. Only if a name
+    was given, `push` overwrites the derived file if it exists.
 
-    To append data, set `self.counter` > 0 before to call `push` the first
-    time. ``len(self.load().data)`` is the number of current data.
+    To append data, set `self.counter` > 0 or call `load` before to call
+    `push` the first time (make sure that the `_name` attribute has the
+    desired value either way). ``len(self.load().data)`` is the number of
+    current data.
 
     A minimal practical example logging some nicely transformed attribute
-    values of an object:
+    values of an object (looping over `Logger` and `LoggerDummy` for
+    testing purpose only):
 
-        >> import numpy as np
-        >> import cma
-        >> from cma.logger import Logger
-        >> es = cma.CMAEvolutionStrategy(3 * [1], 2)
-        >> lg = Logger(es, callables=[lambda es: es.best.f,
-        ..                            lambda es: np.log10(np.abs(es.best.f)),
-        ..                            lambda es: np.log10(es.sigma),
-        ..                           ],
-        ..                 labels=['best f', 'lg(best f)', 'lg($\sigma$)'])
-        >> es.optimize(cma.ff.sphere, callback=lg.push)
-        >> lg.plot()  # caveat: clears current figure like gcf().clear()
+    >>> import numpy as np
+    >>> import cma
+    >>> for Logger in [cma.logger.Logger, cma.logger.LoggerDummy]:
+    ...     es = cma.CMAEvolutionStrategy(3 * [1], 2, dict(maxiter=9, verbose=-9))
+    ...     lg = Logger(es,  # es-instance serves as argument to callables and for attribute access
+    ...                 callables=[lambda s: s.best.f,
+    ...                            lambda s: np.log10(np.abs(s.best.f)),
+    ...                            lambda s: np.log10(s.sigma),
+    ...                           ],
+    ...                 labels=['best f', 'lg(best f)', r'lg($\sigma$)'])
+    ...     _ = es.optimize(cma.ff.sphere, callback=lg.push)
+    ...     # lg.plot()  # caveat: requires matplotlib and clears current figure like gcf().clear()
+    ...     lg2 = Logger(lg.name).load()  # same logger without callables assigned
+    ...     lg3 = Logger(lg.filename).load()  # ditto
+    ...     assert len(lg.load().data) == lg.count == 9 or isinstance(lg, cma.logger.LoggerDummy)
+    ...     assert np.all(lg.data == lg2.data) and np.all(lg.data == lg3.data)
+    ...     assert lg.labels == lg2.labels
+    ...     lg.delete()  # delete data file, logger can still be (re-)used for new data
 
     """
-    def __init__(self, obj_or_name, attributes=None, callables=None,
-                 path='outcmaes/', name=None, labels=None):
-        """`obj_or_name` is an instance that we are interested in to observe,
+    extension = ".logdata"
+    fields_read = ['attributes', 'labels']
+    "  names of attributes written to and read from file"
 
-        but it can also be a name.
+    def __init__(self, obj_or_name, attributes=None, callables=None,
+                 path='outcmaes/', name=None, labels=None,
+                 delete=False):
+        """`obj_or_name` is the instance that we want to observe,
+
+        or a name, or an absolute path to a file.
 
         `attributes` are attributes of `obj_or_name`, however
 
         `callables` are more general in their usage and hence recommended.
+        They allow attribute access and transformations, for example like
+        ``lambda es: np.log10(sum(es.mean**2)**0.5 / es.sigma)``.
 
         When a `callable` accepts an argument, it is called with
         `obj_or_name` as argument. The returned value of `callables` and
-        the current values of `attributes` are automatically logged when
+        the current values of `attributes` are logged each time when
         `push` is called.
 
+        Details: `path` is not used if `obj_or_name` is an absolute path
+        name, e.g. the `filename` attribute from another logger. If
+        ``delete is True``, the data file is deleted when the instance is
+        destructed. This can also be controlled or prevented by setting the
+        boolean `_delete` attribute.
         """
         self.format = "%.19e"
         if obj_or_name == str(obj_or_name) and attributes is not None:
@@ -1527,8 +1567,18 @@ class Logger(object):
         self.name = name
         # handle output location, TODO: streamline
         self.path = path
-        self._autoname(obj_or_name)  # set _name attribute
-        self._name = self._create_path(path) + self._name
+        self._delete = delete
+        self._autoname(obj_or_name)  # set _name attribute which is the output filename
+        if self._name != os.path.abspath(self._name):
+            self._name = self._create_path(path) + self._name
+        if obj_or_name != str(obj_or_name):
+            id = self._unique_name_addition(self._name)  # needs full path
+            self._name = self._compose_name(self._name, id)
+            self.name = self._compose_name(self.name, id)
+        # self.taken_names.append(self._name)
+        if 11 < 3 and os.path.isfile(self._name):
+            utils.print_message('Logger uses existing file "%s" '
+                                'which may be overwritten' % self._name)
         # print(self._name)
         self.attributes = attributes or []
         self.callables = callables or []
@@ -1536,6 +1586,20 @@ class Logger(object):
         self.count = 0
         self.current_data = []
         # print('Logger:', self.name, self._name)
+
+    @property
+    def filename(self):
+        """full filename as absolute path (stored in attribute `_name`)"""
+        return self._name
+
+    def delete(self):
+        """delete current data file and reset count to zero"""
+        os.remove(self._name)
+        self.count = 0
+
+    def __del__(self):
+        if self._delete is True:
+            self.delete()
 
     def _create_path(self, name_prefix=None):
         """return absolute path or '' if not `name_prefix`"""
@@ -1555,7 +1619,8 @@ class Logger(object):
     def _autoname(self, obj):
         """set `name` and `_name` attributes.
 
-        TODO: how to handle two loggers in the same class??
+        Loggers based on the same class are separted by calling
+        `_unique_name_addition` afterwards.
         """
         if str(obj) == obj:
             self.name = obj
@@ -1570,15 +1635,38 @@ class Logger(object):
                 s = s.split("'")[-2]
             self.name = s
         self._name = self.name
-        if '.' not in self._name:
-            self._name = self._name + '.logdata'
-        if not self._name.startswith(('._', '_')):
-            self._name = '._' + self._name
+        if not os.path.isfile(self._name):  # we want to be able to load an existing logger
+            if '.' not in self._name:
+                self._name = self._name + self.extension
+            if not self._name.startswith(('._', '_')):
+                self._name = '._' + self._name
+
+    def _compose_name(self, name, unique_id):
+        """add unique_id to name before ".logdata" """
+        i = name.find(self.extension)
+        return name[:i] + unique_id + name[i:] if i >= 0 else name + unique_id
+
+    def _unique_name_addition(self, name=None):
+        """return id:`str` that makes ``name or self._name`` unique"""
+        if name is None:
+            name = self._name
+        if not os.path.isfile(name):
+            return ''
+        i = 2
+        while os.path.isfile(self._compose_name(name, str(i))):
+            i += 1
+        if i % 33 == 0 or i > 999:
+            utils.print_message('%d Logger data files like %s found. \n'
+                                'Consider removing old data files and/or using '
+                                'the delete parameter to delete on destruction and/or\n'
+                                'using the `delete` method to delete the current log.'
+                                % (i, name))
+        return str(i)
 
     def _stack(self, data):
         """stack data into current row managing the different access...
 
-        ... and type formats.
+        ...and type formats.
         """
         if isinstance(data, list):
             self.current_data += data
@@ -1608,6 +1696,7 @@ class Logger(object):
         return self
 
     def _add_defaults(self):
+        """add data from registered attributes and callables, called by `push`"""
         for name in self.attributes:
             data = getattr(self.obj, name)
             self._stack(data)
@@ -1629,22 +1718,31 @@ class Logger(object):
                                  for val in self.current_data) + '\n')
         self.current_data = []
         self.count += 1
+        return self
 
     def push_header(self):
         mode = 'at' if self.count else 'wt'
         with open(self._name, mode) as file_:
-            if self.labels:
-                file_.write('# %s\n' % repr(self.labels))
-            if self.attributes:
-                file_.write('# %s\n' % repr(self.attributes))
+            for name in self.fields_read:
+                if getattr(self, name, None):
+                    file_.write("# {'%s': %s}\n" % (name, repr(getattr(self, name))))
 
     def load(self):
         import ast
         self.data = np.loadtxt(self._name)
-        with open(self._name, 'rt') as file_:
-            first_line = file_.readline()
-        if first_line.startswith('#'):
-            self.labels = ast.literal_eval((first_line[1:].lstrip()))
+        with open(self._name, 'rt') as file_:  # read meta data/labels
+            line = file_.readline()
+            while line.startswith('#'):
+                res = ast.literal_eval((line[1:].lstrip()))
+                if isinstance(res, dict):
+                    for name in self.fields_read:
+                        if name in res:
+                            setattr(self, name, res[name])
+                else:  # backward compatible, to be removed (TODO)
+                    self.labels = res
+                line = file_.readline()
+        if self.count == 0:  # prevent overwriting of data
+            self.count = len(self.data)
         return self
 
     def plot(self, plot=None, clear=True):
@@ -1681,4 +1779,3 @@ class Logger(object):
             # plt.gca().get_lines()[0].set_color(next(color))
         plt.legend(framealpha=0.3)  # more opaque than not
         return self
-
