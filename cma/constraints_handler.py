@@ -474,10 +474,23 @@ class BoundPenalty(BoundaryHandlerBase):
         return self  # bound penalty values
 
 class PopulationEvaluator(object):
-    """evaluate and store f- and g-values of a population"""
-    def __init__(self, objective, constraints):
+    """evaluate and store f- and g-values of a population in attributes F and G.
+
+    If the g-function (`constraints`) has an `insert` method, `x`-values
+    are "inserted" first.
+
+    If the `constraints` function has a `true_g` attribute (assigned during
+    the call) and ``offset_from_true_g is True``, population constraints
+    values are corrected by an offset to guaranty that ``g >= 0`` if
+    ``true_g > 0``. Named solutions are not offset.
+
+    """
+    def __init__(self, objective, constraints, insert=True, offset_from_true_g=False):
         self.objective = objective
         self.constraints = constraints
+        self.offset_from_true_g = offset_from_true_g
+        self.insert = insert
+
     def __call__(self, X, **kwargs):
         """`kwargs` are named solutions resulting in::
 
@@ -485,15 +498,46 @@ class PopulationEvaluator(object):
             self.name['f'] = self.objective(kwargs[name])
             self.name['g'] = self.constraints(kwargs[name])
 
+        Store result in attributes `F` and `G`.
         """
         self.X = X
         self.F = [self.objective(x) for x in X]
-        self.G = [self.constraints(x) for x in X]
+        if self.insert:
+            try:  # use constraints.insert method if available
+                for x in X:
+                    self.constraints.insert(x)
+                for name, x in kwargs.items():
+                    self.constraints.insert(x)
+            except (AttributeError, TypeError):
+                pass
+        try:  # use constraints.true_g attribute if available
+            if not hasattr(self.constraints, 'true_g'):
+                raise AttributeError  # avoid to repeat one evaluation in next line
+            self.G_all = [(self.constraints(x), self.constraints.true_g) for x in X]
+        except AttributeError:  # "regular" execution path
+            self.G = [self.constraints(x) for x in X]
+        else:  # process constraints.true_g attribute values
+            self.G = [G[0] for G in self.G_all]
+            self.G_true = [G[1] for G in self.G_all]
+            # offset g values for which g < 0 < true_g, TODO: avoid the double loop?
+            if self.offset_from_true_g:  # process true g-values and offset g-values if necessary
+                for j in range(len(self.G[0])):  # for each constraint
+                    offset = 0
+                    for i in range(len(self.G)):  # compute offset from all candidates
+                        if self.G_true[i][j] > 0 and self.G[i][j] + offset < 0:
+                            offset = -self.G[i][j]  # use smallest negative value of infeasible solution
+                            assert offset >= 0
+                    for i in range(len(self.G)):  # add offset on each infeasible candidate
+                        if self.G_true[i][j] > 0:
+                            self.G[i][j] += offset
+                assert np.all([np.all(np.asarray(self.G[i])[np.asarray(self.G_true[i]) > 0] >= 0)
+                            for i in range(len(self.G))])
         for name, x in kwargs.items():
             setattr(self, name, {'x': x,
                                  'f': self.objective(x),
                                  'g': self.constraints(x)})
         return self
+
     @property
     def feasibility_ratios(self):
         """or bias for equality constraints"""
