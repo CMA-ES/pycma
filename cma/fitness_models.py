@@ -349,11 +349,14 @@ class ModelInjectionCallback(object):
 
 class Tau(object): "placeholder to store Kendall tau related things"
 
-def _n_for_model_building(m):  # type: (LQModel) -> int
+def _n_for_model_building_default(m):  # type: (LQModel) -> int
     """truncate worst solutions for model building"""
     n = int(max((m.current_complexity + 2,
-                 m.settings.truncation_ratio * (m.size + 1))))
+                m.settings.truncation_ratio * (m.size + 1))))
     return min((m.size, n))
+
+def _sorted_index_default(m):  # type: (LQModel) -> np.ndarray
+    return np.argsort(m.Y)
 
 class LQModelSettings(DefaultSettings):
     max_relative_size_init = None  # 1.5  # times self.max_df: initial limit archive size
@@ -364,10 +367,11 @@ class LQModelSettings(DefaultSettings):
     min_relative_size = 1.1  # earliest when to switch to next model complexity
     max_absolute_size = 0  # limit archive size as max((max_absolute, df * max_relative))
     # to be removed remove_worse = lambda m: int(min((m.size - m.current_complexity - 2, m.size / 4)))
-    n_for_model_building = _n_for_model_building
+    n_for_model_building = _n_for_model_building_default
     max_weight = 20  # min weight is one
     disallowed_types = ()
     f_transformation = False  # a simultaneous transformation of all Y values
+    sorted_index = _sorted_index_default
 
     def _checking(self):
         if not 0 < self.truncation_ratio <= 1:
@@ -467,7 +471,7 @@ class LQModel(object):
     """
     _complexities = [  # must be ordered by complexity here
         ['quadratic', lambda d: 2 * d + 1],
-        ['full', lambda d: d * (d + 3) / 2 + 1]]
+        ['full', lambda d: int(d * (d + 3) / 2) + 1]]
     known_types = [c[0] for c in _complexities]
     complexity = dict(_complexities)
 
@@ -483,6 +487,7 @@ class LQModel(object):
                  max_relative_size_end=None,
                  min_relative_size=None,  # when to switch to next model
                  max_absolute_size=None,  # maximum archive size
+                 sorted_index=None,  # function to return index array when called with self
                  ):
         """
 
@@ -493,8 +498,9 @@ class LQModel(object):
         ``max(max_absolute_size, max_relative_size * max_df)``.
 
         """
-        self.settings = LQModelSettings(locals(), 4, self)._checking()
+        self.settings = LQModelSettings(locals(), 5, self)._checking()
         self._fieldnames = ['X', 'F', 'Y', 'Z', 'counts', 'hashes']
+        self.X, self.F, self.Y, self.Z, self.counts, self.hashes = 6 * [[]]  # avoid lint complaint
         self.logger = Logger(self, ['logging_trace'],
                              labels=[# 'H(X[0]-X[1])', 'H(X[0]-Xopt)',
                                      '||X[0]-X[1]||^2', '||X[0]-Xopt||^2'])
@@ -716,17 +722,6 @@ class LQModel(object):
         self._coefficients_count = -1
         self._xopt_count = -1
 
-    def _list_expand_x(self, x):
-        x = np.asarray(x) + self._xoffset
-        z += [1] + list(x)  # or np.hstack([1, x])
-        if 'quadratic' in self.types:
-            z += list(np.square(x))
-            if 'full' in self.types:
-                # TODO: takes in 10-D about as much time as SVD (generator is slighly more expensive)
-                # using np.array seems not to help either, array itself takes a considerable chunk of time
-                z += [x[i] * x[j] for i in range(len(x)) for j in range(len(x)) if i < j]
-        return z
-
     def expand_x(self, x):
         x = np.asarray(x) + self._xoffset
         z = np.hstack([1, x])
@@ -736,27 +731,6 @@ class LQModel(object):
                 # TODO: takes in 10-D about 65% of the time of SVD (generator is slighly more expensive)
                 z = np.hstack([z, [x[i] * x[j] for i in range(len(x)) for j in range(len(x)) if i < j]])
         return z
-
-    def eval_true(self, x, max_number=None):
-        """never used, return true f-value if ``x in self.X[:max_number]``, else Model value.
-
-        Not clear whether this is useful, because the return value is unpredictably
-        incomparable.
-        """
-        try:
-            idx = self.hashes.index(self._hash(x))
-        except ValueError:
-            assert self._hash(x) not in self.hashes
-            return self.eval(x)
-        return self.Y[idx]
-        # using self.references.index(x) doesn't work
-        if max_number is None:
-            max_number = len(self.Y)
-        max_number = min((len(self.Y), max_number))
-        for idx, val in enumerate(self.references):
-            if val is x or idx >= max_number:
-                break
-        return self.Y[idx] if idx < max_number else self.eval(x)
 
     def eval(self, x):
         """return Model value of `x`"""
@@ -847,7 +821,7 @@ class LQModel(object):
         Z can be a vector or a matrix.
         """
         size = self.settings.n_for_model_building(self)
-        idx = np.argsort(self.Y)
+        idx = self.settings.sorted_index(self)  # by default argsort(self.Y)
         if size < self.size:
             idx = idx[:size]
         return self.sorted_weights(size) * np.asarray(Z)[idx].T
