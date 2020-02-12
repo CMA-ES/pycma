@@ -999,7 +999,7 @@ class _CMAEvolutionStrategyResult(tuple):
             self.best.get() + (  # (x, f, evals) triple
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean),
+            self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
             self.gp.scales * self.sigma * self.sigma_vec.scaling *
                 self.dC**0.5))
 
@@ -2885,7 +2885,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         res = self.best.get() + (  # (x, f, evals) triple
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean),
+            self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
             self.gp.scales * self.sigma * self.sigma_vec.scaling *
                 self.dC**0.5,
             self.stop())
