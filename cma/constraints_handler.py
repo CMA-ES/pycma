@@ -534,7 +534,7 @@ class AugmentedLagrangian(object):
     ...          'termination_callback': lambda es: sum(es.mean**2) < 1e-8})  #doctest: +ELLIPSIS
     (3_w,7)-aCMA-ES...
     >>> al = AugmentedLagrangian(es.N)  # lam and mu still need to be set
-    >>> al.chi_domega = 1.1  # seems to give better results than the default setting
+    >>> # al.chi_domega = 1.15  # is the new default, which seems to give better results than the original value
     >>> # al.lam, al.mu = ...  # we could set the initial Lagrange coefficients here
     >>> while not es.stop():
     ...     eva = PopulationEvaluator(objective, constraints)(es.ask(), m=es.mean)
@@ -547,15 +547,16 @@ class AugmentedLagrangian(object):
     >>> assert len(eva.feasibility_ratios) == m
     >>> assert sum(eva.feasibility_ratios < 0) == sum(eva.feasibility_ratios > 1) == 0
 
-    Details: the input `dimension` is needed to set change rate
-    `chi_domega`, to compute initial coefficients and to compare between h
-    and g to update mu. The dependency of `chi_domega` on the dimension may
-    be however suboptimal. Setting ``self.chi_domega = 1.1`` seems to give
-    better results than the default setting.
+    Details: the input `dimension` is needed to compute the default change
+    rate `chi_domega` (if ``chi_domega is None``), to compute initial
+    coefficients and to compare between h and g to update mu. The default
+    dependency of `chi_domega` on the dimension seems to be however
+    suboptimal. Setting ``self.chi_domega = 1.15`` as is the current
+    default seems to give better results than the original setting.
 
     """
-    def __init__(self, dimension, equality=False):
-        """when given use search space `dimension` to set chi_domega to the original (worse) setting"""
+    def __init__(self, dimension, equality=False, chi_domega=2**0.2):
+        """if ``chi_domega is None``, set to the original (worse) setting ``2**(0.2 / dimension)``"""
         self.dimension = dimension  # maybe not desperately needed
         self.lam, self.mu = None, None  # will become np arrays
         self._initialized = np.array(False)  # only used for setting, not for update
@@ -563,8 +564,10 @@ class AugmentedLagrangian(object):
         self.k1 = 3
         self.k2 = 5
         self.dgamma = 5  # damping for lambda change
-        self.chi_domega = 2**(1. / 5 / dimension)  # factor for mu change, 5 == domega
-        # self.chi_domega = 2**0.15  # seems to work better than the default
+        if chi_domega:
+            self.chi_domega = chi_domega  # 2**0.2 seems to work better than the default
+        else:
+            self.chi_domega = 2**(1. / 5 / dimension)  # factor for mu change, 5 == domega
         self.f, self.g = 2 * [None]  # store previous values
         self.count = 0  # number of actual updates after any mu > 0 was set
 
