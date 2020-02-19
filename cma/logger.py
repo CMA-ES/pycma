@@ -1745,12 +1745,15 @@ class Logger(object):
             self.count = len(self.data)
         return self
 
-    def plot(self, plot=None, clear=True):
+    def plot(self, plot=None, clear=True, transformations=None):
         """plot logged data using the `plot` function.
 
         If `clear`, this calls `matplotlib.pyplot.gca().clear()` before
         to plot in the current figure. The default value of `clear` may
         change in future.
+
+        If ``transformations[i]`` is a `callable` it is used to transform the i-th
+        data column like ``i_th_column = transformations[i](data[:,i])``.
         """
         try:
             from matplotlib import pyplot as plt
@@ -1773,9 +1776,13 @@ class Logger(object):
         idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
         labels = iter(self.labels)
         for i in range(m):
-            plot(range(1, n + 1), self.data[:, i],
+            column = self.data[:, i]
+            try: column = transformations[i](column)
+            except (IndexError, TypeError): pass
+            plot(range(1, n + 1), column,
                  color=next(color),
                  label=next(labels) if i in idx_labels else None)
             # plt.gca().get_lines()[0].set_color(next(color))
         plt.legend(framealpha=0.3)  # more opaque than not
         return self
+
