@@ -3504,7 +3504,7 @@ class _CMAStopDict(dict):
                         max(es.fit.hist[:1 + int(opts['tolflatfitness'])]) == min(es.fit.hist[:1 + int(opts['tolflatfitness'])])
                        ):
                         self._addstop('tolflatfitness')
-                        if max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:  # keep warning for historical reasons for the time being
+                        if 11 < 3 and max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:  # keep warning for historical reasons for the time being
                             utils.print_warning(
                                 "flat fitness (f=%f, sigma=%.2e). "
                                 "For small sigma, this could indicate numerical convergence. \n"
