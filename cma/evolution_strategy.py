@@ -1342,6 +1342,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             inopts = {}
         self.inopts = inopts
         opts = CMAOptions(inopts).complement()  # CMAOptions() == fmin([],[]) == defaultOptions()
+        if opts.eval('verbose') is None:
+            opts['verbose'] = CMAOptions()['verbose']
         utils.global_verbosity = global_verbosity = opts.eval('verbose')
         if global_verbosity < -8:
             opts['verb_disp'] = 0
