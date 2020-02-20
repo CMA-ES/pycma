@@ -547,7 +547,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
              plot_mean=False, # was: plot_mean=True
              foffset=1e-19, x_opt=None, fontsize=7,
              downsample_to=1e7,
-             xsemilog=False):
+             xsemilog=False,
+             addcols=0):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
 
@@ -632,22 +633,22 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.fighandle = gcf()  # fighandle.number
         self.fighandle.clear()
 
-        subplot(2, 2, 1)
+        subplot(2, 2 + addcols, 1)
         self.plot_divers(iabscissa, foffset)
         pyplot.xlabel('')
 
         # Scaling
-        subplot(2, 2, 3)
+        subplot(2, 2 + addcols, 3 + addcols)
         self.plot_axes_scaling(iabscissa)
 
         # spectrum of correlation matrix
-        if 11 < 3 and hasattr(dat, 'corrspec'):
-            figure(fig+10000)
-            pyplot.gcf().clear()  # == clf(), replaces hold(False)
+        if 1 < 3 and addcols and hasattr(dat, 'corrspec'):
+            # figure(fig+10000)
+            # pyplot.gcf().clear()  # == clf(), replaces hold(False)
+            subplot(2, 2 + addcols, 3)
             self.plot_correlations(iabscissa)
-        figure(fig)
 
-        subplot(2, 2, 2)
+        subplot(2, 2 + addcols, 2)
         if plot_mean:
             self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog)
         else:
@@ -656,7 +657,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # pyplot.xticks(xticklocs)
 
         # standard deviations
-        subplot(2, 2, 4)
+        subplot(2, 2 + addcols, 4 + addcols)
         self.plot_stds(iabscissa, idx=x_opt)
 
         self._finalize_plotting = finalize
@@ -1360,7 +1361,7 @@ last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
-         xsemilog=None):
+         xsemilog=None, addcols=0, **kwargs):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for
@@ -1415,7 +1416,7 @@ def plot(name=None, fig=None, abscissa=1, iteridx=None,
     if isinstance(fig, (int, float)):
         last_figure_number = fig
     return CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
-                             x_opt, fontsize, downsample_to, xsemilog)
+                             x_opt, fontsize, downsample_to, xsemilog, addcols, **kwargs)
 
 def disp(name=None, idx=None):
     """displays selected data from (files written by) the class
