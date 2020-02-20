@@ -3019,6 +3019,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                          old_condition, self.sm.condition_number),
                                     iteration=self.countiter)
 
+    def _tfp(self, x):
+        return np.dot(self.gp._tf_matrix, x)
+    def _tfg(self, x):
+        return np.dot(self.gp._tf_matrix_inv, x)
+
     def alleviate_conditioning(self, condition=1e12):
         """pass conditioning of `C` to linear transformation in `self.gp`.
 
@@ -3057,8 +3062,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # TODO: refactor old_scales * old_sigma_vec into sigma_vec0 to prevent tolfacupx stopping
 
-        self.gp.tf_pheno = lambda x: np.dot(self.gp._tf_matrix, x)
-        self.gp.tf_geno = lambda x: np.dot(self.gp._tf_matrix_inv, x)  # not really necessary
+        self.gp.tf_pheno = self._tfp  # lambda x: np.dot(self.gp._tf_matrix, x)
+        self.gp.tf_geno = self._tfg  # lambda x: np.dot(self.gp._tf_matrix_inv, x)  # not really necessary
         self.gp.isidentity = False
         assert self.mean is not self.mean_old
 
@@ -3292,13 +3297,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # if self.countiter < 4:
                 sys.stdout.flush()
         return self
-    def plot(self):
+    def plot(self, *args, **kwargs):
         """plot current state variables using `matplotlib`.
 
         Details: calls `self.logger.plot`.
         """
         try:
-            self.logger.plot()
+            self.logger.plot(*args, **kwargs)
         except AttributeError:
             utils.print_warning('plotting failed, no logger attribute found')
         except:

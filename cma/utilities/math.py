@@ -8,7 +8,10 @@ import numpy as np
 from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
-def randhss(n, dim, norm_=lambda x: len(x)**0.5, randn=np.random.randn):
+def _sqrt_len(x):  # makes randhss option pickable
+    return len(x)**0.5
+
+def randhss(n, dim, norm_=_sqrt_len, randn=np.random.randn):
     """`n` iid `dim`-dimensional vectors with length ``norm_(vector)``.
 
     The vectors are uniformly distributed on a hypersphere surface.
@@ -26,7 +29,7 @@ def randhss(n, dim, norm_=lambda x: len(x)**0.5, randn=np.random.randn):
         v *= norm_(v) / np.sum(v**2)**0.5
     return arv
 
-def randhss_mixin(n, dim, norm_=lambda x: len(x)**0.5,
+def randhss_mixin(n, dim, norm_=_sqrt_len,
                   c=lambda d: 1. / d, randn=np.random.randn):
     """`n` iid vectors uniformly distributed on the hypersphere surface with
     mixing in of normal distribution, which can be beneficial in smaller
