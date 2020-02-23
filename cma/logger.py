@@ -14,7 +14,6 @@ import time
 import numpy as np
 from . import interfaces
 from .utilities import utils
-from .optimization_tools import semilogy_signed
 from . import restricted_gaussian_sampler as _rgs
 
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
@@ -329,7 +328,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
 #                                + str(type(es)), 'add', 'CMADataLogger')
         evals = es.countevals
         iteration = es.countiter
-        eigen_decompositions = es.count_eigen
+        try: eigen_decompositions = es.sm.count_eigen
+        except: eigen_decompositions = 0  # no correlations will be plotted
         sigma = es.sigma
         if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
             stds = es.sigma_vec.scaling * es.sm.variances**0.5
@@ -423,7 +423,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     # accept at most 50% internal loss
                     if 11 < 3 or self._eigen_counter < eigen_decompositions / 2:
                         self.last_correlation_spectrum = \
-                            sorted(es.opts['CMA_eigenmethod'](c)[0]**0.5)
+                            sorted(es.opts['CMA_eigenmethod'](correlation_matrix)[0]**0.5)
                         self._eigen_counter += 1
                     if self.last_correlation_spectrum is None:
                         self.last_correlation_spectrum = len(diagD) * [1]
@@ -905,12 +905,18 @@ class CMADataLogger(interfaces.BaseDataLogger):
             self.load()
         if len(self.corrspec) < 2:
             return self
+        from matplotlib import pyplot
         x = self.corrspec[:, iabscissa]
         y = self.corrspec[:, 6:]  # principle axes
         ys = self.corrspec[:, :6]  # "special" values
 
         from matplotlib.pyplot import semilogy, text, grid, axis, title
         self._enter_plotting()
+        semilogy(x, y, '-c')
+        color = iter(pyplot.cm.plasma_r(np.linspace(0.35, 1,
+                                                    y.shape[1])))
+        for i in range(y.shape[1]):
+            semilogy(x, y[:, i], '-', color=next(color))
         if ys is not None:
             semilogy(x, 1 + ys[:, 2], '-b')
             text(x[-1], 1 + ys[-1, 2], '1 + min(corr)')
@@ -920,7 +926,6 @@ class CMADataLogger(interfaces.BaseDataLogger):
             text(x[-1], 1 + ys[-1, 3], '1 + max(neg corr)')
             semilogy(x[:], 1 - ys[:, 4], '-k')
             text(x[-1], 1 - ys[-1, 4], '1 - min(pos corr)')
-        semilogy(x, y, '-c')
         semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
         text(x[-1], np.max(y[-1, :]) / np.min(y[-1, :]), 'axis ratio')
         grid(True)
@@ -1137,7 +1142,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             return
         if annotations is None:
             annotations = self.persistent_communication_dict.get('variable_annotations')
-        from matplotlib.pyplot import plot, semilogy, text, grid, axis, title
+        from matplotlib.pyplot import plot, semilogy, yscale, text, grid, axis, title
         dat = self  # for convenience and historical reasons
         if not np.any(x_opt):
             dat_x = dat.x
@@ -1170,37 +1175,29 @@ class CMADataLogger(interfaces.BaseDataLogger):
         else:
             minxend = 0
         self._enter_plotting()
+        plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
         if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
-            labels = [('' + str(i) + ': ' if annotations is None
+            d = dat_x[:, 5:]
+            yscale('symlog', linthreshy=np.min(np.abs(d[d != 0])))
+        if dat_x.shape[1] < 100:  # annotations
+            ax = array(axis())
+            axis(ax)
+            # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat_x.shape[1] - 5)
+            # yyl = np.sort(dat_x[-1,5:])
+            # plot([dat_x[-1, iabscissa], ax[1]], [dat_x[-1,5:], yy[idx2]], 'k-') # line from last data point
+            plot(np.dot(dat_x[-2, iabscissa], [1, 1]),
+                array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
+            # plot(array([dat_x[-1, iabscissa], ax[1]]),
+            #      reshape(array([dat_x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
+            for i in range(len(idx)):
+                # TODOqqq: annotate phenotypic value!?
+                # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
+                text(dat_x[-1, iabscissa], dat_x[-1, 5 + i],
+                    ('' + str(i) + ': ' if annotations is None
                         else str(i) + ':' + annotations[i] + "=")
-                       + utils.num2str(dat_x[-2, 5 + i],
+                    + utils.num2str(dat_x[-2, 5 + i],
                                     significant_digits=2,
-                                    desired_length=4)
-                      for i in range(dat_x.shape[1] - 5)
-                     ] if dat_x.shape[1] < 14 else []
-            semilogy_signed(dat_x[:-1, iabscissa], dat_x[:-1, 5:],
-                            labels=labels)
-        else:
-            plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
-            if dat_x.shape[1] < 100:  # annotations
-                ax = array(axis())
-                axis(ax)
-                # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat_x.shape[1] - 5)
-                # yyl = np.sort(dat_x[-1,5:])
-                # plot([dat_x[-1, iabscissa], ax[1]], [dat_x[-1,5:], yy[idx2]], 'k-') # line from last data point
-                plot(np.dot(dat_x[-2, iabscissa], [1, 1]),
-                    array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
-                # plot(array([dat_x[-1, iabscissa], ax[1]]),
-                #      reshape(array([dat_x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
-                for i in range(len(idx)):
-                    # TODOqqq: annotate phenotypic value!?
-                    # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
-                    text(dat_x[-1, iabscissa], dat_x[-1, 5 + i],
-                        ('' + str(i) + ': ' if annotations is None
-                            else str(i) + ':' + annotations[i] + "=")
-                        + utils.num2str(dat_x[-2, 5 + i],
-                                        significant_digits=2,
-                                        desired_length=4))
+                                    desired_length=4))
         grid(True)
         i = 2  # find smallest i where iteration count differs (in case the same row appears twice)
         while i < len(dat.f) and dat.f[-i][0] == dat.f[-1][0]:

@@ -12,6 +12,9 @@ def semilogy_signed(x=None, y=None, yoffset=0, minabsy=None, iabscissa=1,
                     **kwargs):
     """signed semilogy plot.
 
+    ``plt.yscale('symlog', linthreshy=min(abs(data[data != 0])))`` should
+    do the same job as least as good.
+
     `y` (or `x` if `y` is `None`) is a data array, by default read from
     `outcmaesxmean.dat` or (first) from the default logger output file
     like::
