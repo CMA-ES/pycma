@@ -45,6 +45,16 @@ def randhss_mixin(n, dim, norm_=_sqrt_len,
             v += c * randn(1, dim)[0]  # c is sqrt(2/c) times smaller than sqrt(c * (2 - c))
     return arv
 
+def to_correlation_matrix(c):
+    """change C in place into a correlation matrix, AKA whitening"""
+    for i in range(c.shape[0]):
+        fac = c[i, i]**0.5
+        c[:, i] /= fac
+        c[i, :] /= fac
+    c = (c + c.T) / 2.0
+    assert np.allclose(np.diag(c), 1)
+    return c
+
 # ____________________________________________________________
 # ____________________________________________________________
 #

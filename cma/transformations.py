@@ -224,7 +224,7 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     ...         X = es.ask()
     ...         f = [cma.ff.elli(tf(x)) for x in X]  # tf(x)==tf.transform(x)
     ...         es.tell(X, f)
-    >>> assert 'tolflatfitness' in es.stop()
+    >>> assert 'tolflatfitness' in es.stop() or print(es.stop())
 
     Example of the internal workings:
 

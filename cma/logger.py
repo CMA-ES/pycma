@@ -14,6 +14,7 @@ import time
 import numpy as np
 from . import interfaces
 from .utilities import utils
+from .utilities import math as _mathutils
 from . import restricted_gaussian_sampler as _rgs
 
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
@@ -68,10 +69,13 @@ class CMADataLogger(interfaces.BaseDataLogger):
     # names = ('axlen','fit','stddev','xmean','xrecentbest')
     # key_names_with_annotation = ('std', 'xmean', 'xrecent')
 
-    def __init__(self, name_prefix=default_prefix, modulo=1, append=False):
-        """initialize logging of data from a `CMAEvolutionStrategy`
-        instance, default ``modulo=1`` means logging with each call
+    def __init__(self, name_prefix=default_prefix, modulo=1, append=False, expensive_modulo=1):
+        """initialize logging of data from a `CMAEvolutionStrategy` instance.
 
+        Default ``modulo=1`` means logging with each call of `add`. If
+        ``append is True`` data is appended to already existing data of a
+        logger with the same name. Additional eigendecompositions are
+        allowed only every `expensive_modulo`-th logged iteration.
         """
         # super(CMAData, self).__init__({'iter':[], 'stds':[], 'D':[],
         #        'sig':[], 'fit':[], 'xm':[]})
@@ -83,10 +87,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
         if name_prefix is not None and name_prefix.endswith((os.sep, '/')):
             self.name_prefix = self.name_prefix + os.sep
-        self.file_names = ('axlen', 'axlencorr', 'fit', 'stddev', 'xmean',
+        self.file_names = ('axlen', 'axlencorr', 'axlenprec', 'fit', 'stddev', 'xmean',
                 'xrecentbest')
         """used in load, however hard-coded in add, because data must agree with name"""
-        self.key_names = ('D', 'corrspec', 'f', 'std', 'xmean', 'xrecent')
+        self.key_names = ('D', 'corrspec', 'precspec', 'f', 'std', 'xmean', 'xrecent')
         """used in load, however hard-coded in plot"""
         self._key_names_with_annotation = ('std', 'xmean', 'xrecent')
         """used in load to add one data row to be modified in plot"""
@@ -94,11 +98,13 @@ class CMADataLogger(interfaces.BaseDataLogger):
         """how often to record data, allows calling `add` without args"""
         self.append = append
         """append to previous data"""
+        self.expensive_modulo = expensive_modulo
+        """log also values that need an eigendecomposition to be generated every `expensive` iteration"""
         self.counter = 0
         """number of calls to `add`"""
         self.last_iteration = 0
         self.registered = False
-        self.last_correlation_spectrum = None
+        self.last_correlation_spectrum = {}
         self._eigen_counter = 1  # reduce costs
         self.persistent_communication_dict = utils.DictFromTagsInString()
     @property
@@ -181,16 +187,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         '\n')
         except (IOError, OSError):
             print('could not open/write file ' + fn)
-        fn = self.name_prefix + 'axlencorr.dat'
-        try:
-            with open(fn, 'w') as f:
-                f.write('% # columns="iteration, evaluation, min max(neg(.)) min(pos(.))' +
-                        ' max correlation, correlation matrix principle axes lengths ' +
-                        ' (sorted square roots of eigenvalues of correlation matrix)", ' +
-                        strseedtime +
-                        '\n')
-        except (IOError, OSError):
-            print('could not open file ' + fn)
+        for name in ['axlencorr.dat', 'axlenprec.dat']:
+            fn = self.name_prefix + name
+            try:
+                with open(fn, 'w') as f:
+                    f.write('% # columns="iteration, evaluation, min max(neg(.)) min(pos(.))' +
+                            ' max correlation, correlation matrix principle axes lengths ' +
+                            ' (sorted square roots of eigenvalues of correlation matrix)", ' +
+                            strseedtime +
+                            '\n')
+            except (IOError, OSError):
+                print('could not open file ' + fn)
         fn = self.name_prefix + 'stddev.dat'
         try:
             with open(fn, 'w') as f:
@@ -255,7 +262,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             try:
                 # list of rows to append another row latter
                 with warnings.catch_warnings():
-                    if self.file_names[i] == 'axlencorr':
+                    if self.file_names[i] in ['axlencorr', 'axlenprec']:
                         warnings.simplefilter("ignore")
                     try:
                         self.__dict__[self.key_names[i]] = list(
@@ -376,10 +383,21 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 diagD = [1]
             maxD = max(diagD)
             minD = min(diagD)
-        try:
-            correlation_matrix = es.sm.correlation_matrix
-        except (AttributeError, NotImplementedError):
-            correlation_matrix = None
+        correlation_matrix = None
+        if not hasattr(self, 'last_precision_matrix'):
+            self.last_precision_matrix = None
+        if self.expensive_modulo:
+            try:
+                correlation_matrix = es.sm.correlation_matrix
+                if correlation_matrix is not None and (
+                        self.last_precision_matrix is None or eigen_decompositions % self.expensive_modulo == 0):
+                    try:
+                        self.last_precision_matrix = np.linalg.inv(correlation_matrix)
+                        self.last_precision_matrix = _mathutils.to_correlation_matrix(self.last_precision_matrix)
+                    except:  # diagonal case
+                        warnings.warn("CMADataLogger failed to compute precision matrix")
+            except (AttributeError, NotImplementedError):
+                pass
         more_to_write = es.more_to_write
         es.more_to_write = utils.MoreToWrite()
         # --- end interface ---
@@ -415,43 +433,51 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + ' '.join(map(str, diagD))
                             + '\n')
             # correlation matrix eigenvalues
-            if 1 < 3:
-                fn = self.name_prefix + 'axlencorr.dat'
-                if (correlation_matrix is not None
-                    and not np.isscalar(correlation_matrix)
-                    and len(correlation_matrix) > 1):
-                    # accept at most 50% internal loss
-                    if 11 < 3 or self._eigen_counter < eigen_decompositions / 2:
-                        self.last_correlation_spectrum = \
-                            sorted(es.opts['CMA_eigenmethod'](correlation_matrix)[0]**0.5)
-                        self._eigen_counter += 1
-                    if self.last_correlation_spectrum is None:
-                        self.last_correlation_spectrum = len(diagD) * [1]
-                    c = np.asarray(correlation_matrix)
-                    c = c[np.triu_indices(c.shape[0], 1)]
-                    c_min = np.min(c)
-                    c_max = np.max(c)
-                    if np.min(abs(c)) == 0:
-                        c_medminus = 0  # thereby zero "is negative"
-                        c_medplus = 0  # thereby zero "is positive"
-                    else:
-                        cinv = 1 / c
-                        c_medminus = 1 / np.min(cinv)  # negative close to zero
-                        c_medplus = 1 / np.max(cinv)  # positive close to zero
-                    if c_max <= 0:  # no positive values
-                        c_max = c_medplus = 0  # set both "positive" values to zero
-                    elif c_min >=0:  # no negative values
-                        c_min = c_medminus = 0
-                    with open(fn, 'a') as f:
-                        f.write(str(iteration) + ' '
-                                + str(evals) + ' '
-                                + str(c_min) + ' '
-                                + str(c_medminus) + ' ' # the one closest to 0
-                                + str(c_medplus) + ' ' # the one closest to 0
-                                + str(c_max) + ' '
-                                + ' '.join(map(str,
-                                        self.last_correlation_spectrum))
-                                + '\n')
+            if self.expensive_modulo:
+                for name, matrix in [['axlencorr.dat', correlation_matrix],
+                                     ['axlenprec.dat', self.last_precision_matrix]]:
+                    fn = self.name_prefix + name
+                    if (matrix is not None
+                        and not np.isscalar(matrix)
+                        and len(matrix) > 1):
+                        if (name not in self.last_correlation_spectrum
+                            or eigen_decompositions % self.expensive_modulo == 0):
+                            self.last_correlation_spectrum[name] = \
+                                sorted(es.opts['CMA_eigenmethod'](matrix)[0]**0.5)
+                            self._eigen_counter += matrix is self.last_precision_matrix  # hack to add only once per for loop
+                        c = np.asarray(matrix)
+                        c = c[np.triu_indices(c.shape[0], 1)]
+                        if 11 < 3:  # old version
+                            c_min = np.min(c)
+                            c_max = np.max(c)
+                            if np.min(abs(c)) == 0:
+                                c_medminus = 0  # thereby zero "is negative"
+                                c_medplus = 0  # thereby zero "is positive"
+                            else:
+                                cinv = 1 / c
+                                c_medminus = 1 / np.min(cinv)  # negative close to zero
+                                c_medplus = 1 / np.max(cinv)  # positive close to zero
+                            if c_max <= 0:  # no positive values
+                                c_max = c_medplus = 0  # set both "positive" values to zero
+                            elif c_min >=0:  # no negative values
+                                c_min = c_medminus = 0
+                        c_min, c_medminus, c_medplus, c_max = _mathutils.Mh.prctile(c, [0, 25, 75, 100])
+                        if 11 < 3:  # log correlations instead of eigenvalues, messes up KL display
+                            KL = 1e-3 - 0.5 * np.mean(np.log(self.last_correlation_spectrum[name]))  # doesn't work as expected
+                            cs = np.asarray(sorted(c))
+                            self.last_correlation_spectrum[name] = (1 + cs) / (1 - cs)
+                            # c_min, c_medminus, c_medplus, c_max = 4 * [(KL - 1) / (KL + 1)]  # something is wrong
+                            # c_min = (KL - 1) / (KL + 1)
+                        with open(fn, 'a') as f:
+                            f.write(str(iteration) + ' '
+                                    + str(evals) + ' '
+                                    + str(c_min) + ' '
+                                    + str(c_medminus) + ' ' # the one closest to 0
+                                    + str(c_medplus) + ' ' # the one closest to 0
+                                    + str(c_max) + ' '
+                                    + ' '.join(map(str,
+                                            self.last_correlation_spectrum[name]))
+                                    + '\n')
 
             # stddev
             fn = self.name_prefix + 'stddev.dat'
@@ -541,6 +567,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         try:
             dat.corrspec = dat.x[_where([x in iteridx for x in
                                            dat.corrspec[:, 0]])[0], :]
+        except AttributeError:
+            pass
+        try:
+            dat.precspec = dat.x[_where([x in iteridx for x in
+                                           dat.precspec[:, 0]])[0], :]
         except AttributeError:
             pass
     def plot(self, fig=None, iabscissa=1, iteridx=None,
@@ -647,6 +678,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # pyplot.gcf().clear()  # == clf(), replaces hold(False)
             subplot(2, 2 + addcols, 3)
             self.plot_correlations(iabscissa)
+            subplot(2, 2 + addcols, 6)
+            self.plot_correlations(iabscissa, name='precspec')
 
         subplot(2, 2 + addcols, 2)
         if plot_mean:
@@ -899,40 +932,52 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._plot_x(iabscissa, x_opt, 'curr best', annotations=annotations, xsemilog=xsemilog)
         self._xlabel(iabscissa)
         return self
-    def plot_correlations(self, iabscissa=1):
-        """spectrum of correlation matrix and largest correlation"""
-        if not hasattr(self, 'corrspec'):
+    def plot_correlations(self, iabscissa=1, name='corrspec'):
+        """spectrum of correlation or precision matrix and percentiles of off-diagonal entries"""
+        if not hasattr(self, name):
             self.load()
-        if len(self.corrspec) < 2:
+        if len(getattr(self, name)) < 2:
             return self
         from matplotlib import pyplot
-        x = self.corrspec[:, iabscissa]
-        y = self.corrspec[:, 6:]  # principle axes
-        ys = self.corrspec[:, :6]  # "special" values
+        x = getattr(self, name)[:, iabscissa]
+        y = getattr(self, name)[:, 6:]  # principle axes
+        ys = getattr(self, name)[:, :6]  # "special" values
 
         from matplotlib.pyplot import semilogy, text, grid, axis, title
         self._enter_plotting()
-        semilogy(x, y, '-c')
+        if 11 < 3:  # to be removed
+            semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
+            # text(x[-1], np.max(y[-1, :]) / np.min(y[-1, :]), 'axis ratio')
+            labels = ['axis ratio']
+        else:
+            semilogy(x[:], 1e-3 - 0.5 * np.mean(np.log(y), axis=1), '-r')
+            labels = [r'$10^{-3}$' + ' + KL(K || I) / D']  # mutual information / dimension
+        if ys is not None:
+            if 11 < 3:  # to be removed
+                semilogy(x, 1 + ys[:, 2], '-b')
+                text(x[-1], 1 + ys[-1, 2], '1 + min(corr)')
+                semilogy(x, 1 - ys[:, 5], '-b')
+                text(x[-1], 1 - ys[-1, 5], '1 - max(corr)')
+                semilogy(x[:], 1 + ys[:, 3], '-k')
+                text(x[-1], 1 + ys[-1, 3], '1 + max(neg corr)')
+                semilogy(x[:], 1 - ys[:, 4], '-k')
+                text(x[-1], 1 - ys[-1, 4], '1 - min(pos corr)')
+            else:
+                minmaxcorrs = ys[:, 2:6]  # 0, 25, 75, and 100 percentile correlation
+                semilogy(x, (1 + minmaxcorrs) / (1 - minmaxcorrs), 'c',
+                         linewidth=0.5)
+                labels += ['(1 + c) / (1 - c)']
+        pyplot.legend(labels, framealpha=0.3)
+        # semilogy(x, y, '-c')
         color = iter(pyplot.cm.plasma_r(np.linspace(0.35, 1,
                                                     y.shape[1])))
         for i in range(y.shape[1]):
-            semilogy(x, y[:, i], '-', color=next(color))
-        if ys is not None:
-            semilogy(x, 1 + ys[:, 2], '-b')
-            text(x[-1], 1 + ys[-1, 2], '1 + min(corr)')
-            semilogy(x, 1 - ys[:, 5], '-b')
-            text(x[-1], 1 - ys[-1, 5], '1 - max(corr)')
-            semilogy(x[:], 1 + ys[:, 3], '-k')
-            text(x[-1], 1 + ys[-1, 3], '1 + max(neg corr)')
-            semilogy(x[:], 1 - ys[:, 4], '-k')
-            text(x[-1], 1 - ys[-1, 4], '1 - min(pos corr)')
-        semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
-        text(x[-1], np.max(y[-1, :]) / np.min(y[-1, :]), 'axis ratio')
+            semilogy(x, y[:, i], '-', color=next(color), zorder=1)
         grid(True)
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
         axis(ax)
-        title('Spectrum (roots) of correlation matrix')
+        title('Spectrum (roots) of %s matrix' % ('white precision' if name.startswith('prec') else 'correlation'))
         # pyplot.xticks(xticklocs)
         self._xlabel(iabscissa)
         self._finalize_plotting()
@@ -1124,7 +1169,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         pyplot.draw()  # update "screen"
         pyplot.ion()  # prevents that the execution stops after plotting
         pyplot.show()
-        pyplot.rcParams['font.size'] = self.original_fontsize
+        pyplot.rcParams['font.size'] = self.original_fontsize  # changes font size in current figure which defeats the original purpose
     def _xlabel(self, iabscissa=1):
         from matplotlib import pyplot
         pyplot.xlabel('iterations' if iabscissa == 0
@@ -1178,7 +1223,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
         if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
             d = dat_x[:, 5:]
-            yscale('symlog', linthreshy=np.min(np.abs(d[d != 0])))
+            yscale('symlog', linthreshy=np.min(np.abs(d[d != 0])))  # see matplotlib.scale.SymmetricalLogScale
         if dat_x.shape[1] < 100:  # annotations
             ax = array(axis())
             axis(ax)

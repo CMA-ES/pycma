@@ -482,6 +482,7 @@ cma_default_options = {
     'verb_disp': '100  #v verbosity: display console output every verb_disp iteration',
     'verb_filenameprefix': CMADataLogger.default_prefix + '  # output path and filenames prefix',
     'verb_log': '1  #v verbosity: write data to files every verb_log iteration, writing can be time critical on fast to evaluate functions',
+    'verb_log_expensive': 'N * (N <= 50)  # allow to execute eigendecomposition for logging every verb_log_expensive iteration, 0 or False for never',
     'verb_plot': '0  #v in fmin(): plot() is called every verb_plot iteration',
     'verb_time': 'True  #v output timings on console',
     'vv': '{}  #? versatile set or dictionary for hacking purposes, value found in self.opts["vv"]'
@@ -1633,7 +1634,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.const.chiN = N**0.5 * (1 - 1. / (4.*N) + 1. / (21.*N**2))  # expectation of norm(randn(N,1))
 
         self.logger = CMADataLogger(opts['verb_filenameprefix'],
-                                                     modulo=opts['verb_log']).register(self)
+                                    modulo=opts['verb_log'],
+                                    expensive_modulo=opts['verb_log_expensive']).register(self)
 
         self._stopdict = _CMAStopDict()
         "    attribute for stopping criteria in function stop"
