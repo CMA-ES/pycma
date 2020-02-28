@@ -269,10 +269,11 @@ class BoundPenalty(BoundaryHandlerBase):
     >>> res = cma.fmin(cma.ff.elli, 6 * [1], 1,
     ...     {'BoundaryHandler': cma.BoundPenalty,
     ...      'bounds': [-1, 1],
+    ...      'tolflatfitness': 10,
     ...      'fixed_variables': {0: 0.012, 2:0.234}
     ...     })  # doctest: +ELLIPSIS
     (4_w,8)-aCMA-ES (mu_w=2.6,w_1=52%) in dimension 4 (seed=...
-    >>> assert res[1] < 13.76
+    >>> if res[1] >= 13.76: print(res)  # should never happen
 
     Reference: Hansen et al 2009, A Method for Handling Uncertainty...
     IEEE TEC, with addendum, see

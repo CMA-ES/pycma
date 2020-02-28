@@ -2965,14 +2965,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         >>> import cma
         >>> def f(X):
         ...     return (len(X) - 1) * [1] + [2]
-        >>> es = cma.CMAEvolutionStrategy(4 * [0], 1)  #doctest: +ELLIPSIS
-        (4_w,...
+        >>> es = cma.CMAEvolutionStrategy(4 * [0], 5, {'verbose':-9, 'tolflatfitness':1e4})
         >>> while not es.stop():
         ...     X = es.ask()
         ...     es.tell(X, f(X))
-        ...     es.logger.add()
         ...     es.manage_plateaus()
-        >>> assert es.sigma > 1.5**5
+        >>> if es.sigma < 1.5**es.countiter: print((es.sigma, 1.5**es.countiter, es.stop()))
 
         """
         if not self._flgtelldone:
@@ -3505,12 +3503,14 @@ class _CMAStopDict(dict):
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:
-                if max(es.fit.fit) > min(es.fit.fit):
+                if es.fit.fit[0] < es.fit.fit[int(0.75 * es.popsize)]:
                     es.fit.flatfit_iterations = 0
                 else:
+                    # print(es.fit.fit)
                     es.fit.flatfit_iterations += 1
-                    if (es.fit.flatfit_iterations > opts['tolflatfitness'] or  # mainly for historical reasons:
-                        max(es.fit.hist[:1 + int(opts['tolflatfitness'])]) == min(es.fit.hist[:1 + int(opts['tolflatfitness'])])
+                    if (es.fit.flatfit_iterations > opts['tolflatfitness'] # or
+                        # mainly for historical reasons:
+                        # max(es.fit.hist[:1 + int(opts['tolflatfitness'])]) == min(es.fit.hist[:1 + int(opts['tolflatfitness'])])
                        ):
                         self._addstop('tolflatfitness')
                         if 11 < 3 and max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:  # keep warning for historical reasons for the time being

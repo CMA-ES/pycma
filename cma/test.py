@@ -288,7 +288,7 @@ def various_doctests():
     ...     'popsize': 200,
     ...     'ftarget': 1e-8 })
     >>> es = es.optimize(cma.ff.tablet)
-    >>> assert es.result.evaluations < 5000 or print(es.result.evalutions)
+    >>> if es.result.evaluations > 5000: print(es.result.evalutions, es.result)
 
     For VD- and VkD-CMA, see `cma.restricted_gaussian_sampler`.
 
