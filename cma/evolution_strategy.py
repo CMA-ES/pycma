@@ -470,6 +470,7 @@ cma_default_options = {
     'tolflatfitness': '1  #v iterations tolerated with flat fitness before termination',
     'tolfun': '1e-11  #v termination criterion: tolerance in function value, quite useful',
     'tolfunhist': '1e-12  #v termination criterion: tolerance in function value history',
+    'tolfunrel': '0  #v termination criterion: relative tolerance in function value: Delta f current < tolfunrel * (median0 - median_min)',
     'tolstagnation': 'int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
     'tolx': '1e-11  #v termination criterion: tolerance in x-changes',
     'transformation': '''None  # depreciated, use cma.fitness_transformations.FitnessTransformation instead.
@@ -1646,6 +1647,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit.hist = []  # short history of best
         self.fit.histbest = []  # long history of best
         self.fit.histmedian = []  # long history of median
+        self.fit.median = None
+        self.fit.median0 = None
+        self.fit.median_min = np.inf
         self.fit.flatfit_iterations = 0
 
         self.more_to_write = utils.MoreToWrite()  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
@@ -2571,16 +2575,22 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # fitness histories
         fit.hist.insert(0, fit.fit[0])  # caveat: this may neither be the best nor the best in-bound fitness, TODO
+        fit.median = (fit.fit[self.popsize // 2] if self.popsize % 2
+                      else np.mean(fit.fit[self.popsize // 2 - 1: self.popsize // 2 + 1]))
         # if len(self.fit.histbest) < 120+30*N/sp.popsize or  # does not help, as tablet in the beginning is the critical counter-case
         if ((self.countiter % 5) == 0):  # 20 percent of 1e5 gen.
             fit.histbest.insert(0, fit.fit[0])
-            fit.histmedian.insert(0, fit.fit[self.popsize // 2] if self.popsize % 2
-                                     else np.mean(fit.fit[self.popsize // 2 - 1: self.popsize // 2 + 1]))
+            fit.histmedian.insert(0, fit.median)
         if len(fit.histbest) > 2e4:  # 10 + 30*N/sp.popsize:
             fit.histbest.pop()
             fit.histmedian.pop()
         if len(fit.hist) > 10 + 30 * N / sp.popsize:
             fit.hist.pop()
+        if self.countiter == 1:
+            fit.median0 = fit.median
+            fit.median_min = fit.median
+        if fit.median_min > fit.median:
+            fit.median_min = fit.median
 
         ### line 2665
 
@@ -3435,6 +3445,8 @@ class _CMAStopDict(dict):
         self._addstop('tolfun',
                       max(es.fit.fit) - min(es.fit.fit) < opts['tolfun'] and  # fit.fit is sorted including bound penalties
                       max(es.fit.hist) - min(es.fit.hist) < opts['tolfun'])
+        self._addstop('tolfunrel',
+                      max(es.fit.fit) - min(es.fit.fit) < opts['tolfunrel'] * (es.fit.median0 - es.fit.median_min))
         self._addstop('tolfunhist',
                       len(es.fit.hist) > 9 and
                       max(es.fit.hist) - min(es.fit.hist) < opts['tolfunhist'])
