@@ -310,6 +310,7 @@ class MetaParameters(object):
         self.tolupsigma = 1e20  ## [~100, ~1e99] l  #v sigma/sigma0 > tolupsigma * max(sqrt(eivenvals(C))) indicates "creeping behavior" with usually minor improvements',
         self.tolx = 1e-11  ## [1e-17, ~1e-3] l  #v termination criterion: tolerance in x-changes',
         self.tolfun = 1e-11  ## [1e-17, ~1e-3] l  #v termination criterion: tolerance in function value, quite useful',
+        self.tolfunrel = 0  ## [1e-17, ~1e-2] l  #v termination criterion: relative tolerance in function value',
         self.tolfunhist = 1e-12  ## [1e-17, ~1e-3] l  #v termination criterion: tolerance in function value history',
         self.tolstagnation_multiplier = 1.0  ## [0.01, ~100]  # ': 'int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
 
@@ -2586,10 +2587,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.histmedian.pop()
         if len(fit.hist) > 10 + 30 * N / sp.popsize:
             fit.hist.pop()
-        if self.countiter == 1:
+        if fit.median0 is None or self.countiter == 1:
             fit.median0 = fit.median
-            fit.median_min = fit.median
-        if fit.median_min > fit.median:
+        if fit.median_min is None or fit.median_min > fit.median:
             fit.median_min = fit.median
 
         ### line 2665
