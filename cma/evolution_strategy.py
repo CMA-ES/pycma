@@ -2587,7 +2587,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.histmedian.pop()
         if len(fit.hist) > 10 + 30 * N / sp.popsize:
             fit.hist.pop()
-        if fit.median0 is None or self.countiter == 1:
+        if fit.median0 is None:
             fit.median0 = fit.median
         if fit.median_min is None or fit.median_min > fit.median:
             fit.median_min = fit.median
