@@ -68,9 +68,9 @@ def SkoptCMAoptimizer(
     def delete_tempdir(self, *args, **kargs):
         os.removedirs(tempdir)
         return
-    CMADataLogger.__del__ = delete_tempdir
 
     model = cma.CMAEvolutionStrategy(x0, sigma0, options)
+    model.logger.__del__ = delete_tempdir
     for i in range(n_calls):
         if model.stop(): break
         new_xi = model.ask()
@@ -87,6 +87,7 @@ def SkoptCMAoptimizer(
         for f in callback: f(results)
 
     results = create_result(xi, yi, space)
+    model.logger.load()
     results.cma_logger = model.logger
     results.specs = specs
     return results
