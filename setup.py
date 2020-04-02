@@ -51,7 +51,9 @@ setup(name="cma",
       ],
       keywords=["optimization", "CMA-ES", "cmaes"],
       packages=["cma", "cma.utilities"],
-      requires=["numpy"],
-      extras_requires=["scikit-optimize"],
+      install_requires=["numpy"],
+      extras_requires={
+          "skopt": ["scikit-optimize"],
+      },
       package_data={'': ['LICENSE']},  # i.e. cma/LICENSE
       )
