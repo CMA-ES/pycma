@@ -138,6 +138,7 @@ else:
     from .logger import disp, plot, CMADataLogger
     from .optimization_tools import NoiseHandler
     from .constraints_handler import BoundPenalty, BoundTransform
+    from .evolution_strategy import cma_default_options_
 
 del division, print_function, absolute_import, with_statement  #, unicode_literals
 
