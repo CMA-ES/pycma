@@ -64,6 +64,7 @@ in particular `CMAOptions`, `CMAEvolutionStrategy`, and `fmin`
 #
 
 # changes:
+# 20/04/xx: no negative weights for injected solutions
 # 16/10/xx: versatile options are read from signals_filename
 #           RecombinationWeights refined and work without numpy
 #           new options: recombination_weights, timeout,
@@ -208,12 +209,16 @@ from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import pprint
 from .utilities.utils import seval as eval
+from .utilities.utils import SolutionDict as _SolutionDict
 from .utilities.math import Mh
 from .sigma_adaptation import *
 from . import restricted_gaussian_sampler as _rgs
 
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
+
+class InjectionWarning(UserWarning):
+    """Injected solutions are not passed to tell as expected"""
 
 # use_archives uses collections
 use_archives = sys.version_info[0] >= 3 or sys.version_info[1] >= 6
@@ -335,10 +340,9 @@ def is_feasible(x, f):
 
 if use_archives:
 
-    from .utilities.utils import SolutionDict
-    class _CMASolutionDict(SolutionDict):
+    class _CMASolutionDict(_SolutionDict):
         def __init__(self, *args, **kwargs):
-            # SolutionDict.__init__(self, *args, **kwargs)
+            # _SolutionDict.__init__(self, *args, **kwargs)
             super(_CMASolutionDict, self).__init__(*args, **kwargs)
             self.last_solution_index = 0
 
@@ -419,7 +423,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
     CMA_eigenmethod='np.linalg.eigh  # or cma.utilities.math.eig or pygsl.eigen.eigenvectors',
     CMA_elitist='False  #v or "initial" or True, elitism likely impairs global search performance',
-    CMA_injections_threshold_keep_len='0  #v keep length if Mahalanobis length is below the given relative threshold',
+    CMA_injections_threshold_keep_len='1  #v keep length if Mahalanobis length is below the given relative threshold',
     CMA_mirrors='popsize < 6  # values <0.5 are interpreted as fraction, values >1 as numbers (rounded), otherwise about 0.16 is used',
     CMA_mirrormethod='2  # 0=unconditional, 1=selective, 2=selective with delay',
     CMA_mu='None  # parents selection parameter, default is popsize // 2',
@@ -1680,6 +1684,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self.sent_solutions = _CMASolutionDict()
         self.archive = _CMASolutionDict()
+        self._injected_solutions_archive = _SolutionDict()
         self.best = ot.BestSolution()
 
         self.const = _BlancClass()
@@ -1933,7 +1938,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     elif isinstance(self.boundary_handler,
                                     BoundPenalty):
                         fpenalty = lambda x: self.boundary_handler.__call__(
-                            x, SolutionDict({tuple(x): {'geno': x}}), self.gp)
+                            x, _SolutionDict({tuple(x): {'geno': x}}), self.gp)
                         gradpen = grad_numerical_sym(
                             xmean, fpenalty)
                     elif self.boundary_handler is None or \
@@ -2097,6 +2102,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # TODO: if len(arinj) > number, ask doesn't fulfill the contract
                 y = self.pop_injection_directions.pop(0)
                 # sigma_vec _is_ taken into account here
+                # this may be done again in tell
                 if self.mahalanobis_norm(y) > self.N**0.5 * self.opts['CMA_injections_threshold_keep_len']:
                     nominator = self._random_rescaling_factor_to_mahalanobis_size(y)
                 else:
@@ -2170,6 +2176,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                 (len(arinj), len(ary)))
 
         pop = xmean + sigma * ary
+        for i, x in enumerate(pop[:len(arinj)]):
+            self._injected_solutions_archive[x] = {
+                'iteration': self.countiter,  # values are currently never used
+                'index': i,
+                'counter': len(self._injected_solutions_archive)
+                }
+            # pprint(dict(self._injected_solutions_archive))
         self.evaluations_per_f_value = 1
         self.ary = ary
         self.number_of_solutions_asked += len(pop)
@@ -2285,7 +2298,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Details
         -------
         While ``not self.is_feasible(x, func(x))`` new solutions are
-        sampled. By default ``self.is_feasible == cma.feasible == lambda x, f: f not in (None, np.NaN)``.
+        sampled. By default
+        ``self.is_feasible == cma.feasible == lambda x, f: f not in (None, np.NaN)``.
         The argument to `func` can be freely modified within `func`.
 
         Depending on the ``CMA_mirrors`` option, some solutions are not
@@ -2671,7 +2685,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # check and normalize each x - m
         # check_points is a flag (None is default: check non-known solutions) or an index list
         # should also a number possible (first check_points points)?
-        if check_points not in (None, False, 0, [], ()):  # useful in case of injected solutions and/or adaptive encoding, however is automatic with use_sent_solutions
+        if check_points not in (None, False, 0, [], ()):
+            # useful in case of injected solutions and/or adaptive encoding, however is automatic with use_sent_solutions
+            # by default this is not executed
             try:
                 if len(check_points):
                     idx = check_points
@@ -2809,6 +2825,27 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # logger = logging.getLogger(__name__)  # "global" level needs to be DEBUG
             # logger.debug("w[0,1]=%f,%f", sampler_weights[0],
             #               sampler_weights[1]) if self.countiter < 2 else None
+            # print(' injected solutions', tuple(self._injected_solutions_archive.values()))
+            for i, x in enumerate(pop):
+                try:
+                    self._injected_solutions_archive.pop(x)
+                    # self.gp.repaired_solutions.pop(x)
+                except KeyError:
+                    pass  # print(i)
+                else:
+                    # print(i + 1, '-th weight set to zero')
+                    sampler_weights[i + 1] = 0  # weight zero is for pc
+            for s in list(self._injected_solutions_archive):
+                if self._injected_solutions_archive[s]['iteration'] < self.countiter - 2:
+                    warnings.warn("""orphanated injected solution %s
+                        This could be a bug in the calling order/logics or due to
+                        a too small popsize used in `ask()` or when only using
+                        `ask(1)` repeatedly. Please check carefully.
+                        In case this is desired, the warning can be surpressed with
+                        ``warnings.simplefilter("ignore", cma.evolution_strategy.InjectionWarning)``
+                        """ % str(self._injected_solutions_archive.pop(s)),
+                        InjectionWarning)
+            assert len(sampler_weights) == len(pop_zero) + 1
             if flg_diagonal:
                 self.sigma_vec.update(
                     [self.sm.transform_inverse(self.pc)] +
@@ -2905,11 +2942,19 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def inject(self, solutions, force=None):
         """inject list of one or several genotypic solution(s).
 
-        Unless `force is True`, the solutions are used as direction
+        This is the preferable way to pass outside proposal solutions
+        into `CMAEvolutionStrategy`. Passing (bad) solutions directly
+        via `tell` is likely to fail when ``CMA_active is True`` as by
+        default.
+
+        Unless ``force is True``, the `solutions` are used as direction
         relative to the distribution mean to compute a new candidate
         solution returned in method `ask_geno` which in turn is used in
-        method `ask`. `inject` is to be called before `ask` or after
-        `tell` and can be called repeatedly.
+        method `ask`. Even when ``force is True``, the update in `tell`
+        takes later care of possibly trimming the update vector.
+
+        `inject` is to be called before `ask` or after `tell` and can be
+        called repeatedly.
 
         >>> import cma
         >>> es = cma.CMAEvolutionStrategy(4 * [1], 2)  #doctest: +ELLIPSIS
@@ -2921,6 +2966,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ...         assert X[0][0] == X[0][1]  # injected sol. is on the diagonal
         ...     es.tell(X, [cma.ff.sphere(x) for x in X])
 
+        Details: injected solutions are not used in the "active" update which
+        would decrease variance in the covariance matrix in this direction.
         """
         for solution in solutions:
             if solution is None:
@@ -2988,9 +3035,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         This interface is versatile and likely to change.
 
-        In particular the frequency of ``x - self.mean`` being long in
-        Mahalanobis distance is limited, currently clipping at
-        ``N**0.5 + 2 * N / (N + 2)`` is implemented.
+        The Mahalanobis distance ``x - self.mean`` is clipping at
+        ``N**0.5 + 2 * N / (N + 2)``, but the specific repair
+        mechanism may change in future.
         """
         x = array(x, copy=False)
         mold = array(self.mean, copy=False)

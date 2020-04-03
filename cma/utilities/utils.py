@@ -542,7 +542,7 @@ class SolutionDict(DerivedDictBase):
                 self.data[key] = self.data_with_same_key.pop(key)[0]
             else:
                 self.data[key] = self.data_with_same_key[key].pop(-1)
-        else:
+        elif key in self.data:
             del self.data[key]
     def truncate(self, max_len, min_iter):
         """delete old entries to prevent bloat"""
