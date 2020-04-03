@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function  #, unicode_lit
 import numpy as np
 from numpy import array, isfinite, log
 
-from .utilities.utils import rglen, print_warning, is_one
+from .utilities.utils import rglen, print_warning, is_one, SolutionDict as _SolutionDict
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
@@ -770,6 +770,7 @@ class GenoPheno(object):
         """
         self.N = dim
         self.fixed_values = fixed_values
+        self.repaired_solutions = _SolutionDict()
         if tf is not None:
             self.tf_pheno = tf[0]
             self.tf_geno = tf[1]  # TODO: should not necessarily be needed
@@ -912,6 +913,14 @@ class GenoPheno(object):
         Mahalanobis norm of ``geno(y) - mean``.
 
         """
+        def repair_and_flag_change(self, repair, x, copy):
+            if repair is None:
+                return x
+            x2 = repair(x, copy_if_changed=copy)  # need to ignore copy?
+            if 11 < 3 and not np.all(np.asarray(x) == x2):  # assumes that dimension does not change
+                self.repaired_solutions[x2] = {'count': len(self.repaired_solutions)}
+            return x2
+
         if from_bounds is None:
             from_bounds = lambda x, copy=False: x  # not change, no copy
 
@@ -921,9 +930,9 @@ class GenoPheno(object):
             except (KeyError, TypeError):
                 x = None
             if x is not None:
-                if archive[y]['iteration'] < archive.last_iteration \
-                        and repair is not None:
-                    x = repair(x, copy_if_changed=copy)
+                if archive[y]['iteration'] < archive.last_iteration:
+                    x = repair_and_flag_change(self, repair, x, copy)
+                    # x = repair(x, copy_if_changed=copy)
                 return x
 
         input_type = type(y)
@@ -932,8 +941,7 @@ class GenoPheno(object):
         x = from_bounds(x, copy)
 
         if self.isidentity:
-            if repair is not None:
-                x = repair(x, copy)
+            x = repair_and_flag_change(self, repair, x, copy)
             return x
 
         if copy:  # could be improved?
@@ -967,8 +975,7 @@ class GenoPheno(object):
                 x = array(x, copy=False)
 
         # repair injected solutions
-        if repair is not None:
-            x = repair(x, copy)
+        x = repair_and_flag_change(self, repair, x, copy)
         if input_type is np.ndarray:
             x = array(x, copy=False)
         return x
