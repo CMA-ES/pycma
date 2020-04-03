@@ -2599,7 +2599,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.hist.pop()
         if fit.median0 is None:
             fit.median0 = fit.median
-        if fit.median_min is None or fit.median_min > fit.median:
+        if fit.median_min > fit.median:
             fit.median_min = fit.median
 
         ### line 2665
