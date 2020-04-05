@@ -3446,20 +3446,28 @@ class _CMAStopDict(dict):
                       es.countiter >= 1.0 * opts['maxiter'])
         # tolx, tolfacupx: generic criteria
         # tolfun, tolfunhist (CEC:tolfun includes hist)
-        self._addstop('tolx',
-                      np.all(es.sigma * (es.sigma_vec * es.pc) < opts['tolx']) and
-                      np.all(es.sigma * (es.sigma_vec * np.sqrt(es.dC)) < opts['tolx']))
+
+        sigma_x_sigma_vec_x_sqrtdC = es.sigma * (es.sigma_vec.scaling * np.sqrt(es.dC))
+
         self._addstop('tolfacupx',
-                      np.any(es.sigma * es.sigma_vec.scaling * es.dC**0.5 >
+                      np.any(sigma_x_sigma_vec_x_sqrtdC >
                           es.sigma0 * es.sigma_vec0 * opts['tolfacupx']))
+
+        self._addstop('tolx',
+                      all(sigma_x_sigma_vec_x_sqrtdC < opts['tolx']) and
+                      all(es.sigma * (es.sigma_vec.scaling * es.pc) < opts['tolx'])
+                      )
+
+        current_fitness_range = max(es.fit.fit) - min(es.fit.fit)
+        historic_fitness_range = max(es.fit.hist) - min(es.fit.hist)
         self._addstop('tolfun',
-                      max(es.fit.fit) - min(es.fit.fit) < opts['tolfun'] and  # fit.fit is sorted including bound penalties
-                      max(es.fit.hist) - min(es.fit.hist) < opts['tolfun'])
+                      current_fitness_range < opts['tolfun'] and  # fit.fit is sorted including bound penalties
+                      historic_fitness_range < opts['tolfun'])
         self._addstop('tolfunrel',
-                      max(es.fit.fit) - min(es.fit.fit) < opts['tolfunrel'] * (es.fit.median0 - es.fit.median_min))
+                      current_fitness_range < opts['tolfunrel'] * (es.fit.median0 - es.fit.median_min))
         self._addstop('tolfunhist',
                       len(es.fit.hist) > 9 and
-                      max(es.fit.hist) - min(es.fit.hist) < opts['tolfunhist'])
+                      historic_fitness_range < opts['tolfunhist'])
 
         # worst seen false positive: table N=80,lam=80, getting worse for fevals=35e3 \approx 50 * N**1.5
         # but the median is not so much getting worse
@@ -3500,15 +3508,15 @@ class _CMAStopDict(dict):
         if 1 < 3:
             # non-user defined, method specific
             # noeffectaxis (CEC: 0.1sigma), noeffectcoord (CEC:0.2sigma), conditioncov
-            idx = np.nonzero(es.mean == es.mean + 0.2 * es.sigma *
-                             es.sigma_vec.scaling * es.dC**0.5)[0]
+            idx = np.nonzero(es.mean == es.mean + 0.2 * sigma_x_sigma_vec_x_sqrtdC)[0]
             self._addstop('noeffectcoord', any(idx), list(idx))
 #                         any([es.mean[i] == es.mean[i] + 0.2 * es.sigma *
 #                                                         (es.sigma_vec if np.isscalar(es.sigma_vec) else es.sigma_vec[i]) *
 #                                                         sqrt(es.dC[i])
 #                              for i in range(N)])
 #                )
-            if opts['CMA_diagonal'] is not True and es.countiter > opts['CMA_diagonal']:
+            if (opts['CMA_diagonal'] is not True and es.countiter > opts['CMA_diagonal'] and
+                (es.countiter % 1) == 0):  # save another factor of two?
                 i = es.countiter % N
                 try:
                     self._addstop('noeffectaxis',
@@ -3522,6 +3530,7 @@ class _CMAStopDict(dict):
                           es.D[-1] > opts['tolconditioncov']**0.5 * es.D[0], opts['tolconditioncov'])
 
             self._addstop('callback', any(es.callbackstop), es.callbackstop)  # termination_callback
+
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:
