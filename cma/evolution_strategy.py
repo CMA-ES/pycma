@@ -498,6 +498,9 @@ def cma_default_options_(  # to get keyword completion back
     """
     return dict(locals())  # is defined before and used by CMAOptions, so it can't return CMAOptions
 
+cma_default_options = cma_default_options_()  # will later be reassigned as CMAOptions(dict)
+cma_allowed_options_keys = {s.lower(): s for s in cma_default_options}
+
 class CMAOptions(dict):
     """a dictionary with the available options and their default values
     for class `CMAEvolutionStrategy`.
@@ -560,7 +563,8 @@ class CMAOptions(dict):
     @staticmethod
     def defaults():
         """return a dictionary with default option values and description"""
-        return dict((str(k), str(v)) for k, v in cma_default_options_().items())
+        return cma_default_options
+        # return dict((str(k), str(v)) for k, v in cma_default_options_().items())
         # getting rid of the u of u"name" by str(u"name")
         # return dict(cma_default_options)
 
@@ -830,10 +834,13 @@ class CMAOptions(dict):
 
         """
         matching_keys = []
-        for allowed_key in CMAOptions.defaults():
-            if allowed_key.lower() == key.lower():
-                return allowed_key
-            if allowed_key.lower().startswith(key.lower()):
+        key = key.lower()  # this was somewhat slow, so it is speed optimized now
+        if key in cma_allowed_options_keys:
+            return cma_allowed_options_keys[key]
+        for allowed_key in cma_allowed_options_keys:
+            if allowed_key.startswith(key):
+                if len(matching_keys) > 0:
+                    return None
                 matching_keys.append(allowed_key)
         return matching_keys[0] if len(matching_keys) == 1 else None
 
@@ -1323,11 +1330,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     #         """
     #         raise RuntimeError("popsize cannot be changed")
 
-    def stop(self, check=True, ignore_list=()):
+    def stop(self, check=True, ignore_list=(), check_on_same_iteration=False):
         """return the termination status as dictionary.
 
-        With ``check==False``, the termination conditions are not checked
+        With ``check == False``, the termination conditions are not checked
         and the status might not reflect the current situation.
+        ``check_on_same_iteration == False`` (new) does not re-check during
+        the same iteration. When termination options are manually changed,
+        it must be set to `True` to be able advance.
         ``stop().clear()`` removes the currently active termination
         conditions.
 
@@ -1335,11 +1345,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         the conditions.
 
         """
-        if (check and self.countiter > 0 and
+        if (check and self.countiter > 0 and self.opts['termination_callback'] and
                 self.opts['termination_callback'] != str(self.opts['termination_callback'])):
             self.callbackstop = utils.ListOfCallables(self.opts['termination_callback'])(self)
-
-        res = self._stopdict(self, check)  # update the stopdict and return a Dict (self)
+        # check_on_same_iteration == False makes como code much faster
+        res = self._stopdict(self, check_on_same_iteration or (  # update the stopdict and return a Dict (self)
+                                   check and self.countiter != self._stopdict.lastiter))
         if ignore_list:
             for key in ignore_list:
                 res.pop(key, None)
@@ -3360,10 +3371,10 @@ class _CMAStopDict(dict):
     def __init__(self, d={}):
         update = isinstance(d, CMAEvolutionStrategy)
         super(_CMAStopDict, self).__init__({} if update else d)
-        self._stoplist = []  # to keep multiple entries
+        self.stoplist = []  # to keep multiple entries
         self.lastiter = 0  # probably not necessary
         try:
-            self._stoplist = d._stoplist  # multiple entries
+            self.stoplist = d.stoplist  # multiple entries
         except:
             pass
         try:
@@ -3418,7 +3429,7 @@ class _CMAStopDict(dict):
             # in 5-D: adds 0% if file does not exist and 25% = 0.2ms per iteration if it exists and verbose=-9
             # old measure: adds about 40% time in 5-D, 15% if file is not present
             # to avoid any file checking set signals_filename to None or ''
-            if opts['signals_filename'] and os.path.isfile(self.opts['signals_filename']):
+            if opts['verbose'] >= -9 and opts['signals_filename'] and os.path.isfile(self.opts['signals_filename']):
                 with open(opts['signals_filename'], 'r') as f:
                     s = f.read()
                 d = dict(ast.literal_eval(s.strip()))
@@ -3448,11 +3459,9 @@ class _CMAStopDict(dict):
         # tolfun, tolfunhist (CEC:tolfun includes hist)
 
         sigma_x_sigma_vec_x_sqrtdC = es.sigma * (es.sigma_vec.scaling * np.sqrt(es.dC))
-
         self._addstop('tolfacupx',
                       np.any(sigma_x_sigma_vec_x_sqrtdC >
                           es.sigma0 * es.sigma_vec0 * opts['tolfacupx']))
-
         self._addstop('tolx',
                       all(sigma_x_sigma_vec_x_sqrtdC < opts['tolx']) and
                       all(es.sigma * (es.sigma_vec.scaling * es.pc) < opts['tolx'])
@@ -3531,7 +3540,6 @@ class _CMAStopDict(dict):
 
             self._addstop('callback', any(es.callbackstop), es.callbackstop)  # termination_callback
 
-
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:
                 if es.fit.fit[0] < es.fit.fit[int(0.75 * es.popsize)]:
@@ -3569,7 +3577,7 @@ class _CMAStopDict(dict):
 
     def clear(self):
         """empty the stopdict"""
-        for k in list(self):
+        for k in self:
             self.pop(k)
         self.stoplist = []
 
