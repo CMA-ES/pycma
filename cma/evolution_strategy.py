@@ -499,7 +499,9 @@ def cma_default_options_(  # to get keyword completion back
     return dict(locals())  # is defined before and used by CMAOptions, so it can't return CMAOptions
 
 cma_default_options = cma_default_options_()  # will later be reassigned as CMAOptions(dict)
-cma_allowed_options_keys = {s.lower(): s for s in cma_default_options}
+cma_versatile_options = tuple(sorted(k for (k, v) in cma_default_options.items()
+                                     if v.find(' #v ') > 0))
+cma_allowed_options_keys = dict([s.lower(), s] for s in cma_default_options)
 
 class CMAOptions(dict):
     """a dictionary with the available options and their default values
@@ -581,7 +583,8 @@ class CMAOptions(dict):
         necessarily be evaluated again.
 
         """
-        return tuple(sorted(i[0] for i in list(CMAOptions.defaults().items()) if i[1].find(' #v ') > 0))
+        return cma_versatile_options
+        # return tuple(sorted(i[0] for i in list(CMAOptions.defaults().items()) if i[1].find(' #v ') > 0))
     def check(self, options=None):
         """check for ambiguous keys and move attributes into dict"""
         self.check_values(options)
@@ -3425,14 +3428,19 @@ class _CMAStopDict(dict):
         self.opts = opts  # a hack to get _addstop going
 
         # check user versatile options from signals file
-        try:
-            # in 5-D: adds 0% if file does not exist and 25% = 0.2ms per iteration if it exists and verbose=-9
-            # old measure: adds about 40% time in 5-D, 15% if file is not present
-            # to avoid any file checking set signals_filename to None or ''
-            if opts['verbose'] >= -9 and opts['signals_filename'] and os.path.isfile(self.opts['signals_filename']):
-                with open(opts['signals_filename'], 'r') as f:
-                    s = f.read()
+
+        # in 5-D: adds 0% if file does not exist and 25% = 0.2ms per iteration if it exists and verbose=-9
+        # old measure: adds about 40% time in 5-D, 15% if file is not present
+        # to avoid any file checking set signals_filename to None or ''
+        if opts['verbose'] >= -9 and opts['signals_filename'] and os.path.isfile(self.opts['signals_filename']):
+            with open(opts['signals_filename'], 'r') as f:
+                s = f.read()
+            try:
                 d = dict(ast.literal_eval(s.strip()))
+            except SyntaxError:
+                warnings.warn("SyntaxError when parsing the following expression with `ast.literal_eval`:"
+                            "\n\n%s\n(contents of file %s)" % (s, str(self.opts['signals_filename'])))
+            else:
                 for key in list(d):
                     if key not in opts.versatile_options():
                         utils.print_warning("        unkown or non-versatile option '%s' found in file %s.\n"
@@ -3442,9 +3450,6 @@ class _CMAStopDict(dict):
                 opts.update(d)
                 for key in d:
                     opts.eval(key, {'N': N, 'dim': N})
-        except SyntaxError:
-            warnings.warn("SyntaxError when `ast.literal_eval` contents\n"
-                          "of file %s" % str(self.opts['signals_filename']))
 
         # fitness: generic criterion, user defined w/o default
         self._addstop('ftarget',
@@ -3577,7 +3582,7 @@ class _CMAStopDict(dict):
 
     def clear(self):
         """empty the stopdict"""
-        for k in self:
+        for k in list(self):
             self.pop(k)
         self.stoplist = []
 

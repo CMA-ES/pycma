@@ -7,7 +7,8 @@
 # 
 # To be effective, this file must contain valid Python code, namely 
 # a single Python expression, namely a `dict`. The opening brace
-# must be in the first column. 
+# must be in the first column. Keys are strings, values of filenames
+# must be strings.
 #
 # Outcomment the desired option to change (the options list could be outdated):
 # 
