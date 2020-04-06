@@ -51,6 +51,7 @@ ___author__ = "Nikolaus Hansen"
 __license__ = "public domain"
 
 from sys import stdout as _stdout # not strictly necessary
+import warnings as _warnings
 from math import log, exp
 from random import normalvariate as random_normalvariate
 
@@ -152,7 +153,7 @@ def fmin(objective_fct, xstart, sigma,
     records data they are saved to disk as well.
 
     :See: `CMAES`, `OOOptimizer`.
-    """
+"""
     es = CMAES(xstart, sigma, maxfevals=maxfevals, ftarget=ftarget)
     if verb_log:  # prepare data logging
         es.logger = CMAESDataLogger(verb_log).add(es, force=True)
@@ -359,7 +360,7 @@ class CMAES(OOOptimizer):  # could also inherit from object
         self.C.update_eigensystem(self.counteval,
                                   self.params.lazy_gap_evals)
         candidate_solutions = []
-        for k in range(self.params.lam):  # repeat lam times
+        for _k in range(self.params.lam):  # repeat lam times
             z = [self.sigma * eigenval**0.5 * self.randn(0, 1)
                  for eigenval in self.C.eigenvalues]
             y = dot(self.C.eigenbasis, z)
@@ -520,7 +521,7 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
     also to downsample data to prevent plotting of long runs to take
     forever. ``"], 'key': "`` or ``"]}"`` is the place where to
     prepend/append new data in the file.
-    """
+"""
 
     plotted = 0
     """plot count for all instances"""
@@ -576,8 +577,8 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         """
         from matplotlib import pylab
         from matplotlib.pylab import (
-            gca, figure, plot, xlabel, grid, semilogy, text, draw, show,
-            subplot, tight_layout, rcParamsDefault, xlim, ylim
+            gcf, gca, figure, plot, xlabel, grid, semilogy, text, draw, show, ion,
+            subplot as _subplot, tight_layout, rcParamsDefault, xlim, ylim
             )
         def title_(*args, **kwargs):
             kwargs.setdefault('size', rcParamsDefault['axes.labelsize'])
@@ -591,11 +592,15 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
             kwargs.setdefault('fancybox', True)
             kwargs.setdefault('fontsize', rcParamsDefault['font.size'] - 2)
             pylab.legend(*args, **kwargs)
-
-        figure(fig_number)
+        def subplot(*args, **kwargs):
+            with _warnings.catch_warnings():
+                _warnings.simplefilter("ignore")
+                _subplot(*args, **kwargs)  # catch unjustified deprecation warning because subplot and add_subplot are not separate
+        if isinstance(fig_number, int):
+            figure(fig_number)
 
         dat = self._data  # dictionary with entries as given in __init__
-        if not dat:
+        if not dat or not dat['eval'] or len(dat['eval']) <= 2:
             return
         try:  # a hack to get the presumable population size lambda
             strpopsize = ' (evaluations / %s)' % str(dat['eval'][-2] -
@@ -643,12 +648,13 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         grid(True)
 
         # plot squareroot of eigenvalues
-        subplot(223)
-        gca().clear()
-        semilogy(dat['iter'], dat['D'], 'm')
-        xlabel('iterations' + strpopsize)
-        title_('Axis lengths')
-        grid(True)
+        if dat['D'][-1][0] != dat['D'][-1][-1]:
+            subplot(223)
+            gca().clear()
+            semilogy(dat['iter'], dat['D'], 'm')
+            xlabel('iterations' + strpopsize)
+            title_('Axis lengths')
+            grid(True)
 
         # plot stds
         subplot(224)
@@ -664,9 +670,11 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         grid(True)
         xlabel('iterations' + strpopsize)
         _stdout.flush()
-        tight_layout()
-        draw()
-        show()
+        tight_layout()  # avoid superfluous padding
+        # draw(), show()  # canvas.draw seem to do the job better
+        ion()  # may prevent that everything stops until figure is closed?
+        # todo: if in the same cell, the subplots are small until the cell is finished
+        gcf().canvas.draw()
         CMAESDataLogger.plotted += 1
 
     def save(self, name=None):

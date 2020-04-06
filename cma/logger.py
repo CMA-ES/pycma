@@ -34,6 +34,19 @@ class CMADataLogger(interfaces.BaseDataLogger):
     ::
 
         import cma
+
+        es = cma.CMAEvolutionStrategy(12 * [3], 4)
+        es.optimize(cma.ff.elli, callback=es.logger.plot)
+
+    plots into the current `matplotlib` figure (or opens one if none
+    exists) via a generic callback. `es.optimize` already adds by default
+    `es.logger.add` to its callback list to add data to the logger. This
+    call::
+
+        x, es = cma.fmin2(cma.ff.elli, 12 * [3], 4, {'verb_plot': 1})
+
+    is very similar, but plots hard-coded into figure number 324.
+
         es = cma.CMAEvolutionStrategy(...)
         logger = cma.CMADataLogger().register(es)
         while not es.stop():
@@ -41,7 +54,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             logger.add()  # add can also take an argument
 
         logger.plot() # or a short cut can be used:
-        cma.plot()  # plot data from logger with default name
+        cma.plot()  # plot data from logger with default name into new figure
 
         logger2 = cma.CMADataLogger('just_another_filename_prefix').load()
         logger2.plot()
@@ -63,7 +76,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
     filename trails.
 
     :See: `disp` (), `plot` ()
-    """
+"""
     default_prefix = 'outcmaes' + os.sep
     # default_prefix = 'outcmaes'
     # names = ('axlen','fit','stddev','xmean','xrecentbest')
@@ -80,8 +93,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # super(CMAData, self).__init__({'iter':[], 'stds':[], 'D':[],
         #        'sig':[], 'fit':[], 'xm':[]})
         # class properties:
-#        if isinstance(name_prefix, CMAEvolutionStrategy):
-#            name_prefix = name_prefix.opts.eval('verb_filenameprefix')
+        #        if isinstance(name_prefix, CMAEvolutionStrategy):
+        #            name_prefix = name_prefix.opts.eval('verb_filenameprefix')
         if name_prefix is None:
             name_prefix = CMADataLogger.default_prefix
         self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
@@ -103,10 +116,15 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.counter = 0
         """number of calls to `add`"""
         self.last_iteration = 0
+        self.last_skipped_iteration = 0
         self.registered = False
         self.last_correlation_spectrum = {}
         self._eigen_counter = 1  # reduce costs
+        self.skip_finalize_plotting = False  # flag to temporarily turn off finalization
         self.persistent_communication_dict = utils.DictFromTagsInString()
+        self.relative_allowed_time_for_plotting = 25 / 100.
+        self.timer_plot = utils.ElapsedWCTime().pause()
+        self.timer_all = utils.ElapsedWCTime()
     @property
     def data(self):
         """return dictionary with data.
@@ -125,12 +143,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         by default previous data are overwritten.
 
         """
-#        if not isinstance(es, CMAEvolutionStrategy):
-#            utils.print_warning("""only class CMAEvolutionStrategy should
-#    be registered for logging. The used "%s" class may not to work
-#    properly. This warning may also occur after using `reload`. Then,
-#    restarting Python should solve the issue.""" %
-#                                str(type(es)))
+        #        if not isinstance(es, CMAEvolutionStrategy):
+        #            utils.print_warning("""only class CMAEvolutionStrategy should
+        #    be registered for logging. The used "%s" class may not to work
+        #    properly. This warning may also occur after using `reload`. Then,
+        #    restarting Python should solve the issue.""" %
+        #                                str(type(es)))
         self.es = es
         if append is not None:
             self.append = append
@@ -330,9 +348,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
             self.counter = 1
 
         # --- INTERFACE, can be changed if necessary ---
-#        if not isinstance(es, CMAEvolutionStrategy):  # not necessary
-#            utils.print_warning('type CMAEvolutionStrategy expected, found '
-#                                + str(type(es)), 'add', 'CMADataLogger')
+        #        if not isinstance(es, CMAEvolutionStrategy):  # not necessary
+        #            utils.print_warning('type CMAEvolutionStrategy expected, found '
+        #                                + str(type(es)), 'add', 'CMADataLogger')
         evals = es.countevals
         iteration = es.countiter
         try: eigen_decompositions = es.sm.count_eigen
@@ -463,7 +481,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                 c_min = c_medminus = 0
                         c_min, c_medminus, c_medplus, c_max = _mathutils.Mh.prctile(c, [0, 25, 75, 100])
                         if 11 < 3:  # log correlations instead of eigenvalues, messes up KL display
-                            KL = 1e-3 - 0.5 * np.mean(np.log(self.last_correlation_spectrum[name]))  # doesn't work as expected
+                            _KL = 1e-3 - 0.5 * np.mean(np.log(self.last_correlation_spectrum[name]))  # doesn't work as expected
                             cs = np.asarray(sorted(c))
                             self.last_correlation_spectrum[name] = (1 + cs) / (1 - cs)
                             # c_min, c_medminus, c_medplus, c_max = 4 * [(KL - 1) / (KL + 1)]  # something is wrong
@@ -615,13 +633,29 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         Dependencies: matlabplotlib.pyplot
 
-        """
+    """
         try:
             from matplotlib import pyplot
             from matplotlib.pyplot import figure, subplot, gcf
         except ImportError:
             ImportError('could not find matplotlib.pyplot module, function plot() is not available')
             return
+        if hasattr(self, 'es') and self.es is not None:
+            if fig is self.es:      # in case of usage in a callback
+                fig = gcf().number  # plot in current figure
+            # check whether self.es may be running and we want to negotiate timings
+            if not self.es.stop() and self.es.countiter > self.last_skipped_iteration:
+                # check whether plotting is cheap enough
+                discount = self.es.countiter / (10 + self.es.countiter)
+                if (self.timer_plot.toc * discount > self.relative_allowed_time_for_plotting * self.timer_all.toc
+                    or self.es.countiter < 3  # avoid warning when too few data are available
+                   ):
+                    self.timer_plot.pause()  # just in case
+                    self.last_skipped_iteration = self.es.countiter
+                    return self
+
+        self.timer_all.tic
+        self.timer_plot.tic
 
         if fig is None:
             fig = 325
@@ -647,7 +681,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         if len(dat.f) <= 1:
             print('nothing to plot')
-            return
+            return self
 
         # not in use anymore, see formatter above
         # xticklocs = np.arange(5) * np.round(minxend/4., -int(np.log10(minxend/4.)))
@@ -658,8 +692,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # dat.f[:,0]==countiter is monotonous
 
         figure(fig)
-        finalize = self._finalize_plotting
-        self._finalize_plotting = lambda : None
+        self.skip_finalize_plotting = True  # disable finalize until end of this plot function
         self._enter_plotting(fontsize)
         self.fighandle = gcf()  # fighandle.number
         self.fighandle.clear()
@@ -693,8 +726,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         subplot(2, 2 + addcols, 4 + addcols)
         self.plot_stds(iabscissa, idx=x_opt)
 
-        self._finalize_plotting = finalize
+        self.skip_finalize_plotting = False
         self._finalize_plotting()
+        self.timer_plot.pause()
         return self
 
     def plot_all(self, fig=None, iabscissa=1, iteridx=None,
@@ -837,8 +871,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         verticalalignment='center')
             return self  # nothing interesting to plot
         self._enter_plotting()
-        color = iter(pyplot.cm.plasma_r(np.linspace(0.35, 1,
-                                                    dat.D.shape[1] - 5)))
+        color = iter(pyplot.cm.cmap_d['plasma_r'](np.linspace(0.35, 1,
+                                                  dat.D.shape[1] - 5)))
         for i in range(5, dat.D.shape[1]):
             pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, i],
                             '-', color=next(color))
@@ -969,7 +1003,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 labels += ['(1 + c) / (1 - c)']
         pyplot.legend(labels, framealpha=0.3)
         # semilogy(x, y, '-c')
-        color = iter(pyplot.cm.plasma_r(np.linspace(0.35, 1,
+        color = iter(pyplot.cm.cmap_d['plasma_r'](np.linspace(0.35, 1,
                                                     y.shape[1])))
         for i in range(y.shape[1]):
             semilogy(x, y[:, i], '-', color=next(color), zorder=1)
@@ -1159,16 +1193,20 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # if font size deviates from default, we assume this is on purpose and hence leave it alone
         if pyplot.rcParams['font.size'] == pyplot.rcParamsDefault['font.size']:
             pyplot.rcParams['font.size'] = fontsize
-        # was: pyplot.hold(False)
-        # pyplot.gcf().clear()  # opens a figure window, if non exists
-        pyplot.ioff()
+        ## was: pyplot.hold(False)
+        ## pyplot.gcf().clear()  # opens a figure window, if non exists
+        pyplot.ioff()  # I assume this should save some time?
     def _finalize_plotting(self):
+        if self.skip_finalize_plotting:
+            return
         from matplotlib import pyplot
         pyplot.subplots_adjust(left=0.05, top=0.96, bottom=0.07, right=0.95)
         # pyplot.tight_layout(rect=(0, 0, 0.96, 1))
-        pyplot.draw()  # update "screen"
-        pyplot.ion()  # prevents that the execution stops after plotting
-        pyplot.show()
+        pyplot.gcf().canvas.draw()  # update figure immediately
+        pyplot.ion()  # prevents that the execution blocks after plotting
+        # pyplot.show()  # in non-interactive mode: block until the figures have been closed
+        # https://github.com/efiring/matplotlib/commit/94c5e161d1f3306d90092c986694d3f611cc5609
+        # https://stackoverflow.com/questions/6130341/exact-semantics-of-matplotlibs-interactive-mode-ion-ioff
         pyplot.rcParams['font.size'] = self.original_fontsize  # changes font size in current figure which defeats the original purpose
     def _xlabel(self, iabscissa=1):
         from matplotlib import pyplot
@@ -1801,7 +1839,7 @@ class Logger(object):
         try:
             from matplotlib import pyplot as plt
         except ImportError: pass
-        if plot is None:
+        if not callable(plot):  # this may allow to use this method as callback 
             from matplotlib.pyplot import plot
         self.load()
         n = len(self.data)  # number of data rows
@@ -1815,7 +1853,7 @@ class Logger(object):
             plot(range(1, n + 1), self.data,
                  label=self.labels[0] if self.labels else None)
             return
-        color = iter(plt.cm.plasma(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
+        color = iter(plt.cm.cmap_d['plasma'](np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
         idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
         labels = iter(self.labels)
         for i in range(m):
@@ -1827,5 +1865,6 @@ class Logger(object):
                  label=next(labels) if i in idx_labels else None)
             # plt.gca().get_lines()[0].set_color(next(color))
         plt.legend(framealpha=0.3)  # more opaque than not
+        plt.gcf().canvas.draw()  # allows online use
         return self
 
