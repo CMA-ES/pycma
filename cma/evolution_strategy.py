@@ -600,7 +600,9 @@ class CMAOptions(dict):
         for key in options:
             correct_key = corrected_key(key)
             if correct_key is None:
-                raise ValueError("""%s is not a valid option""" % key)
+                raise ValueError("""%s is not a valid option.\n""" 
+                                'Valid options are %s' % 
+                                (key, str(list(cma_default_options))))
             if correct_key in validated_keys:
                 if key == correct_key:
                     key = original_keys[validated_keys.index(key)]
@@ -3488,7 +3490,7 @@ class _CMAStopDict(dict):
         # / 5 reflects the sparsity of histbest/median
         # / 2 reflects the left and right part to be compared
         ## meta_parameters.tolstagnation_multiplier == 1.0
-        l = int(max(( 1.0 * opts['tolstagnation'] / 5. / 2, len(es.fit.histbest) / 10)))
+        l = max(( 1.0 * opts['tolstagnation'] / 5. / 2, len(es.fit.histbest) / 10))
         # TODO: why max(..., len(histbest)/10) ???
         # TODO: the problem in the beginning is only with best ==> ???
         if 11 < 3:  # print for debugging
@@ -3497,11 +3499,13 @@ class _CMAStopDict(dict):
                   np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]),
                   np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l])))
         # equality should handle flat fitness
-        self._addstop('tolstagnation',  # leads sometimes early stop on ftablet, fcigtab, N>=50?
-                      1 < 3 and opts['tolstagnation'] and es.countiter > N * (5 + 100 / es.popsize) and
-                      len(es.fit.histbest) > 100 and 2 * l < len(es.fit.histbest) and
-                      np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]) and
-                      np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l]))
+        if l <= es.countiter:
+            l = int(l)  # doesn't work for infinite l
+            self._addstop('tolstagnation',  # leads sometimes early stop on ftablet, fcigtab, N>=50?
+                    1 < 3 and opts['tolstagnation'] and es.countiter > N * (5 + 100 / es.popsize) and
+                    len(es.fit.histbest) > 100 and 2 * l < len(es.fit.histbest) and
+                    np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]) and
+                    np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l]))
         # iiinteger: stagnation termination can prevent to find the optimum
 
         self._addstop('tolupsigma', opts['tolupsigma'] and
