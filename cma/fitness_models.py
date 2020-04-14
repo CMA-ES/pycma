@@ -119,10 +119,10 @@ class SurrogatePopulation(object):
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55
+    ...     print(fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55, 18 68
     ...     assert 'ftarget' in es.stop()
     18
-    55
+    68
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
