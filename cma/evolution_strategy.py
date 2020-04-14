@@ -463,7 +463,7 @@ def cma_default_options_(  # to get keyword completion back
     pc_line_samples='False #v one line sample along the evolution path pc',
     popsize='4+int(3*np.log(N))  # population size, AKA lambda, number of new solution per iteration',
     randn='np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
-    scaling_of_variables='''None  # depreciated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
+    scaling_of_variables='''None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
             Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by
             scaling_of_variables and sigma is unchanged, default is `np.ones(N)`''',
     seed='time  # random number seed for `numpy.random`; `None` and `0` equate to `time`, `np.nan` means "do nothing", see also option "randn"',
@@ -1064,9 +1064,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         initial standard deviation.  The problem variables should
         have been scaled, such that a single standard deviation
         on all variables is useful and the optimum is expected to
-        lie within about `x0` +- ``3*sigma0``. See also options
-        `scaling_of_variables`. Often one wants to check for
-        solutions close to the initial point. This allows,
+        lie within about `x0` +- ``3*sigma0``. Often one wants to
+        check for solutions close to the initial point. This allows,
         for example, for an easier check of consistency of the
         objective function and its interfacing with the optimizer.
         In this case, a much smaller `sigma0` is advisable.
@@ -1367,9 +1366,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         >>> es = cma.CMAEvolutionStrategy(2 * [1], 1e4, {'verbose': -9})
         >>> with warnings.catch_warnings(record=True) as w:
         ...     es.stop(get_value='tolx')  # triggers zero iteration warning
-        ...     assert len(w) == 1 or print([str(wi) for wi in w])
+        ...     assert len(w) == 1, [str(wi) for wi in w]
         >>> es = es.optimize(cma.ff.sphere, iterations=2)
-        >>> assert 1e3 < es.stop(get_value='tolx') < 1e4 or print(es.stop(get_value='tolx'))
+        >>> assert 1e3 < es.stop(get_value='tolx') < 1e4, es.stop(get_value='tolx')
         >>> assert es.stop() == {}
         >>> assert es.stop(get_value='catch 22') is None
 
@@ -1417,8 +1416,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self.sigma0 = sigma0
         if utils.is_str(sigma0):
-        # TODO: no real need here (do rather in fmin)
-            self.sigma0 = eval(sigma0)  # like '1./N' or 'np.random.rand(1)[0]+1e-2'
+            raise ValueError("sigma0 must be a scalar, a string is no longer permitted")
+            # self.sigma0 = eval(sigma0)  # like '1./N' or 'np.random.rand(1)[0]+1e-2'
         if np.size(self.sigma0) != 1 or np.shape(self.sigma0):
             raise ValueError('input argument sigma0 must be (or evaluate to) a scalar')
         self.sigma = self.sigma0  # goes to inialize
@@ -1733,8 +1732,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def _set_x0(self, x0):
         """Assign `self.x0` from argument `x0`.
 
-        Input `x0` may be a `callable` or a string (deprecated) or a
-        `list` or `numpy.ndarray` of the desired length.
+        Input `x0` may be a `callable` or a `list` or `numpy.ndarray` of
+        the desired length.
 
         Below an artificial example is given, where calling `x0`
         delivers in the first two calls ``dimension * [5]`` and in
@@ -1763,7 +1762,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             x0 = x0()
         except TypeError:
             if utils.is_str(x0):
-                x0 = eval(x0)
+                raise ValueError("x0 may be a callable, but a string is no longer permitted")
+                # x0 = eval(x0)
         self.x0 = array(x0, dtype=float, copy=True)  # should not have column or row, is just 1-D
         if self.x0.ndim == 2 and 1 in self.x0.shape:
             utils.print_warning('input x0 should be a list or 1-D array, trying to flatten ' +
@@ -4125,7 +4125,7 @@ def fmin(objective_function, x0, sigma0,
     >>> # cma.CMAOptions()  # returns all possible options
     >>> options = {'seed':12345, 'verb_time':0, 'ftarget': 1e-8}
     >>>
-    >>> res = cma.fmin(cma.ff.rastrigin, '2. * np.random.rand(3) - 1', 0.5,
+    >>> res = cma.fmin(cma.ff.rastrigin, lambda : 2. * np.random.rand(3) - 1, 0.5,
     ...                options, restarts=9, bipop=True)  #doctest: +ELLIPSIS
     (3_w,7)-aCMA-ES (mu_w=2.3,w_1=58%) in dimension 3 (seed=12345...
 
