@@ -75,7 +75,7 @@ class Rotation(object):
         """
         self.seed = seed
         self.dicMatrices = {}
-    def __call__(self, x, inverse=False):
+    def __call__(self, x, inverse=False, **kwargs):
         """Rotates the input array `x` with a fixed rotation matrix
            (``self.dicMatrices[len(x)]``)
         """

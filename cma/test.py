@@ -239,7 +239,7 @@ def various_doctests():
         NOTE ...iteration=81...
         >>> while not es.stop():
         ...    X = es.ask()
-        ...    es.tell(X, [ftabletrot(x, cond=1e32) for x in X])  # doctest:+ELLIPSIS
+        ...    es.tell(X, [ftabletrot(x) for x in X])  # doctest:+ELLIPSIS
         >>> assert es.countiter <= 344 and 'ftarget' in es.stop(), (
         ...             "transformation bug in alleviate_condition?",
         ...             es.countiter, es.stop())

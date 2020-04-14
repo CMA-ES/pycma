@@ -358,7 +358,7 @@ class ComposedFunction(Function, list):
     def __call__(self, x, *args, **kwargs):
         Function.__call__(self, x, *args, **kwargs)  # for the possible side effects only
         for i in range(-1, -len(self) - 1, -1):
-            x = self[i](x)
+            x = self[i](x, *args, **kwargs)
         return x
 
     def inverse(self, x, *args, **kwargs):
