@@ -217,14 +217,14 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
 
     or:
 
-    >>> es = cma.CMAEvolutionStrategy(9 * [2], 1)  # doctest: +ELLIPSIS
-    (5_w,10)-aCMA-ES (mu_w=...
+    >>> es = cma.CMAEvolutionStrategy(4 * [2], 1, {'verbose':0, 'verb_log':0})  # doctest: +ELLIPSIS
+    (4_w,8)-aCMA-ES (mu_w=...
     >>> with warnings.catch_warnings(record=True) as warns:  # flat fitness warning, not necessary anymore
     ...     while not es.stop():
     ...         X = es.ask()
     ...         f = [cma.ff.elli(tf(x)) for x in X]  # tf(x)==tf.transform(x)
     ...         es.tell(X, f)
-    >>> if 'tolflatfitness' not in es.stop(): print(es.stop())
+    >>> assert 'tolflatfitness' in es.stop(), str(es.stop())
 
     Example of the internal workings:
 
