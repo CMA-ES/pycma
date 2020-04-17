@@ -753,7 +753,9 @@ class LQModel(object):
                 for x in X]
 
     def optimize(self, fitness, x0, evals):
-        """this works very poorly e.g. on Rosenbrock::
+        """this works very poorly e.g. on Rosenbrock
+
+        ::
 
             x, m = Model().optimize(cma.ff.rosen, [0.1, -0.1], 13)
 

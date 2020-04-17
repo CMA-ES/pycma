@@ -529,7 +529,9 @@ class MathHelperFunctions(object):
         return np.asarray(q90) - np.asarray(q10)
     @staticmethod
     def logit10(x, lower=0, upper=1):
-        """map [lower, upper] -> R such that::
+        """map [lower, upper] -> R such that
+
+        ::
 
             upper - 10^-x  ->   x, and
             lower + 10^-x  ->  -x

@@ -97,7 +97,7 @@ def contour_data(fct, x_range, y_range=None):
     """generate x,y,z-data for contour plot.
 
     `fct` is a 2-D function.
-    `x`- and `y_range` are `iterable`s (e.g. `list`s or arrays)
+    `x`- and `y_range` are `iterable` (e.g. `list` or arrays)
     to define the meshgrid.
 
     CAVEAT: this function calls `fct` ``len(list(x_range)) * len(list(y_range))``

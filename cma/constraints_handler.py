@@ -492,7 +492,9 @@ class PopulationEvaluator(object):
         self.insert = insert
 
     def __call__(self, X, **kwargs):
-        """`kwargs` are named solutions resulting in::
+        """`kwargs` are named solutions resulting in
+
+    ::
 
             self.name['x'] = kwargs[name]
             self.name['f'] = self.objective(kwargs[name])

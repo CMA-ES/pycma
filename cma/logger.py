@@ -45,7 +45,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         x, es = cma.fmin2(cma.ff.elli, 12 * [3], 4, {'verb_plot': 1})
 
-    is very similar, but plots hard-coded into figure number 324.
+    is very similar, but plots hard-coded into figure number 324::
 
         es = cma.CMAEvolutionStrategy(...)
         logger = cma.CMADataLogger().register(es)
