@@ -66,13 +66,15 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``3.0.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.0.0) provides non-linear constraints handling, improved plotting and termination options and better resilience to injecting bad solutions, and further various fixes.
+
 * Version ``2.7.1`` allows for a list of termination callbacks and a light copy of `CMAEvolutionStrategy` instances.
 
-* Version ``2.7.0`` logger now writes into a folder, new fitness model module, various fixes.
+* [Release ``2.7.0``](https://github.com/CMA-ES/pycma/releases/tag/r2.7.0) logger now writes into a folder, new fitness model module, various fixes.
 
-* Version ``2.6.1`` allow possibly much larger condition numbers, fix corner case with growing more-to-write list.
+* [Release ``2.6.1``](https://github.com/CMA-ES/pycma/releases/tag/r2.6.1) allow possibly much larger condition numbers, fix corner case with growing more-to-write list.
 
-* Version ``2.6.0`` allows initial solution `x0` to be a callable.
+* [Release ``2.6.0``](https://github.com/CMA-ES/pycma/releases/tag/r2.6.0) allows initial solution `x0` to be a callable.
 
 * Version ``2.4.2`` added the function `cma.fmin2` which, similar to `cma.purecma.fmin`, 
   returns ``(x_best:numpy.ndarray, es:cma.CMAEvolutionStrategy)``  instead of a 10-tuple
