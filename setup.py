@@ -16,7 +16,7 @@ To prepare a distribution from a dirty code folder::
     backup cma --move    # backup is a homebrew minitool
     git checkout -- cma
     python setup.py check
-    python setup.py sdist bdist_wininst bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt
+    python setup.py sdist bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt  # bdist_wininst
     twdiff cma build/lib/cma/  # just checking
     backup --recover  # recover above moved folder (and backup current, just in case)
 
@@ -55,7 +55,7 @@ except IOError:  # file not found
 
 setup(name="cma",
       long_description=long_description,  # __doc__, # can be used in the cma.py file
-      long_description_content_type = 'text/markdown',
+      long_description_content_type = 'text/x-rst', # 'text/markdown',
       version=__version__.split()[0],
       description="CMA-ES, Covariance Matrix Adaptation " +
                   "Evolution Strategy for non-linear numerical " +
@@ -90,7 +90,7 @@ setup(name="cma",
       install_requires=["numpy"],
       extras_require={
             "plotting": ["matplotlib"],
-            "wrap-skopt": ["scikit-optimize"]
+            # "wrap-skopt": ["scikit-optimize"]  # who wants to wrap skopt has skopt already installed
       },
       package_data={'': ['LICENSE']},  # i.e. cma/LICENSE
       )
