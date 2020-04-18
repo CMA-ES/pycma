@@ -1,6 +1,18 @@
 """Very few interface defining base class definitions"""
 from __future__ import absolute_import, division, print_function  #, unicode_literals
+import warnings
+try: from .fitness_transformations import EvalParallel2
+except: EvalParallel2 = None
 del absolute_import, division, print_function  #, unicode_literals
+
+class EvalParallel:
+    """allow construct ``with EvalParallel(fun) as eval_all:``"""
+    def __init__(self, fun, *args, **kwargs):
+        self.fun = fun
+    def __call__(self, X, args=()):
+        return [self.fun(x, *args) for x in X]
+    def __enter__(self): return self
+    def __exit__(self, *args, **kwargs): pass
 
 class OOOptimizer(object):
     """abstract base class for an Object Oriented Optimizer interface.
@@ -60,7 +72,7 @@ class OOOptimizer(object):
     Most of the work is done in the methods `tell` or `ask`. The property
     `result` provides more useful output.
 
-    """
+"""
     def __init__(self, xstart, *more_mandatory_args, **optional_kwargs):
         """``xstart`` is a mandatory argument"""
         self.xstart = xstart
@@ -110,7 +122,9 @@ class OOOptimizer(object):
                  maxfun=None, iterations=None, min_iterations=1,
                  args=(),
                  verb_disp=None,
-                 callback=None):
+                 callback=None,
+                 n_jobs=0,
+                 **kwargs):
         """find minimizer of ``objective_fct``.
 
         CAVEAT: the return value for `optimize` has changed to ``self``,
@@ -144,6 +158,11 @@ class OOOptimizer(object):
             available, ``self.logger.add`` is added to this list.
             TODO: currently there is no way to prevent this other than
             changing the code of `_prepare_callback_list`.
+        ``n_jobs=0``: number of processes to be acquired for
+            multiprocessing to parallelize calls to `objective_fct`.
+            Must be >1 to expect any speed-up or `None` or `-1`, which
+            both default to the number of available CPUs. The default
+            ``n_jobs=0`` avoids the use of multiprocessing altogether.
 
         ``return self``, that is, the `OOOptimizer` instance.
 
@@ -163,27 +182,35 @@ class OOOptimizer(object):
         True
 
         """
+        if kwargs:
+            message = "ignoring unkown argument%s %s in OOOptimizer.optimize" % (
+                's' if len(kwargs) > 1 else '', str(kwargs))
+            warnings.warn(
+                message)  # warnings.simplefilter('ignore', lineno=186) suppresses this warning
+
         if iterations is not None and min_iterations > iterations:
-            print("doing min_iterations = %d > %d = iterations"
+            warnings.warn("doing min_iterations = %d > %d = iterations"
                   % (min_iterations, iterations))
             iterations = min_iterations
-
         callback = self._prepare_callback_list(callback)
 
         citer, cevals = 0, 0
-        while not self.stop() or citer < min_iterations:
-            if (maxfun and cevals >= maxfun) or (
-                  iterations and citer >= iterations):
-                return self
-            citer += 1
+        with (EvalParallel2 or EvalParallel)(objective_fct,
+                            None if n_jobs == -1 else n_jobs) as eval_all:
+            while not self.stop() or citer < min_iterations:
+                if (maxfun and cevals >= maxfun) or (
+                    iterations and citer >= iterations):
+                    return self
+                citer += 1
 
-            X = self.ask()  # deliver candidate solutions
-            fitvals = [objective_fct(x, *args) for x in X]
-            cevals += len(fitvals)
-            self.tell(X, fitvals)  # all the work is done here
-            for f in callback:
-                f(self)
-            self.disp(verb_disp)  # disp does nothing if not overwritten
+                X = self.ask()  # deliver candidate solutions
+                # fitvals = [objective_fct(x, *args) for x in X]
+                fitvals = eval_all(X, *args)
+                cevals += len(fitvals)
+                self.tell(X, fitvals)  # all the work is done here
+                for f in callback:
+                    f(self)
+                self.disp(verb_disp)  # disp does nothing if not overwritten
 
         # final output
         self._force_final_logging()
