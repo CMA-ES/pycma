@@ -1736,7 +1736,7 @@ class Logger(object):
         i = 2
         while os.path.isfile(self._compose_name(name, str(i))):
             i += 1
-        if i % 33 == 0 or i > 999:
+        if i % 99 == 0:
             utils.print_message('%d Logger data files like %s found. \n'
                                 'Consider removing old data files and/or using '
                                 'the delete parameter to delete on destruction and/or\n'
