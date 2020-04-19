@@ -8,7 +8,7 @@ To prepare the docs from a dirty code folder::
     backup cma --move
     git checkout -- cma
     pip install -e .
-    pydoctor --docformat=restructuredtext --make-html cma
+    pydoctor --docformat=restructuredtext --make-html cma  > pydoctor-messages.txt ; less pydoctor-messages.txt
     backup --recover
 
 To prepare a distribution from a dirty code folder::
@@ -28,7 +28,7 @@ Check distribution and project description:
 
 Finally upload the distribution::
 
-    twine upload dist/*versionnumber*  # to not upload outdated stuff
+    twine upload dist/*3.0.2*  # to not upload outdated stuff
 
 """
 # from distutils.core import setup
