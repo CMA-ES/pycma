@@ -10,6 +10,7 @@ To prepare the docs from a dirty code folder::
     pip install -e .
     pydoctor --docformat=restructuredtext --make-html cma  > pydoctor-messages.txt ; less pydoctor-messages.txt
     backup --recover
+    # see script-make-doc for syncing to gforge
 
 To prepare a distribution from a dirty code folder::
 
