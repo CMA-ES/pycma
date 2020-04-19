@@ -1275,16 +1275,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     >>> import pickle
     >>>
-    >>> es = cma.CMAEvolutionStrategy(12 * [0.1],  # a new instance, 12-D
-    ...                               0.12)         # initial std sigma0
+    >>> es0 = cma.CMAEvolutionStrategy(12 * [0.1],  # a new instance, 12-D
+    ...                                0.12)         # initial std sigma0
     ...   #doctest: +ELLIPSIS
     (5_w,...
-    >>> es.optimize(cma.ff.rosen, iterations=100)  #doctest: +ELLIPSIS
+    >>> es0.optimize(cma.ff.rosen, iterations=100)  #doctest: +ELLIPSIS
     I...
-    >>> pickle.dump(es, open('_saved-cma-object.pkl', 'wb'))
-    >>> del es  # let's start fresh
-    >>>
-    >>> es = pickle.load(open('_saved-cma-object.pkl', 'rb'))
+    >>> s = es0.pickle_dumps()  # return pickle.dumps(es) with safeguards
+    >>> # save string s to file like open(filename, 'wb').write(s)
+    >>> del es0  # let's start fresh
+    >>> # s = open(filename, 'rb').read()  # load string s from file
+    >>> es = pickle.loads(s)  # read back es instance from string
     >>> # resuming
     >>> es.optimize(cma.ff.rosen, verb_disp=200)  #doctest: +ELLIPSIS
       200 ...
@@ -1372,7 +1373,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         >>> assert es.stop() == {}
         >>> assert es.stop(get_value='catch 22') is None
 
-"""
+    """
         if (check and self.countiter > 0 and self.opts['termination_callback'] and
                 self.opts['termination_callback'] != str(self.opts['termination_callback'])):
             self.callbackstop = utils.ListOfCallables(self.opts['termination_callback'])(self)
@@ -3030,6 +3031,43 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             print('std deviations: %s ...]' % (str((self.sigma * self.sigma_vec.scaling * np.sqrt(self.dC) * self.gp.scales)[:8])[:-1]))
         return self.result
 
+    def pickle_dumps(self):
+        """return ``pickle.dumps(self)``,
+
+        if necessary remove unpickleable (and also unnecessary) local
+        function reference beforehand.
+
+        The resulting `bytes` string-object can be saved to a file like::
+
+            import cma
+            es = cma.CMAEvolutionStrategy(3 * [1], 1)
+            es.optimize(cma.ff.elli, iterations=22)
+            filename = 'es-pickle-test'
+            open(filename, 'wb').write(es.pickle_dumps())
+
+        and recovered like::
+
+            import pickle
+            es = pickle.load(open(filename, 'rb'))
+
+        or::
+
+            es = pickle.loads(open(filename, 'rb').read())
+            es.optimize(cma.ff.elli, iterations=22)  # continue optimizing
+
+        """
+        import pickle
+        try:  # fine if local function self.objective_function was not assigned
+            s = pickle.dumps(self)
+        except:
+            self.objective_function, fun = None, self.objective_function
+            try:
+                s = pickle.dumps(self)
+            except: raise  # didn't work out
+            finally:  # reset changed attribute either way
+                self.objective_function = fun
+        return s
+
     def repair_genotype(self, x, copy_if_changed=False):
         """make sure that solutions fit to the sample distribution.
 
@@ -4017,7 +4055,8 @@ def fmin(objective_function, x0, sigma0,
         an objective function that accepts a list of `numpy.ndarray` as
         input and returns a `list`, which is mostly used instead of
         `objective_function`, but for the initial (also initial
-        elitist) and the final evaluations. If ``parallel_objective``
+        elitist) and the final evaluations unless
+        ``not callable(objective_function)``. If ``parallel_objective``
         is given, the ``objective_function`` (first argument) may be
         ``None``.
     ``eval_initial_x=None``
@@ -4242,6 +4281,11 @@ def fmin(objective_function, x0, sigma0,
                 opts['popsize'] = popsize0 * popsize_multiplier
                 opts['maxiter'] = maxiter0
                 # print('large basemul %s --> %s; maxiter %s' % (popsize_multiplier, opts['popsize'], opts['maxiter']))
+
+            if not callable(objective_function) and callable(parallel_objective):
+                objective_function = lambda x, *args: parallel_objective([x], *args)[0]
+                objective_function.__doc__ = ('created from `parallel_objective`, '
+                                              'assign to `None` to pickle')
 
             # recover from a CMA object
             if irun == 0 and isinstance(x0, CMAEvolutionStrategy):
