@@ -41,7 +41,8 @@ del (division, print_function, absolute_import,
 # bash $: svn propset svn:keywords 'Date Revision Id' fitness_functions.py
 
 try:
-    from . import bbobbenchmarks as BBOB
+    from . import bbobbenchmarks
+    BBOB = bbobbenchmarks  # for backwards compatibility
 except ImportError:
     BBOB = """Call::
         cma.ff.fetch_bbob_fcts()
@@ -74,7 +75,13 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     """
     evaluations = 0  # number of calls or any other practical use
     def __init__(self):
-        self.BBOB = BBOB
+        """"""
+    @property  # avoid pickle and multiprocessing error
+    def BBOB(self):
+        return bbobbenchmarks
+    try: BBOB.__doc__ = bbobbenchmarks.__doc__
+    except TypeError: pass  # in Python 2 __doc__ is readonly
+
     def rot(self, x, fun, rot=1, args=()):
         """returns ``fun(rotation(x), *args)``, ie. `fun` applied to a rotated argument"""
         if len(np.shape(array(x))) > 1:  # parallelized

@@ -1,6 +1,7 @@
 """Wrapper for objective functions like noise, rotation, gluing args
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals, with_statement
+import warnings
 from functools import partial
 import numpy as np
 from multiprocessing import Pool as ProcessingPool
@@ -13,97 +14,6 @@ from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
 rotate = Rotation()
-
-class EvalParallel(object):
-    """A class and context manager for parallel evaluations.
-
-    To be used with the `with` statement (otherwise `terminate` needs to
-    be called to free resources)::
-
-        with EvalParallel() as eval_all:
-            fvals = eval_all(fitness, solutions)
-
-    assigns a callable `EvalParallel` class instance to ``eval_all``.
-    The instance can be called with a `list` (or `tuple` or any
-    sequence) of solutions and returns their fitness values. That is::
-
-        eval_all(fitness, solutions) == [fitness(x) for x in solutions]
-
-    `EvalParallel.__call__` may take two additional optional arguments,
-    namely `args` passed to ``fitness`` and `timeout` passed to the
-    `multiprocessing.pool.ApplyResult.get` method which raises
-    `multiprocessing.TimeoutError` in case.
-
-    Examples:
-
-    >>> import cma
-    >>> from cma.fitness_transformations import EvalParallel
-    >>> # class usage, don't forget to call terminate
-    >>> ep = EvalParallel()
-    >>> ep(cma.fitness_functions.elli, [[1,2], [3,4], [4, 5]])  # doctest:+ELLIPSIS
-    [4000000.944...
-    >>> ep.terminate()
-    ...
-    >>> # use with `with` statement (context manager)
-    >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, dict(verbose=-9))
-    >>> with EvalParallel(12) as eval_all:
-    ...     while not es.stop():
-    ...         X = es.ask()
-    ...         es.tell(X, eval_all(cma.fitness_functions.elli, X))
-    >>> assert es.result[1] < 1e-13 and es.result[2] < 1500
-
-    Parameters: the `EvalParallel` constructor takes the number of
-    processes as optional input argument, which is by default
-    ``multiprocessing.cpu_count()``.
-    
-    Limitations: The `multiprocessing` module (on which this class is
-    based upon) does not work with class instance method calls.
-    
-    In some cases the execution may be considerably slowed down,
-    as for example with test suites from coco/bbob.
-
-    """
-    def __init__(self, number_of_processes=None):
-        self.processes = number_of_processes
-        self.pool = ProcessingPool(self.processes)
-
-    def __call__(self, fitness_function, solutions, args=(), timeout=None):
-        """evaluate a list/sequence of solution-"vectors", return a list
-        of corresponding f-values.
-
-        Raises `multiprocessing.TimeoutError` if `timeout` is given and
-        exceeded.
-        """
-        warning_str = ("WARNING: `fitness_function` must be a function,"
-                       " not an instancemethod, to work with"
-                       " `multiprocessing`")
-        if isinstance(fitness_function, type(self.__init__)):
-            print(warning_str)
-        jobs = [self.pool.apply_async(fitness_function, (x,) + args)
-                for x in solutions]
-        try:
-            return [job.get(timeout) for job in jobs]
-        except:
-            print(warning_str)
-            raise
-
-    def terminate(self):
-        """free allocated processing pool"""
-        # self.pool.close()  # would wait for job termination
-        self.pool.terminate()  # terminate jobs regardless
-        self.pool.join()  # end spawning
-
-    def __enter__(self):
-        # we could assign self.pool here, but then `EvalParallel` would
-        # *only* work when using the `with` statement
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.terminate()
-
-    def __del__(self):
-        """though generally not recommended `__del__` should be OK here"""
-        self.terminate()
 
 
 class EvalParallel2(object):
@@ -134,6 +44,10 @@ class EvalParallel2(object):
     `multiprocessing.pool.ApplyResult.get` method which raises
     `multiprocessing.TimeoutError` in case.
 
+    ``eval_all = EvalParallel2(fitness_function, 0)`` bypasses
+    `multiprocessing`, hence the construct can be used even when
+    `multiprocessing` fails on this `fitness_function` instantiation.
+
     Examples:
 
     >>> import cma
@@ -146,32 +60,45 @@ class EvalParallel2(object):
     ...
     >>> # use with `with` statement (context manager)
     >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, dict(verbose=-9))
-    >>> with EvalParallel2(number_of_processes=12) as eval_all:
+    >>> with EvalParallel2(cma.fitness_functions.elli,
+    ...                    number_of_processes=12) as eval_all:
     ...     while not es.stop():
     ...         X = es.ask()
-    ...         es.tell(X, eval_all(X, cma.fitness_functions.elli))
+    ...         es.tell(X, eval_all(X))  # eval_all also accepts `fitness_function`
+    ...                                  # and `args` as optional arguments
     >>> assert es.result[1] < 1e-13 and es.result[2] < 1500
 
     Parameters: the `EvalParallel2` constructor takes the number of
     processes as optional input argument, which is by default
-    ``multiprocessing.cpu_count()``.
+    ``multiprocessing.cpu_count()``. If ``number_of_processes <= 0``, no
+    `multiprocessing` is invoked and the fitness is computed directly in a
+    regular loop.
 
-    Limitations: as of 2018, the `multiprocessing` module (on which
-    this class is based upon) does not work with class instance method
-    calls.
+    Limitations: the `multiprocessing` module, on which this class is based
+    upon, may not work with certain class instance methods or Cython
+    instances, or class instances that contain modules as it uses `pickle`.
 
-    In some cases the execution may be considerably slowed down,
-    as for example with test suites from coco/bbob.
+    Details: in some cases the execution may be considerably slowed down,
+    as for example in previous tests done with test suites from coco/bbob.
 
-    """
+    Comparing setting ``number_of_processes = 0`` with
+    ``number_of_processes = 1`` evaluates the overhead introduced by
+    ``multiprocessing.Pool.apply_async``.
+"""
     def __init__(self, fitness_function=None, number_of_processes=None):
         self.fitness_function = fitness_function
         self.processes = number_of_processes
-        self.pool = ProcessingPool(self.processes)
+        if self.processes <= 0:
+            self.pool = None
+        else:
+            self.pool = ProcessingPool(self.processes)
 
     def __call__(self, solutions, fitness_function=None, args=(), timeout=None):
         """evaluate a list/sequence of solution-"vectors", return a list
         of corresponding f-values.
+
+        `args` is passed to `fitness_function` like
+        ``fitness_function(solutions[0], *args)``.
 
         Raises `multiprocessing.TimeoutError` if `timeout` is given and
         exceeded.
@@ -180,11 +107,14 @@ class EvalParallel2(object):
         if fitness_function is None:
             raise ValueError("`fitness_function` was never given, must be"
                              " passed in `__init__` or `__call__`")
-        warning_str = ("WARNING: `fitness_function` must be a function,"
-                       " not an instancemethod, in order to work with"
+        if not self.pool:
+            return [fitness_function(x, *args) for x in solutions]
+        warning_str = ("`fitness_function` must be a function,"
+                       " not a `lambda` or an instancemethod, in order to work with"
                        " `multiprocessing`")
-        if isinstance(fitness_function, type(self.__init__)):
-            warnings.warn(warning_str)
+        if 11 < 3:  # not necessary anymore?
+            if isinstance(fitness_function, type(self.__init__)):
+                warnings.warn(warning_str)
         jobs = [self.pool.apply_async(fitness_function, (x,) + args)
                 for x in solutions]
         try:
@@ -195,6 +125,8 @@ class EvalParallel2(object):
 
     def terminate(self):
         """free allocated processing pool"""
+        if not self.pool:
+            return
         # self.pool.close()  # would wait for job termination
         self.pool.terminate()  # terminate jobs regardless
         self.pool.join()  # end spawning
