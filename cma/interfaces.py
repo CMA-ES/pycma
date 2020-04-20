@@ -1,7 +1,7 @@
 """Very few interface defining base class definitions"""
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 import warnings
-try: from .fitness_transformations import EvalParallel2
+try: from .optimization_tools import EvalParallel2
 except: EvalParallel2 = None
 del absolute_import, division, print_function  #, unicode_literals
 

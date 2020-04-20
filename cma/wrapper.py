@@ -14,7 +14,7 @@ import warnings
 
 # external
 import numpy as np
-import cma
+import cma  # caveat: does not import necessarily the code of this root folder?
 
 try: import skopt
 except ImportError: warnings.warn('install `skopt` ("pip install scikit-optimize") '
@@ -85,7 +85,7 @@ else:
         switch = { -1: None,  # use number of available CPUs
                     1: 0,     # avoid using multiprocessor for just one CPU
                  }
-        with cma.fitness_transformations.EvalParallel2(func,
+        with cma.optimization_tools.EvalParallel2(func,
                 number_of_processes=switch.get(n_jobs, n_jobs)) as parallel_func:
             for _i in range(n_calls):
                 if model.stop(): break

@@ -292,6 +292,9 @@ def various_doctests():
 
     For VD- and VkD-CMA, see `cma.restricted_gaussian_sampler`.
 
+    >>> import cma
+    >>> assert cma.interfaces.EvalParallel2 is not None
+
     """
 
 def doctest_files(file_list=files_for_doctest, **kwargs):

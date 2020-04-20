@@ -1260,7 +1260,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     multiprocessing seems not always reliable):
 
     >>> from cma.fitness_functions import elli  # cannot be an instance method
-    >>> from cma.fitness_transformations import EvalParallel2
+    >>> from cma.optimization_tools import EvalParallel2
     >>> es = cma.CMAEvolutionStrategy(22 * [0.0], 1.0, {'maxiter':10})  # doctest:+ELLIPSIS
     (6_w,13)-aCMA-ES (mu_w=...
     >>> with EvalParallel2(elli, es.popsize + 1) as eval_all:

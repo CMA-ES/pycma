@@ -1,149 +1,18 @@
 """Wrapper for objective functions like noise, rotation, gluing args
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals, with_statement
-import sys
 import warnings
 from functools import partial
 import numpy as np
-from multiprocessing import Pool as ProcessingPool
-# from pathos.multiprocessing import ProcessingPool
 import time
 from .utilities import utils
 from .transformations import ConstRandnShift, Rotation
 from .constraints_handler import BoundTransform
+from .optimization_tools import EvalParallel2  # for backwards compatibility
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
 rotate = Rotation()
-
-
-class EvalParallel2(object):
-    """A class and context manager for parallel evaluations.
-
-    This class is based on the ``Pool`` class of the `multiprocessing` module.
-    
-    The interface in v2 changed, such that the fitness function can be
-    given once in the constructor. Hence the number of processes has 
-    become the second (optional) argument of `__init__` and the function
-    has become the second and optional argument of `__call__`.
-
-    To be used with the `with` statement (otherwise `terminate` needs to
-    be called to free resources)::
-
-        with EvalParallel2(fitness_function) as eval_all:
-            fvals = eval_all(solutions)
-
-    assigns a callable `EvalParallel2` class instance to ``eval_all``.
-    The instance can be called with a `list` (or `tuple` or any
-    sequence) of solutions and returns their fitness values. That is::
-
-        eval_all(solutions) == [fitness_function(x) for x in solutions]
-
-    `EvalParallel2.__call__` may take three additional optional arguments,
-    namely `fitness_function` (like this the function may change from call
-    to call), `args` passed to ``fitness`` and `timeout` passed to the
-    `multiprocessing.pool.ApplyResult.get` method which raises
-    `multiprocessing.TimeoutError` in case.
-
-    ``eval_all = EvalParallel2(fitness_function, 0)`` bypasses
-    `multiprocessing`, hence the construct can be used even when
-    `multiprocessing` fails on this `fitness_function` instantiation.
-
-    Examples:
-
-    >>> import cma
-    >>> from cma.fitness_transformations import EvalParallel2
-    >>> # class usage, don't forget to call terminate
-    >>> ep = EvalParallel2(cma.fitness_functions.elli, 4)
-    >>> ep([[1,2], [3,4], [4, 5]])  # doctest:+ELLIPSIS
-    [4000000.944...
-    >>> ep.terminate()
-    ...
-    >>> # use with `with` statement (context manager)
-    >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, dict(verbose=-9))
-    >>> with EvalParallel2(cma.fitness_functions.elli,
-    ...                    number_of_processes=12) as eval_all:
-    ...     while not es.stop():
-    ...         X = es.ask()
-    ...         es.tell(X, eval_all(X))  # eval_all also accepts `fitness_function`
-    ...                                  # and `args` as optional arguments
-    >>> assert es.result[1] < 1e-13 and es.result[2] < 1500
-
-    Parameters: the `EvalParallel2` constructor takes the number of
-    processes as optional input argument, which is by default
-    ``multiprocessing.cpu_count()``. If ``number_of_processes <= 0``, no
-    `multiprocessing` is invoked and the fitness is computed directly in a
-    regular loop.
-
-    Limitations: the `multiprocessing` module, on which this class is based
-    upon, may not work with certain class instance methods or Cython
-    instances, or class instances that contain modules as it uses `pickle`.
-
-    Details: in some cases the execution may be considerably slowed down,
-    as for example in previous tests done with test suites from coco/bbob.
-
-    Comparing setting ``number_of_processes = 0`` with
-    ``number_of_processes = 1`` evaluates the overhead introduced by
-    ``multiprocessing.Pool.apply_async``.
-"""
-    def __init__(self, fitness_function=None, number_of_processes=None):
-        self.fitness_function = fitness_function
-        self.processes = number_of_processes
-        if self.processes is not None and self.processes <= 0:
-            self.pool = None
-        else:
-            self.pool = ProcessingPool(self.processes)
-
-    def __call__(self, solutions, fitness_function=None, args=(), timeout=None):
-        """evaluate a list/sequence of solution-"vectors", return a list
-        of corresponding f-values.
-
-        `args` is passed to `fitness_function` like
-        ``fitness_function(solutions[0], *args)``.
-
-        Raises `multiprocessing.TimeoutError` if `timeout` is given and
-        exceeded.
-        """
-        fitness_function = fitness_function or self.fitness_function
-        if fitness_function is None:
-            raise ValueError("`fitness_function` was never given, must be"
-                             " passed in `__init__` or `__call__`")
-        if not self.pool:
-            return [fitness_function(x, *args) for x in solutions]
-        warning_str = ("`fitness_function` must be a function, not a"
-                       " `lambda` or an instancemethod, in order to work with"
-                       " `multiprocessing` under Python 2")
-        if sys.version[0] == '2':  # not necessary anymore?
-            if isinstance(fitness_function, type(self.__init__)):
-                warnings.warn(warning_str)
-        jobs = [self.pool.apply_async(fitness_function, (x,) + args)
-                for x in solutions]
-        try:
-            return [job.get(timeout) for job in jobs]
-        except:
-            sys.version[0] == '2' and warnings.warn(warning_str)
-            raise
-
-    def terminate(self):
-        """free allocated processing pool"""
-        if not self.pool:
-            return
-        # self.pool.close()  # would wait for job termination
-        self.pool.terminate()  # terminate jobs regardless
-        self.pool.join()  # end spawning
-
-    def __enter__(self):
-        # we could assign self.pool here, but then `EvalParallel2` would
-        # *only* work when using the `with` statement
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.terminate()
-
-    def __del__(self):
-        """though generally not recommended `__del__` should be OK here"""
-        self.terminate()
-
 
 class Function(object):
     """a declarative base class, indicating that a derived class instance
