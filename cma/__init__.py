@@ -120,15 +120,17 @@ __license__ = "BSD 3-clause"
 # __package__ = 'cma'
 from . import purecma
 try:
-    from . import (constraints_handler, evolution_strategy, fitness_functions,
-                   fitness_transformations, interfaces, optimization_tools,
-                   sampler, sigma_adaptation, transformations, utilities,
-                   )
+    import numpy
+    del numpy
 except ImportError:
     print('Only `cma.purecma` has been imported. Install `numpy` ("pip'
           ' install numpy") if you want to import the entire `cma`'
           ' package.')
 else:
+    from . import (constraints_handler, evolution_strategy, fitness_functions,
+                    fitness_transformations, interfaces, optimization_tools,
+                    sampler, sigma_adaptation, transformations, utilities,
+                    )
     # from . import test  # gives a warning with python -m cma.test (since Python 3.5.3?)
     test = 'type "import cma.test" to access the `test` module of `cma`'
     from . import s
