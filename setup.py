@@ -31,6 +31,11 @@ Finally upload the distribution::
 
     twine upload dist/*3.0.2*  # to not upload outdated stuff
 
+Anaconda::
+
+    code tools/conda.recipe/meta.yaml  # edit version number
+    conda-build -q tools/conda.recipe
+
 """
 # from distutils.core import setup
 from setuptools import setup

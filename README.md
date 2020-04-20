@@ -69,7 +69,7 @@ either of these with ``sudo``.
 
 ## Version History
 
-* [Release ``3.0.1``](https://github.com/CMA-ES/pycma/releases/tag/r3.0.1) provides parallelization with ``OOOptimizer.optimize(..., n_jobs=...)`` and improved `pickle` support.
+* [Release ``3.0.2``](https://github.com/CMA-ES/pycma/releases/tag/r3.0.2) provides parallelization with ``OOOptimizer.optimize(..., n_jobs=...)`` and improved `pickle` support.
 
 * [Release ``3.0.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.0.0) provides non-linear constraints handling, improved plotting and termination options and better resilience to injecting bad solutions, and further various fixes.
 
