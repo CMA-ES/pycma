@@ -29,7 +29,7 @@ Check distribution and project description:
 
 Finally upload the distribution::
 
-    twine upload dist/*3.0.2*  # to not upload outdated stuff
+    twine upload dist/*3.0.3*  # to not upload outdated stuff
 
 Anaconda::
 
