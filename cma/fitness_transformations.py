@@ -89,7 +89,7 @@ class EvalParallel2(object):
     def __init__(self, fitness_function=None, number_of_processes=None):
         self.fitness_function = fitness_function
         self.processes = number_of_processes
-        if self.processes <= 0:
+        if self.processes is not None and self.processes <= 0:
             self.pool = None
         else:
             self.pool = ProcessingPool(self.processes)
