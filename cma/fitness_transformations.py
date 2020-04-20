@@ -1,6 +1,7 @@
 """Wrapper for objective functions like noise, rotation, gluing args
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals, with_statement
+import sys
 import warnings
 from functools import partial
 import numpy as np
@@ -109,10 +110,10 @@ class EvalParallel2(object):
                              " passed in `__init__` or `__call__`")
         if not self.pool:
             return [fitness_function(x, *args) for x in solutions]
-        warning_str = ("`fitness_function` must be a function,"
-                       " not a `lambda` or an instancemethod, in order to work with"
-                       " `multiprocessing`")
-        if 11 < 3:  # not necessary anymore?
+        warning_str = ("`fitness_function` must be a function, not a"
+                       " `lambda` or an instancemethod, in order to work with"
+                       " `multiprocessing` under Python 2")
+        if sys.version[0] == '2':  # not necessary anymore?
             if isinstance(fitness_function, type(self.__init__)):
                 warnings.warn(warning_str)
         jobs = [self.pool.apply_async(fitness_function, (x,) + args)
@@ -120,7 +121,7 @@ class EvalParallel2(object):
         try:
             return [job.get(timeout) for job in jobs]
         except:
-            warnings.warn(warning_str)
+            sys.version[0] == '2' and warnings.warn(warning_str)
             raise
 
     def terminate(self):

@@ -32,19 +32,22 @@ Useful links:
 ## Installation of the [(almost) latest release](https://pypi.python.org/pypi/cma)
 
 Type
-```
-  python -m pip install cma
-```
+
+    python -m pip install cma
+
 in a system shell to install the [latest _release_](https://pypi.python.org/pypi/cma)
 from the [Python Package Index (PyPI)](https://pypi.python.org/pypi) (which may be 
-behind the lastest release tag on Github). The release link also provides more installation
-hints and a quick start guide.
+behind the lastest release tag on Github). The release link also provides more installation hints and a quick start guide.
+
+    conda install --channel cma-es cma
+
+installs from the conda cloud channel `cma-es`.
 
 ## Installation of the current master branch
 
 The quick way (requires git to be installed):
 
-     pip install git+https://github.com/CMA-ES/pycma.git@master
+    pip install git+https://github.com/CMA-ES/pycma.git@master
 
 The long version: download and unzip the code (see green button above) or
 ``git clone https://github.com/CMA-ES/pycma.git`` and
