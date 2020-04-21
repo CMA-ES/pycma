@@ -292,8 +292,15 @@ def various_doctests():
 
     For VD- and VkD-CMA, see `cma.restricted_gaussian_sampler`.
 
+    >>> import sys
     >>> import cma
     >>> assert cma.interfaces.EvalParallel2 is not None
+    >>> try:
+    ...     with warnings.catch_warnings(record=True) as warn:
+    ...         with cma.optimization_tools.EvalParallel2(cma.ff.elli) as eval_all:
+    ...             res = eval_all([[1,2], [3,4]])
+    ... except:
+    ...     assert sys.version[0] == '2'
 
     """
 

@@ -2,6 +2,7 @@
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 import sys
+import warnings
 import numpy as np
 from multiprocessing import Pool as ProcessingPool
 # from pathos.multiprocessing import ProcessingPool
@@ -207,8 +208,10 @@ class EvalParallel2(object):
 
     Examples:
 
-    >>> import cma
     >>> from cma.optimization_tools import EvalParallel2
+    >>> for n_jobs in [None, -1, 0, 1, 2, 4]:
+    ...     with EvalParallel2(cma.fitness_functions.elli, n_jobs) as eval_all:
+    ...         res = eval_all([[1,2], [3,4]])
     >>> # class usage, don't forget to call terminate
     >>> ep = EvalParallel2(cma.fitness_functions.elli, 4)
     >>> ep([[1,2], [3,4], [4, 5]])  # doctest:+ELLIPSIS
@@ -244,11 +247,11 @@ class EvalParallel2(object):
 """
     def __init__(self, fitness_function=None, number_of_processes=None):
         self.fitness_function = fitness_function
-        self.processes = number_of_processes
-        if self.processes is not None and self.processes <= 0:
-            self.pool = None
-        else:
+        self.processes = number_of_processes  # for the record
+        if self.processes is None or self.processes > 0:
             self.pool = ProcessingPool(self.processes)
+        else:
+            self.pool = None
 
     def __call__(self, solutions, fitness_function=None, args=(), timeout=None):
         """evaluate a list/sequence of solution-"vectors", return a list
@@ -269,7 +272,7 @@ class EvalParallel2(object):
         warning_str = ("`fitness_function` must be a function, not a"
                        " `lambda` or an instancemethod, in order to work with"
                        " `multiprocessing` under Python 2")
-        if sys.version[0] == '2':  # not necessary anymore?
+        if sys.version[0] == '2':
             if isinstance(fitness_function, type(self.__init__)):
                 warnings.warn(warning_str)
         jobs = [self.pool.apply_async(fitness_function, (x,) + args)
