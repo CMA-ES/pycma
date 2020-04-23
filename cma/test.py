@@ -103,23 +103,33 @@ def various_doctests():
 
     A simple first overall test:
 
-        >>> import cma
-        >>> res = cma.fmin(cma.ff.elli, 3*[1], 1,
-        ...                {'CMA_diagonal':2, 'seed':1, 'verb_time':0})
-        ...                # doctest: +ELLIPSIS
-        (3_w,7)-aCMA-ES (mu_w=2.3,w_1=58%) in dimension 3 (seed=1,...)
-           Covariance matrix is diagonal for 2 iterations (1/ccov=6...
-        Iterat #Fevals   function value  axis ratio  sigma ...
-        >>> assert res[1] < 1e-6
-        >>> assert res[2] < 2000
+    >>> import cma
+    >>> res = cma.fmin(cma.ff.elli, 3*[1], 1,
+    ...                {'CMA_diagonal':2, 'seed':1, 'verbose':-9})
+    >>> assert res[1] < 1e-6
+    >>> assert res[2] < 2000
+
+    Testing `args` argument:
+
+    >>> def maxcorr(m):
+    ...     val = 0
+    ...     for i in range(len(m)):
+    ...         for j in range(i + 1, len(m)):
+    ...             val = max((val, abs(m[i, j])))
+    ...     return val
+    >>> x, es = cma.fmin2(cma.ff.elli, [1, 0, 0], 0.5, {'verbose':-9}, args=[True])  # rotated
+    >>> assert maxcorr(es.sm.correlation_matrix) > 0.9, es.sm.correlation_matrix
+    >>> es = cma.CMAEvolutionStrategy([1, 0, 0], 0.5,
+    ...                               {'verbose':-9}).optimize(cma.ff.elli, args=[1])
+    >>> assert maxcorr(es.sm.correlation_matrix) > 0.9, es.sm.correlation_matrix
 
     Testing output file consistency with diagonal option:
 
-        >>> import cma
-        >>> for val in (0, True, 2, 3):
-        ...     _ = cma.fmin(cma.ff.sphere, 3 * [1], 1,
-        ...                  {'verb_disp':0, 'CMA_diagonal':val, 'maxiter':5})
-        ...     _ = cma.CMADataLogger().load()
+    >>> import cma
+    >>> for val in (0, True, 2, 3):
+    ...     _ = cma.fmin(cma.ff.sphere, 3 * [1], 1,
+    ...                  {'verb_disp':0, 'CMA_diagonal':val, 'maxiter':5})
+    ...     _ = cma.CMADataLogger().load()
 
     Test on the Rosenbrock function with 3 restarts. The first trial only
     finds the local optimum, which happens in about 20% of the cases.

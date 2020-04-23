@@ -181,7 +181,7 @@ class OOOptimizer(object):
         >>> cma.s.Mh.vequals_approximately(es.result[0], 7 * [1], 1e-5)
         True
 
-        """
+    """
         if kwargs:
             message = "ignoring unkown argument%s %s in OOOptimizer.optimize" % (
                 's' if len(kwargs) > 1 else '', str(kwargs))
@@ -205,7 +205,7 @@ class OOOptimizer(object):
 
                 X = self.ask()  # deliver candidate solutions
                 # fitvals = [objective_fct(x, *args) for x in X]
-                fitvals = eval_all(X, *args)
+                fitvals = eval_all(X, args=args)
                 cevals += len(fitvals)
                 self.tell(X, fitvals)  # all the work is done here
                 for f in callback:
