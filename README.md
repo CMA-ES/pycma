@@ -83,7 +83,7 @@ either of these with ``sudo``.
 
 * Version ``2.4.2`` added the function `cma.fmin2` which, similar to `cma.purecma.fmin`, 
   returns ``(x_best:numpy.ndarray, es:cma.CMAEvolutionStrategy)``  instead of a 10-tuple
-  like `cma.fmin`.
+  like `cma.fmin`. The result 10-tuple is accessible in [``es.result``](https://github.com/CMA-ES/pycma/blob/025ef1fed91c86690a21e9ed81713062d29398ff/cma/evolution_strategy.py#L942)``:``[``namedtuple``](https://docs.python.org/3/library/collections.html#collections.namedtuple).
   
 * Version ``2.4.1`` included ``bbob`` testbed.
 
