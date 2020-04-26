@@ -175,11 +175,34 @@ class ComposedFunction(Function, list):
             x = self.list_of_inverses[i](x, *args, **kwargs)
         return x
 
-class GlueArguments(Function):
-    """from a `callable` return a `callable` with arguments attached.
+class StackFunction(Function):
+    """a function that returns ``f1(x[:n1]) + f2(x[n1:])``.
 
-    See also `functools.partial` which has the same functionality and
-    interface.
+    >>> import functools
+    >>> import numpy as np
+    >>> import cma
+    >>> def elli48(x):
+    ...     return 1e-4 * functools.partial(cma.ff.elli, cond=1e8)(x)
+    >>> fcigtab = cma.fitness_transformations.StackFunction(
+    ...     elli48, cma.ff.sphere, 2)
+    >>> x = [1, 2, 3, 4]
+    >>> assert np.isclose(fcigtab(x), cma.ff.cigtab(np.asarray(x)))
+
+"""
+    def __init__(self, f1, f2, n1):
+        self.f1 = f1
+        self.f2 = f2
+        self.n1 = n1
+    def _eval(self, x, *args, **kwargs):
+        return self.f1(x[:self.n1], *args, **kwargs) + self.f2(x[self.n1:], *args, **kwargs)
+
+class GlueArguments(Function):
+    """deprecated, use `functools.partial` or
+    `cma.fitness_transformations.partial` instead, which has the same
+    functionality and interface.
+
+    from a `callable` return a `callable` with arguments attached.
+
 
     An ellipsoid function with condition number ``1e4`` is created by
     ``felli1e4 = cma.s.ft.GlueArguments(cma.ff.elli, cond=1e4)``.
