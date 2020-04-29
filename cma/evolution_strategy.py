@@ -461,7 +461,8 @@ def cma_default_options_(  # to get keyword completion back
     minstd='0  #v minimal std (scalar or vector) in any coordinate direction, cave interference with tol*',
     maxstd='inf  #v maximal std in any coordinate direction',
     pc_line_samples='False #v one line sample along the evolution path pc',
-    popsize='4+int(3*np.log(N))  # population size, AKA lambda, number of new solution per iteration',
+    popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
+    popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
     randn='np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
     scaling_of_variables='''None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
             Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by
@@ -3784,6 +3785,7 @@ class _CMAParameters(object):
             opts.evalall({'N':N, 'popsize':popsize})
         else:
             popsize = opts.evalall({'N':N})['popsize']  # the default popsize is computed in CMAOptions()
+            popsize *= opts['popsize_factor']
         ## meta_parameters.lambda_exponent == 0.0
         popsize = int(popsize + N** 0.0 - 1)
 
