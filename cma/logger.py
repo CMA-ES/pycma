@@ -597,7 +597,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
              foffset=1e-19, x_opt=None, fontsize=7,
              downsample_to=1e7,
              xsemilog=False,
-             addcols=0):
+             addcols=0,
+             load=True):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
 
@@ -662,7 +663,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if iabscissa not in (0, 1):
             iabscissa = 1
 
-        self.load()  # better load only conditionally?
+        load and self.load()  # load only conditionally
         if self.f.shape[0] > downsample_to:
             self.downsampling(1 + self.f.shape[0] // downsample_to)
             self.load()
