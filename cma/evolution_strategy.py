@@ -418,6 +418,7 @@ def cma_default_options_(  # to get keyword completion back
     AdaptSigma='True  # or False or any CMAAdaptSigmaBase class e.g. CMAAdaptSigmaTPA, CMAAdaptSigmaCSA',
     CMA_active='True  # negative update, conducted after the original update',
 #    CMA_activefac='1  # learning rate multiplier for active update',
+    CMA_active_injected='0  #v weight multiplier for negative weights of injected solutions',
     CMA_cmean='1  # learning rate for the mean value',
     CMA_const_trace='False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
     CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
@@ -1292,8 +1293,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     Details
     =======
-    The following two enhancements are implemented, the latter is turned
-    on by default for very small population size only.
+    The following two enhancements are implemented, the latter is only
+    turned on by default for very small population sizes.
 
     *Active CMA* is implemented with option ``CMA_active`` and
     conducts an update of the covariance matrix with negative weights.
@@ -1311,11 +1312,20 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     selectively mirrored vectors within the iteration
     (``CMA_mirrormethod==1``). Otherwise, or if ``CMA_mirromethod==2``,
     selective mirrors are injected for the next iteration.
-    In selective mirroring, only the worst solutions are  mirrored. With
+    In selective mirroring, only the worst solutions are mirrored. With
     the default small number of mirrors, *pairwise selection* (where at
     most one of the two mirrors contribute to the update of the
     distribution mean) is implicitly guarantied under selective
     mirroring and therefore not explicitly implemented.
+
+    Update: pairwise selection for injected mirrors is also applied in the
+    covariance matrix update: for all injected solutions, as for those from
+    TPA, this is now implemented in that the recombination weights are
+    constrained to be nonnegative for injected solutions in the covariance
+    matrix (otherwise recombination weights are anyway nonnegative). This
+    is a precaution to prevent failure when injected solutions are
+    systematically bad (see e.g. https://github.com/CMA-ES/pycma/issues/124),
+    but may not be "optimal" for mirrors.
 
     References: Brockhoff et al, PPSN 2010, Auger et al, GECCO 2011.
 
@@ -2832,7 +2842,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     pass  # print(i)
                 else:
                     # print(i + 1, '-th weight set to zero')
-                    sampler_weights[i + 1] = 0  # weight zero is for pc
+                    # sampler_weights[i + 1] = 0  # weight index 0 is for pc
+                    sampler_weights[i + 1] *= self.opts['CMA_active_injected']  # weight index 0 is for pc
             for s in list(self._injected_solutions_archive):
                 if self._injected_solutions_archive[s]['iteration'] < self.countiter - 2:
                     warnings.warn("""orphanated injected solution %s
