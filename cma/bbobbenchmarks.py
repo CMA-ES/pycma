@@ -30,40 +30,44 @@ Module attributes:
 Examples:
 
 >>> from cma import bbobbenchmarks as bn
->>> for s in bn.nfreeinfos:
-...    print(s)
-1: Noise-free Sphere function
-2: Separable ellipsoid with monotone transformation
-<BLANKLINE>
-    Parameter: condition number (default 1e6)
-<BLANKLINE>
-<BLANKLINE>
-3: Rastrigin with monotone transformation separable "condition" 10
-4: skew Rastrigin-Bueche, condition 10, skew-"condition" 100
-5: Linear slope
-6: Attractive sector function
-7: Step-ellipsoid, condition 100, noise-free
-8: Rosenbrock noise-free
-9: Rosenbrock, rotated
-10: Ellipsoid with monotone transformation, condition 1e6
-11: Discus (tablet) with monotone transformation, condition 1e6
-12: Bent cigar with asymmetric space distortion, condition 1e6
-13: Sharp ridge
-14: Sum of different powers, between x^2 and x^6, noise-free
-15: Rastrigin with asymmetric non-linear distortion, "condition" 10
-16: Weierstrass, condition 100
-17: Schaffers F7 with asymmetric non-linear transformation, condition 10
-18: Schaffers F7 with asymmetric non-linear transformation, condition 1000
-19: F8F2 sum of Griewank-Rosenbrock 2-D blocks, noise-free
-20: Schwefel with tridiagonal variable transformation
-21: Gallagher with 101 Gaussian peaks, condition up to 1000, one global rotation, noise-free
-22: Gallagher with 21 Gaussian peaks, condition up to 1000, one global rotation
-23: Katsuura function
-24: Lunacek bi-Rastrigin, condition 100
-<BLANKLINE>
-    in PPSN 2008, Rastrigin part rotated and scaled
-<BLANKLINE>
-<BLANKLINE>
+
+This does not work with ``python -OO``::
+
+    >> for s in bn.nfreeinfos:
+    ..    print(s)
+    1: Noise-free Sphere function
+    2: Separable ellipsoid with monotone transformation
+    <BLANKLINE>
+        Parameter: condition number (default 1e6)
+    <BLANKLINE>
+    <BLANKLINE>
+    3: Rastrigin with monotone transformation separable "condition" 10
+    4: skew Rastrigin-Bueche, condition 10, skew-"condition" 100
+    5: Linear slope
+    6: Attractive sector function
+    7: Step-ellipsoid, condition 100, noise-free
+    8: Rosenbrock noise-free
+    9: Rosenbrock, rotated
+    10: Ellipsoid with monotone transformation, condition 1e6
+    11: Discus (tablet) with monotone transformation, condition 1e6
+    12: Bent cigar with asymmetric space distortion, condition 1e6
+    13: Sharp ridge
+    14: Sum of different powers, between x^2 and x^6, noise-free
+    15: Rastrigin with asymmetric non-linear distortion, "condition" 10
+    16: Weierstrass, condition 100
+    17: Schaffers F7 with asymmetric non-linear transformation, condition 10
+    18: Schaffers F7 with asymmetric non-linear transformation, condition 1000
+    19: F8F2 sum of Griewank-Rosenbrock 2-D blocks, noise-free
+    20: Schwefel with tridiagonal variable transformation
+    21: Gallagher with 101 Gaussian peaks, condition up to 1000, one global rotation, noise-free
+    22: Gallagher with 21 Gaussian peaks, condition up to 1000, one global rotation
+    23: Katsuura function
+    24: Lunacek bi-Rastrigin, condition 100
+    <BLANKLINE>
+        in PPSN 2008, Rastrigin part rotated and scaled
+    <BLANKLINE>
+    <BLANKLINE>
+
 >>> f3 = bn.F3(13)  # instantiate instance 13 of function f3
 >>> f3([0, 1, 2]) # short-cut for f3.evaluate([0, 1, 2]) # doctest:+ELLIPSIS
 59.8733529...
@@ -2092,7 +2096,7 @@ noisyfunclasses = (F101, F102, F103, F104, F105, F106, F107, F108, F109, F110,
                    F121, F122, F123, F124, F125, F126, F127, F128, F129, F130)
 dictbbobnfree = dict((i.funId, i) for i in nfreefunclasses)
 nfreeIDs = sorted(dictbbobnfree.keys())  # was: "nfreenames"
-nfreeinfos = [str(i) + ': ' + dictbbobnfree[i].__doc__ for i in nfreeIDs]
+nfreeinfos = [str(i) + ': ' + str(dictbbobnfree[i].__doc__) for i in nfreeIDs]
 
 dictbbobnoisy = dict((i.funId, i) for i in noisyfunclasses)
 noisyIDs = sorted(dictbbobnoisy.keys())  # was noisynames

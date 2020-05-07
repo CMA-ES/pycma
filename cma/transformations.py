@@ -166,7 +166,8 @@ class _BoxConstraintsTransformationTemplate(BoxConstraintsTransformationBase):
         raise NotImplementedError('this is an abstract method that should be implemented in the derived class')
     def _inverse_i(self, y, i):
         raise NotImplementedError('this is an abstract method that should be implemented in the derived class')
-    __doc__ = BoxConstraintsTransformationBase.__doc__ + __doc__
+    try: __doc__ = BoxConstraintsTransformationBase.__doc__ + __doc__
+    except: pass
 
 class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     """implement a bijective, monotonous transformation between
@@ -395,7 +396,8 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
             if y[i] < lb - al:
                 y[i] += 2 * (lb - al - y[i])
         return y
-    shift_or_mirror_into_invertible_domain.__doc__ = BoxConstraintsTransformationBase.shift_or_mirror_into_invertible_domain.__doc__ + shift_or_mirror_into_invertible_domain.__doc__
+    try: shift_or_mirror_into_invertible_domain.__doc__ = BoxConstraintsTransformationBase.shift_or_mirror_into_invertible_domain.__doc__ + shift_or_mirror_into_invertible_domain.__doc__
+    except: pass
 
     def _shift_or_mirror_into_invertible_i(self, x, i):
         """shift into the invertible domain [lb - ab, ub + au], mirror close to
