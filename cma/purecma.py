@@ -196,7 +196,7 @@ class CMAESParameters(object):
         `RecombinationWeights`.
         """
         self.dimension = N
-        self.chiN = (1 - 1. / (4 * N) + 1. / (21 * N**2))
+        self.chiN = N**0.5 * (1 - 1. / (4 * N) + 1. / (21 * N**2))
 
         # Strategy parameter setting: Selection
         self.lam = eval(safe_str(popsize if popsize else
@@ -1253,13 +1253,13 @@ def test():
     >>> try: import cma.purecma as pcma
     ... except ImportError: import purecma as pcma
     >>> import random
-    >>> random.seed(3)
+    >>> random.seed(8)
     >>> xmin, es = pcma.fmin(pcma.ff.rosenbrock, 4 * [0.5], 0.5,
     ...                      verb_disp=0, verb_log=1)
     >>> print(es.counteval)
-    1680
+    1712
     >>> print(es.best.evals)
-    1664
+    1704
     >>> assert es.best.f < 1e-12
     >>> random.seed(5)
     >>> es = pcma.CMAES(4 * [0.5], 0.5)
