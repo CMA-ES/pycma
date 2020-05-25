@@ -493,6 +493,40 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
             s += 100 * np.abs(y - 0.01 * z**2)**0.5 + 0.01 * np.abs(z + 10)
         return s
 
+    def xinsheyang2(self, x, termination_friendly=True):
+        """a multimodal function which is rather unsolvable in larger dimension.
+
+        >>> import functools
+        >>> import numpy as np
+        >>> import cma
+        >>> f = functools.partial(cma.ff.xinsheyang2, termination_friendly=False)
+        >>> X = [(i * [0] + (4 - i) * [1.24]) for i in range(5)]
+        >>> for x in X: print(x)
+        [1.24, 1.24, 1.24, 1.24]
+        [0, 1.24, 1.24, 1.24]
+        [0, 0, 1.24, 1.24]
+        [0, 0, 0, 1.24]
+        [0, 0, 0, 0]
+        >>> [np.round(f(x), 3) for x in X]
+        [0.091, 0.186, 0.336, 0.456, 0.0]
+
+        One needs to solve a trinary deceptive function where f-value (to
+        be minimized) is monotonuously decreasing with increasing distance
+        to the global optimum >= 1. That is, the global optimum is
+        surrounded by 3^n - 1 local optima that have the better values the
+        further they are away from the global optimum.
+        
+        Conclusion: it is a rather suspicious sign if an algorithm finds the global
+        optimum of this function in larger dimension.
+
+        See also http://benchmarkfcns.xyz/benchmarkfcns/xinsheyangn2fcn.html
+    """
+        x = np.asarray(x)
+        val = np.sum(np.abs(x)) * np.exp(-np.sum(np.sin(np.square(x))))  # np.mean under the exponential makes the function much easier
+        if termination_friendly and val < 1:
+            val **= 1. / len(x)
+        return val
+
     def _fetch_bbob_fcts(self):
         """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
 
