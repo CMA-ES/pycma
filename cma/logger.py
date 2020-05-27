@@ -116,13 +116,13 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.counter = 0
         """number of calls to `add`"""
         self.last_iteration = 0
-        self.last_skipped_iteration = 0
+        self.last_skipped_iteration = 0  # skipped during plotting
         self.registered = False
         self.last_correlation_spectrum = {}
         self._eigen_counter = 1  # reduce costs
         self.skip_finalize_plotting = False  # flag to temporarily turn off finalization
         self.persistent_communication_dict = utils.DictFromTagsInString()
-        self.relative_allowed_time_for_plotting = 25 / 100.
+        self.relative_allowed_time_for_plotting = 25. / 100
         self.timer_plot = utils.ElapsedWCTime().pause()
         self.timer_all = utils.ElapsedWCTime()
     @property
@@ -646,15 +646,14 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 fig = gcf().number  # plot in current figure
             # check whether self.es may be running and we want to negotiate timings
             if not self.es.stop() and self.es.countiter > self.last_skipped_iteration:
+                # print(self.timer_plot.toc, self.relative_allowed_time_for_plotting, self.timer_all.toc)
                 # check whether plotting is cheap enough
-                discount = self.es.countiter / (10 + self.es.countiter)
-                if (self.timer_plot.toc * discount > self.relative_allowed_time_for_plotting * self.timer_all.toc
-                    or self.es.countiter < 3  # avoid warning when too few data are available
+                if self.es.countiter < 3 or self.timer_all.elapsed < 0.15 or (  # avoid warning when too few data are available
+                    self.timer_plot.toc > self.relative_allowed_time_for_plotting * self.timer_all.toc
                    ):
                     self.timer_plot.pause()  # just in case
                     self.last_skipped_iteration = self.es.countiter
                     return self
-
         self.timer_all.tic
         self.timer_plot.tic
 
