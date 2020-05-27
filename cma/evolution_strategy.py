@@ -3788,15 +3788,15 @@ class _CMAParameters(object):
         popsize = int(popsize + N** 0.0 - 1)
 
         # set weights
-        sp.weights = RecombinationWeights(popsize)
-        if opts['CMA_mu']:
+        if utils.is_(opts['CMA_recombination_weights']):
+            sp.weights = RecombinationWeights(opts['CMA_recombination_weights'])
+            popsize = len(sp.weights)
+        elif opts['CMA_mu']:
             sp.weights = RecombinationWeights(2 * opts['CMA_mu'])
             while len(sp.weights) < popsize:
                 sp.weights.insert(sp.weights.mu, 0.0)
-        if utils.is_(opts['CMA_recombination_weights']):
-            sp.weights[:] = opts['CMA_recombination_weights']
-            sp.weights.set_attributes_from_weights()
-            popsize = len(sp.weights)
+        else:  # default
+            sp.weights = RecombinationWeights(popsize)
         # weights.finalize_negative_weights will be called below
         sp.popsize = popsize
         sp.mu = sp.weights.mu  # not used anymore but for the record
