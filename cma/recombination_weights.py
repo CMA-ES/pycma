@@ -9,7 +9,7 @@ lambda -> weights -> mueff -> c1, cmu -> negative weights
 
 """
 # https://gist.github.com/nikohansen/3eb4ef0790ff49276a7be3cdb46d84e9
-from __future__ import division
+from __future__ import division, print_function
 import math
 
 class RecombinationWeights(list):
@@ -103,9 +103,45 @@ class RecombinationWeights(list):
     ...                 weights.mueffminus)
     '1.0  0.0  5.0  5.0  0.0  '
 
+    The optimal weights on the sphere and other functions are closer
+    to exponent 0.75:
+
+    >>> for expo, w in [(expo, RecombinationWeights(5, exponent=expo))
+    ...                 for expo in [1, 0.9, 0.8, 0.7, 0.6, 0.5]]:
+    ...    print(7 * "%.2f " % tuple([expo, w.mueff] + w))
+    1.00 1.65 0.73 0.27 0.00 -0.36 -0.64 
+    0.90 1.70 0.71 0.29 0.00 -0.37 -0.63 
+    0.80 1.75 0.69 0.31 0.00 -0.39 -0.61 
+    0.70 1.80 0.67 0.33 0.00 -0.40 -0.60 
+    0.60 1.84 0.65 0.35 0.00 -0.41 -0.59 
+    0.50 1.89 0.62 0.38 0.00 -0.43 -0.57 
+
+    >>> for lam in [8, 8**2, 8**3, 8**4]:
+    ...     if lam == 8:
+    ...         print(" lam expo mueff        w[i] / w[i](1)")
+    ...         print("          /mu(1) 1   2    3    4    5    6    7    8")
+    ...     w1 = RecombinationWeights(lam, exponent=1)
+    ...     for expo, w in [(expo, RecombinationWeights(lam, exponent=expo))
+    ...                     for expo in [1, 0.8, 0.6]]:
+    ...         print('%4d ' % lam + 10 * "%.2f " % tuple([expo, w.mueff / w1.mueff] + [w[i] / w1[i] for i in range(8)]))
+     lam expo mueff        w[i] / w[i](1)
+              /mu(1) 1   2    3    4    5    6    7    8
+       8 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 
+       8 0.80 1.11 0.90 1.02 1.17 1.50 1.30 1.07 0.98 0.93 
+       8 0.60 1.24 0.80 1.02 1.35 2.21 1.68 1.13 0.95 0.85 
+      64 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 
+      64 0.80 1.17 0.82 0.86 0.88 0.91 0.93 0.95 0.97 0.98 
+      64 0.60 1.36 0.65 0.72 0.76 0.80 0.84 0.87 0.91 0.94 
+     512 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 
+     512 0.80 1.20 0.76 0.78 0.79 0.80 0.81 0.82 0.83 0.83 
+     512 0.60 1.42 0.56 0.59 0.61 0.63 0.64 0.65 0.67 0.68 
+    4096 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 
+    4096 0.80 1.21 0.71 0.73 0.74 0.74 0.75 0.75 0.76 0.76 
+    4096 0.60 1.44 0.50 0.52 0.53 0.54 0.55 0.55 0.56 0.56 
+
     Reference: Hansen 2016, arXiv:1604.00772.
-    """
-    def __init__(self, len_):
+"""
+    def __init__(self, len_, exponent=1):
         """return recombination weights `list`, post condition is
         ``sum(self) == 0 and sum(self.positive_weights) == 1``.
 
@@ -122,13 +158,20 @@ class RecombinationWeights(list):
 
         """
         weights = len_
+        self.exponent = exponent  # for the record
+        if exponent is None:
+            self.exponent = 1  # shall become 4/5 or 3/4?
         try:
             len_ = len(weights)
         except TypeError:
             try:  # iterator without len
                 len_ = len(list(weights))
             except TypeError:  # create from scratch
-                weights = [math.log((len_ + 1) / 2.) - math.log(i)
+                def signed_power(x, expo):
+                    if expo == 1: return x
+                    s = (x != 0) * (-1 if x < 0 else 1)
+                    return s * math.fabs(x)**expo
+                weights = [signed_power(math.log((len_ + 1) / 2.) - math.log(i), self.exponent)
                            for i in range(1, len_ + 1)]  # raw shape
         if len_ < 2:
             raise ValueError("number of weights must be >=2, was %d"
