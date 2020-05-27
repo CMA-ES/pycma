@@ -117,13 +117,15 @@ from __future__ import with_statement
 ___author__ = "Nikolaus Hansen and Petr Baudis and Youhei Akimoto"
 __license__ = "BSD 3-clause"
 
+import warnings as _warnings
+
 # __package__ = 'cma'
 from . import purecma
 try:
     import numpy
     del numpy
 except ImportError:
-    print('Only `cma.purecma` has been imported. Install `numpy` ("pip'
+    _warnings.warn('Only `cma.purecma` has been imported. Install `numpy` ("pip'
           ' install numpy") if you want to import the entire `cma`'
           ' package.')
 else:
