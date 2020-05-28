@@ -347,8 +347,8 @@ class BoundPenalty(BoundaryHandlerBase):
         where `x` is a single solution or a list or np.array of solutions.
 
         """
-        if x in (None, (), []):
-            return x
+        # if x in (None, (), []):  # breaks when x is a nparray
+        #     return x
         if self.bounds in (None, [None, None], (None, None)):
             return 0.0 if np.isscalar(x[0]) else [0.0] * len(x)  # no penalty
 
