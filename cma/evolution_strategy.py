@@ -421,16 +421,19 @@ def cma_default_options_(  # to get keyword completion back
     CMA_active_injected='0  #v weight multiplier for negative weights of injected solutions',
     CMA_cmean='1  # learning rate for the mean value',
     CMA_const_trace='False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
-    CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix, True for always',  # TODO 4/ccov_separable?
+    CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix,'\
+                                        ' True for always',  # TODO 4/ccov_separable?
     CMA_eigenmethod='np.linalg.eigh  # or cma.utilities.math.eig or pygsl.eigen.eigenvectors',
     CMA_elitist='False  #v or "initial" or True, elitism likely impairs global search performance',
     CMA_injections_threshold_keep_len='1  #v keep length if Mahalanobis length is below the given relative threshold',
-    CMA_mirrors='popsize < 6  # values <0.5 are interpreted as fraction, values >1 as numbers (rounded), otherwise about 0.16 is used',
+    CMA_mirrors='popsize < 6  # values <0.5 are interpreted as fraction, values >1 as numbers (rounded),'\
+                              ' for `True` about 0.16 is used',
     CMA_mirrormethod='2  # 0=unconditional, 1=selective, 2=selective with delay',
     CMA_mu='None  # parents selection parameter, default is popsize // 2',
     CMA_on='1  # multiplier for all covariance matrix updates',
     # CMA_sample_on_sphere_surface='False  #v replaced with option randn=cma.utilities.math.randhss, all mutation vectors have the same length, currently (with new_sampling) not in effect',
-    CMA_sampler='None  # a class or instance that implements the interface of `cma.interfaces.StatisticalModelSamplerWithZeroMeanBaseClass`',
+    CMA_sampler='None  # a class or instance that implements the interface of'\
+                       ' `cma.interfaces.StatisticalModelSamplerWithZeroMeanBaseClass`',
     CMA_sampler_options='{}  # options passed to `CMA_sampler` class init as keyword arguments',
     CMA_rankmu='1.0  # multiplier for rank-mu update learning rate of covariance matrix',
     CMA_rankone='1.0  # multiplier for rank-one update learning rate of covariance matrix',
@@ -465,20 +468,25 @@ def cma_default_options_(  # to get keyword completion back
     popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
     popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
     randn='np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
-    scaling_of_variables='''None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds).
-            Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by
-            scaling_of_variables and sigma is unchanged, default is `np.ones(N)`''',
-    seed='time  # random number seed for `numpy.random`; `None` and `0` equate to `time`, `np.nan` means "do nothing", see also option "randn"',
-    signals_filename='cma_signals.in  # read versatile options from this file (use `None` or `""` for no file) which contains a single options dict, e.g. ``{"timeout": 0}`` to stop, string-values are evaluated, e.g. "np.inf" is valid',
-    termination_callback='[]  #v a function or list of functions returning True for termination, called in `stop` with `self` as argument, could be abused for side effects',
+    scaling_of_variables='None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds). Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`',
+    seed='time  # random number seed for `numpy.random`; `None` and `0` equate to `time`,'\
+                ' `np.nan` means "do nothing", see also option "randn"',
+    signals_filename='cma_signals.in  # read versatile options from this file (use `None` or `""` for no file)'\
+                                      ' which contains a single options dict, e.g. ``{"timeout": 0}`` to stop,'\
+                                      ' string-values are evaluated, e.g. "np.inf" is valid',
+    termination_callback='[]  #v a function or list of functions returning True for termination, called in'\
+                              ' `stop` with `self` as argument, could be abused for side effects',
     timeout='inf  #v stop if timeout seconds are exceeded, the string "2.5 * 60**2" evaluates to 2 hours and 30 minutes',
     tolconditioncov='1e14  #v stop if the condition of the covariance matrix is above `tolconditioncov`',
-    tolfacupx='1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial step-size was chosen far too small and better solutions were found far away from the initial solution x0',
-    tolupsigma='1e20  #v sigma/sigma0 > tolupsigma * max(eivenvals(C)**0.5) indicates "creeping behavior" with usually minor improvements',
+    tolfacupx='1e3  #v termination when step-size increases by tolfacupx (diverges). That is, the initial'\
+                     ' step-size was chosen far too small and better solutions were found far away from the initial solution x0',
+    tolupsigma='1e20  #v sigma/sigma0 > tolupsigma * max(eivenvals(C)**0.5) indicates "creeping behavior" with usually'\
+                       ' minor improvements',
     tolflatfitness='1  #v iterations tolerated with flat fitness before termination',
     tolfun='1e-11  #v termination criterion: tolerance in function value, quite useful',
     tolfunhist='1e-12  #v termination criterion: tolerance in function value history',
-    tolfunrel='0  #v termination criterion: relative tolerance in function value: Delta f current < tolfunrel * (median0 - median_min)',
+    tolfunrel='0  #v termination criterion: relative tolerance in function value:'\
+                   ' Delta f current < tolfunrel * (median0 - median_min)',
     tolstagnation='int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
     tolx='1e-11  #v termination criterion: tolerance in x-changes',
     transformation='''None  # depreciated, use cma.fitness_transformations.FitnessTransformation instead.
@@ -490,8 +498,10 @@ def cma_default_options_(  # to get keyword completion back
     verb_append='0  # initial evaluation counter, if append, do not overwrite output files',
     verb_disp='100  #v verbosity: display console output every verb_disp iteration',
     verb_filenameprefix=CMADataLogger.default_prefix + '  # output path and filenames prefix',
-    verb_log='1  #v verbosity: write data to files every verb_log iteration, writing can be time critical on fast to evaluate functions',
-    verb_log_expensive='N * (N <= 50)  # allow to execute eigendecomposition for logging every verb_log_expensive iteration, 0 or False for never',
+    verb_log='1  #v verbosity: write data to files every verb_log iteration, writing can be'\
+                  ' time critical on fast to evaluate functions',
+    verb_log_expensive='N * (N <= 50)  # allow to execute eigendecomposition for logging every verb_log_expensive iteration,'\
+                                       ' 0 or False for never',
     verb_plot='0  #v in fmin(): plot() is called every verb_plot iteration',
     verb_time='True  #v output timings on console',
     vv='{}  #? versatile set or dictionary for hacking purposes, value found in self.opts["vv"]'
@@ -1868,8 +1878,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ...     es.tell(X, fit)  # feed values
 
         :See: `ask_and_eval`, `ask_geno`, `tell`
-
-        """
+    """
         assert self.countiter >= 0
         if kwargs:
             utils.print_warning("""Optional argument%s \n\n  %s\n\nignored""" % (
@@ -1893,8 +1902,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         if gradf is not None:
             if not isinstance(self.sm, sampler.GaussFullSampler):
-                utils.print_warning("""Gradient injection may fail,
-    because sampler attributes `B` and `D` are not present""",
+                utils.print_warning("Gradient injection may fail, because\n"
+                                    "sampler attributes `B` and `D` are not present",
                                     "ask", "CMAEvolutionStrategy",
                                     self.countiter, maxwarns=1)
             try:
@@ -2001,9 +2010,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5
                           )
             except AttributeError:
-                utils.print_warning("""Gradient injection failed
-    presumably due to missing attribute ``self.sm.B or self.sm.D``""")
-
+                warnings.warn("Gradient injection failed presumably due\n"
+                              "to missing attribute ``self.sm.B or self.sm.D``")
 
         # insert solutions, this could also (better?) be done in self.gp.pheno
         for i in rglen((pop_geno)):
@@ -2036,8 +2044,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         change the geno-pheno transformation during this update.
 
         :See: `ask`, `ask_and_eval`
-
-        """
+    """
+        # TODO: return one line samples depending on a switch
+        #       loosely akin to the mean_shift_samples part of
+        #       _prepare_injection_directions
         if number is None or number < 1:
             number = self.sp.popsize
         if self.number_of_solutions_asked == 0:
@@ -2179,7 +2189,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             ary = array(arinj)
             assert number == len(arinj)
 
-        if self.opts['verbose'] > 4 and self.countiter < 3 and len(arinj) and self.adapt_sigma is not CMAAdaptSigmaTPA:
+        if (self.opts['verbose'] > 4 and self.countiter < 3 and len(arinj) and
+                self.adapt_sigma is not CMAAdaptSigmaTPA):
             utils.print_message('   %d pre-injected solutions will be used (popsize=%d)' %
                                 (len(arinj), len(ary)))
 
@@ -2557,8 +2568,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         CMAEvolutionStrategyResult(xbest=array([...
 
         :See: class `CMAEvolutionStrategy`, `ask`, `ask_and_eval`, `fmin`
-
-        """
+    """
         if self._flgtelldone:
             raise RuntimeError('tell should only be called once per iteration')
 
@@ -2866,9 +2876,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                               list(pop_zero / (self.sigma * self.sigma_vec.scaling)),
                               sampler_weights)
             if any(np.asarray(self.sm.variances) < 0):
-                raise RuntimeError("""A sampler variance has become
-    negative after update, this must be considered as a bug.
-    Variances `self.sm.variances`=%s""" % str(self.sm.variances))
+                raise RuntimeError("A sampler variance has become negative "
+                                   "after the update, this must be considered as a bug.\n"
+                                   "Variances `self.sm.variances`=%s" % str(self.sm.variances))
         self._updateBDfromSM(self.sm)
 
         # step-size adaptation, adapt sigma
@@ -2936,13 +2946,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         try:  # shouldn't fail, but let's be nice to code abuse
             self.timer.pause()
         except AttributeError:
-            utils.print_warning("""
-    "timer" attribute not found, probably because `ask` was never called.
-     Timing is likely to work only until `tell` is called (again), because
-     `tic` will never be called again afterwards.
-     """,
-                                'tell', 'CMAEvolutionStrategy',
-                                self.countiter)
+            warnings.warn('CMAEvolutionStrategy.tell(countiter=%d): "timer" attribute '
+                          'not found, probably because `ask` was never called. \n'
+                          'Timing is likely to work only until `tell` is called (again), '
+                          'because `tic` will never be called again afterwards.'
+                          % self.countiter)
             self.timer = utils.ElapsedWCTime()
 
         self.more_to_write.check()
