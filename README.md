@@ -29,6 +29,8 @@ Useful links:
 
 * [Hints for how to use this (kind of) optimization module in practice](http://cma.gforge.inria.fr/cmaes_sourcecode_page.html#practical)
 
+* [FAQs and HowTos (under development)](https://github.com/CMA-ES/pycma/issues?q=is:issue+label:FAQ).
+
 ## Installation of the [(almost) latest release](https://pypi.python.org/pypi/cma)
 
 Type
