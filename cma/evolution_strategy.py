@@ -202,6 +202,7 @@ from . import interfaces
 from . import transformations
 from . import optimization_tools as ot
 from . import sampler
+from .utilities import utils as _utils
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
 from .recombination_weights import RecombinationWeights
 from .logger import CMADataLogger  # , disp, plot
@@ -2632,14 +2633,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             raise ValueError('not enough solutions passed to function tell (mu>lambda)')
 
         self.countiter += 1  # >= 1 now
-        self.countevals += sp.popsize * self.evaluations_per_f_value
-        self.best.update(solutions, self.sent_solutions, function_values, self.countevals)
-
+        self.countevals += lam * self.evaluations_per_f_value
+        self.best.update(solutions,  # caveat: these solutions may be out-of-bounds
+                         self.sent_solutions, function_values, self.countevals)
         flg_diagonal = self.opts['CMA_diagonal'] is True \
                        or self.countiter <= self.opts['CMA_diagonal']
         if not flg_diagonal and isinstance(self.sm, sampler.GaussStandardConstant):
+            # switching from diagonal to full covariance learning
             self.sm = sampler.GaussFullSampler(N)
             self._updateBDfromSM(self.sm)
+
+        self._record_rankings(function_values[:2], function_values[2:])  # for analysis
 
         # ## manage fitness
         fit = self.fit  # make short cut
@@ -2754,7 +2758,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # compute new mean
         self.mean = mold + self.sp.cmean * \
                     (np.sum(np.asarray(sp.weights.positive_weights) * pop[0:sp.weights.mu].T, 1) - mold)
-
 
         # check Delta m (this is not default, but could become at some point)
         # CAVE: upper_length=sqrt(2)+2 is too restrictive, test upper_length = sqrt(2*N) thoroughly.
@@ -2955,6 +2958,21 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self.more_to_write.check()
     # end tell()
+
+    def _record_rankings(self, vals, function_values):
+        "do nothing by default, otherwise assign to `_record_rankings_` after instantiation"
+    def _record_rankings_(self, vals, function_values):
+        """compute ranks of `vals` in `function_values` and
+
+        in `self.fit.fit` and store the results in `_recorded_rankings`.
+        The ranking differences between two solutions appear to be similar
+        in the current and last iteration.
+        """
+        vals = list(vals)
+        r0 = _utils.ranks(vals + list(self.fit.fit))
+        r1 = _utils.ranks(vals + list(function_values))
+        self._recorded_rankings = [r0[:2], r1[:2]]
+        return self._recorded_rankings
 
     def inject(self, solutions, force=None):
         """inject list of one or several genotypic solution(s).
