@@ -92,6 +92,6 @@ either of these with ``sudo``.
 * Version ``2.*`` is a multi-file split-up of the original module.
 
 * Version ``1.x.*`` is a one file implementation and not available in the history of
-  this repository. The latest ``1.*`` version ```1.1.7`` can be found
+  this repository. The latest ``1.*`` version ``1.1.7`` can be found
   [here](https://pypi.python.org/pypi/cma/1.1.7).
   
