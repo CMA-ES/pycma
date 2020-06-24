@@ -68,6 +68,7 @@ else:
         if normalize: dimensions = list(map(lambda x: skopt.space.check_dimension(x, 'normalize'), dimensions))
         space = skopt.space.Space(dimensions)
         if x0 is None: x0 = space.transform(space.rvs())[0]
+        else: x0 = space.transform([x0])[0]
 
         tempdir = tempfile.mkdtemp()
         xi, yi = [], []
