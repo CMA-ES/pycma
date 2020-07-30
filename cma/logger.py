@@ -1566,7 +1566,7 @@ class LoggerDummy(object):
                       " there is nothing to plot")
 
 class Logger(object):
-    """log an arbitrary number of data (a data row) per "timestep".
+    r"""log an arbitrary number of data (a data row) per "timestep".
 
     The `add` method can be called several times per timestep, the `push`
     method must be called once per timestep. Callables are called in the
