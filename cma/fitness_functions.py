@@ -80,7 +80,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def BBOB(self):
         return bbobbenchmarks
     try: BBOB.__doc__ = bbobbenchmarks.__doc__
-    except TypeError: pass  # in Python 2 __doc__ is readonly
+    except: pass  # in Python 2 __doc__ is readonly
 
     def rot(self, x, fun, rot=1, args=()):
         """returns ``fun(rotation(x), *args)``, ie. `fun` applied to a rotated argument"""
