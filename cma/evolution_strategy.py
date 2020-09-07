@@ -617,9 +617,11 @@ class CMAOptions(dict):
         for key in options:
             correct_key = corrected_key(key)
             if correct_key is None:
-                raise ValueError("""%s is not a valid option.\n""" 
-                                'Valid options are %s' % 
-                                (key, str(list(cma_default_options))))
+                raise ValueError('%s is not a valid option.\n'
+                                 'Similar valid options are %s\n'
+                                 'Valid options are %s' %
+                                (key, str(list(cma_default_options(key))),
+                                 str(list(cma_default_options))))
             if correct_key in validated_keys:
                 if key == correct_key:
                     key = original_keys[validated_keys.index(key)]
