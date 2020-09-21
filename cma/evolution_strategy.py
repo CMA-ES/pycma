@@ -1796,7 +1796,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.x0.ndim != 1:
             raise ValueError('x0 must be 1-D array')
         if len(self.x0) <= 1:
-            raise ValueError('optimization in 1-D is not supported (code was never tested)')
+            raise ValueError('Could not digest initial solution argument x0=%s.\n'
+                             'Optimization in 1-D is not supported (code was never tested)'
+                             % str(self.x0))
         try:
             self.x0.resize(self.x0.shape[0])  # 1-D array, not really necessary?!
         except NotImplementedError:
@@ -4056,12 +4058,12 @@ def fmin(objective_function, x0, sigma0,
     ``x0``
         list or `numpy.ndarray`, initial guess of minimum solution
         before the application of the geno-phenotype transformation
-        according to the ``transformation`` option.  It can also be
-        a string holding a Python expression that is evaluated
-        to yield the initial guess - this is important in case
-        restarts are performed so that they start from different
-        places.  Otherwise ``x0`` can also be a `cma.CMAEvolutionStrategy`
-        object instance, in that case ``sigma0`` can be ``None``.
+        according to the ``transformation`` option.  It can also be a
+        callable that is called (without input argument) before each
+        restart to yield the initial guess such that each restart may start
+        from a different place. Otherwise, ``x0`` can also be a
+        `cma.CMAEvolutionStrategy` object instance, in that case ``sigma0``
+        can be ``None``.
     ``sigma0``
         scalar, initial standard deviation in each coordinate.
         ``sigma0`` should be about 1/4th of the search domain width
