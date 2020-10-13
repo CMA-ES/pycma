@@ -546,6 +546,10 @@ class PopulationEvaluator(object):
         return np.mean(np.asarray(self.G) <= 0, axis=0)
         # return [np.mean(g <= 0) for g in np.asarray(self.G).T]
 
+def _log_lam(s):
+    return s.lam if s.lam_opt is None else np.log10(np.abs(s.lam - s.lam_opt) + 1e-9)
+def _log_mu(s):
+    return np.log10(s.mu + 1e-9)
 class AugmentedLagrangian(object):
     """Augmented Lagrangian with adaptation of the coefficients
 
@@ -624,8 +628,7 @@ class AugmentedLagrangian(object):
     def _init_(self):
         """allow to reset the logger with a single call"""
         self.logger = _logger.Logger(self,
-            callables=[lambda s: s.lam if s.lam_opt is None else np.log10(np.abs(s.lam - s.lam_opt) + 1e-9),
-                       lambda s: np.log10(s.mu + 1e-9)],
+            callables=[_log_lam, _log_mu],
             labels=['lambda' if self.lam_opt is None else 'lg(lambda-lam_opt)',
                     'lg(mu)'],
             name='outauglag',
