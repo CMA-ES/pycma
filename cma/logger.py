@@ -1687,7 +1687,7 @@ class Logger(object):
         """return absolute path or '' if not `name_prefix`"""
         if not name_prefix:
             return ''
-        path = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
+        path = os.path.abspath(os.path.join(*[a for a in os.path.split(name_prefix) if a]))
         if name_prefix.endswith((os.sep, '/')):
             path = path + os.sep
         # create path if necessary
