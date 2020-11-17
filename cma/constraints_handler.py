@@ -82,6 +82,7 @@ class BoundaryHandlerBase(object):
                         x = np.array(x, copy=True)
                         copy = False
                     x[i] = self.bounds[ib][idx]
+        return x
 
     def inverse(self, y, copy_if_changed=True):
         """inverse of repair if it exists, at least it should hold
