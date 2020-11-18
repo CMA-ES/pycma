@@ -3764,7 +3764,6 @@ class _CMAParameters(object):
         self.N = N
         if ccovfac == 1:
             ccovfac = opts['CMA_on']  # that's a hack
-        self.popsize = None  # declaring the attribute, not necessary though
         self.set(opts, ccovfac=ccovfac, verbose=verbose)
 
     def set(self, opts, popsize=None, ccovfac=1, verbose=True):
