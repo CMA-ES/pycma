@@ -934,54 +934,50 @@ class CMAOptions(dict):
                     l += ' ' + a.pop(0)
                 print(l)
                 l = '        '  # tab for subsequent lines
-try:
-    collections.namedtuple
-except:
-    pass
-else:
-    class CMAEvolutionStrategyResult(collections.namedtuple(
-        'CMAEvolutionStrategyResult', [
-            'xbest',
-            'fbest',
-            'evals_best',
-            'evaluations',
-            'iterations',
-            'xfavorite',
-            'stds',
-            'stop',
-        ])):
-        """A results tuple from `CMAEvolutionStrategy` property ``result``.
 
-        This tuple contains in the given position and as attribute
+class CMAEvolutionStrategyResult(collections.namedtuple(
+    'CMAEvolutionStrategyResult', [
+        'xbest',
+        'fbest',
+        'evals_best',
+        'evaluations',
+        'iterations',
+        'xfavorite',
+        'stds',
+        'stop',
+    ])):
+    """A results tuple from `CMAEvolutionStrategy` property ``result``.
 
-        - 0 ``xbest`` best solution evaluated
-        - 1 ``fbest`` objective function value of best solution
-        - 2 ``evals_best`` evaluation count when ``xbest`` was evaluated
-        - 3 ``evaluations`` evaluations overall done
-        - 4 ``iterations``
-        - 5 ``xfavorite`` distribution mean in "phenotype" space, to be
-          considered as current best estimate of the optimum
-        - 6 ``stds`` effective standard deviations, can be used to
-          compute a lower bound on the expected coordinate-wise distance
-          to the true optimum, which is (very) approximately stds[i] *
-          dimension**0.5 / min(mueff, dimension) / 1.5 / 5 ~ std_i *
-          dimension**0.5 / min(popsize / 2, dimension) / 5, where
-          dimension = CMAEvolutionStrategy.N and mueff =
-          CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
-        - 7 ``stop`` termination conditions in a dictionary
+    This tuple contains in the given position and as attribute
 
-        The penalized best solution of the last completed iteration can be
-        accessed via attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy`
-        and the respective objective function value via ``fit.fit[0]``.
+    - 0 ``xbest`` best solution evaluated
+    - 1 ``fbest`` objective function value of best solution
+    - 2 ``evals_best`` evaluation count when ``xbest`` was evaluated
+    - 3 ``evaluations`` evaluations overall done
+    - 4 ``iterations``
+    - 5 ``xfavorite`` distribution mean in "phenotype" space, to be
+      considered as current best estimate of the optimum
+    - 6 ``stds`` effective standard deviations, can be used to
+      compute a lower bound on the expected coordinate-wise distance
+      to the true optimum, which is (very) approximately stds[i] *
+      dimension**0.5 / min(mueff, dimension) / 1.5 / 5 ~ std_i *
+      dimension**0.5 / min(popsize / 2, dimension) / 5, where
+      dimension = CMAEvolutionStrategy.N and mueff =
+      CMAEvolutionStrategy.sp.weights.mueff ~ 0.3 * popsize.
+    - 7 ``stop`` termination conditions in a dictionary
 
-        Details:
+    The penalized best solution of the last completed iteration can be
+    accessed via attribute ``pop_sorted[0]`` of `CMAEvolutionStrategy`
+    and the respective objective function value via ``fit.fit[0]``.
 
-        - This class is of purely declarative nature and for providing
-          this docstring. It does not provide any further functionality.
-        - ``list(fit.fit).find(0)`` is the index of the first sampled
-          solution of the last completed iteration in ``pop_sorted``.
+    Details:
 
-        """
+    - This class is of purely declarative nature and for providing
+      this docstring. It does not provide any further functionality.
+    - ``list(fit.fit).find(0)`` is the index of the first sampled
+      solution of the last completed iteration in ``pop_sorted``.
+
+    """
 
 cma_default_options = CMAOptions(cma_default_options_())
 
@@ -2994,17 +2990,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         # TODO: how about xcurrent?
         # return CMAEvolutionStrategyResult._generate(self)
-        res = self.best.get() + (  # (x, f, evals) triple
+        return CMAEvolutionStrategyResult(
+            *self.best.get(),  # (x, f, evals) triple
             self.countevals,
             self.countiter,
             self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
             self.gp.scales * self.sigma * self.sigma_vec.scaling *
                 self.dC**0.5,
-            self.stop())
-        try:
-            return CMAEvolutionStrategyResult(*res)
-        except NameError:
-            return res
+            self.stop()
+        )
 
     def result_pretty(self, number_of_runs=0, time_str=None,
                       fbestever=None):
