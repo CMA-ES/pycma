@@ -2990,8 +2990,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         # TODO: how about xcurrent?
         # return CMAEvolutionStrategyResult._generate(self)
+        x, f, evals = self.best.get()
         return CMAEvolutionStrategyResult(
-            *self.best.get(),  # (x, f, evals) triple
+            x,
+            f,
+            evals,
             self.countevals,
             self.countiter,
             self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
