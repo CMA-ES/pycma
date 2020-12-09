@@ -108,19 +108,30 @@ def contour_data(fct, x_range, y_range=None):
     times. Hence using `Sections` may be the better first choice to
     investigate an expensive function.
 
-    Example:
+    Examples:
 
+    >>> from cma import optimization_tools
     >>> import numpy as np
     ...
-    >>> def example():  # def avoids doctest execution
+    >>> def plt_contour():  # def avoids doctest execution
     ...     from matplotlib import pyplot as plt
     ...
-    ...     X, Y, Z = contour_data(lambda x: sum([xi**2 for xi in x]),
-    ...                            np.arange(0.90, 1.10, 0.02),
-    ...                            np.arange(-0.10, 0.10, 0.02))
+    ...     X, Y, Z = optimization_tools.contour_data(
+    ...                   lambda x: sum([xi**2 for xi in x]),
+    ...                   np.arange(0.90, 1.10, 0.02),
+    ...                   np.arange(-0.10, 0.10, 0.02))
     ...     CS = plt.contour(X, Y, Z)
-    ...     plt.axes().set_aspect('equal')
+    ...     plt.gca().set_aspect('equal')
     ...     plt.clabel(CS)
+    >>> def plt_surface():  # def avoids doctest execution
+    ...     from matplotlib import pyplot as plt
+    ...     from mpl_toolkits import mplot3d
+    ...
+    ...     X, Y, Z = optimization_tools.contour_data(
+    ...                   lambda x: sum([xi**2 for xi in x]),
+    ...                   np.arange(-1, 1.1, 0.02))
+    ...     ax = plt.axes(projection='3d')
+    ...     ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none')
 
     See `cma.fitness_transformations.FixVariables` to create a 2-D
     function from a d-D function, e.g. like
