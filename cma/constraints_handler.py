@@ -804,10 +804,6 @@ class AugmentedLagrangian(object):
                                 [max((condk1, condk2)), 1.25 + condk1, 2.5 + condk2]))
                 if self.mu[i] == 0:
                     continue  # for mu==0 all updates are zero anyway
-                # address when g[i] remains inactive ("large" negative)
-                if not self.isequality[i] and g[i] * self.mu[i] < -self.lam[i]:
-                    continue  # not in the original algorithm
-                    # prevent that lam gets negative and mu diverges temporarily (as observed)
                 # lambda update
                 self.lam[i] += self.mu[i] * g[i] / self.dgamma
                 if not self.isequality[i] and self.lam[i] < 0:  # clamp to zero
@@ -815,6 +811,10 @@ class AugmentedLagrangian(object):
                     self.lam[i] = 0
                     # and mu would diverge to +inf, because abs(g) >> dg -> 0 (as observed)
                     continue  # don't update mu (it may diverge)
+                # address when g[i] remains inactive ("large" negative)
+                if not self.isequality[i] and g[i] * self.mu[i] < -self.lam[i]:
+                    continue  # not in the original algorithm
+                    # prevent that mu diverges temporarily (as observed)
                 # mu update
                 if self.mu[i] * g[i]**2 < self.k1 * np.abs(dh) / self.dimension or (
                     self.k2 * np.abs(dg[i]) < np.abs(self.g[i])):  # this condition is always true if constraint i is not active
