@@ -3837,7 +3837,7 @@ class _CMAParameters(object):
         elif opts['CMA_mu']:
             sp.weights = RecombinationWeights(2 * opts['CMA_mu'])
             while len(sp.weights) < popsize:
-                sp.weights.insert(sp.weights.mu, 0.0)
+                sp.weights.insert(sp.weights.mu, 0.0)  # doesn't change mu or mueff
         else:  # default
             sp.weights = RecombinationWeights(popsize)
         # weights.finalize_negative_weights will be called below
