@@ -329,6 +329,8 @@ class BestSolution(object):
         self.f = f if f is not None and f is not np.nan else np.inf
         self.evals = evals
         self.evalsall = evals
+        self.compared = 0
+        "  number of overall compared values, posterior hack"
         self.last = _BlancClass()
         self.last.x = x
         self.last.f = f
@@ -349,8 +351,10 @@ class BestSolution(object):
                 self.evalsall = max((self.evalsall, arx.evalsall))
             if arx.f is not None and arx.f < np.inf:
                 self.update([arx.x], xarchive, [arx.f], arx.evals)
+            self.compared += arx.compared
             return self
         assert arf is not None
+        self.compared += len(arf)
         # find failsave minimum
         try:
             minidx = np.nanargmin(arf)
@@ -377,6 +381,30 @@ class BestSolution(object):
         """return ``(x, f, evals)`` """
         return self.x, self.f, self.evals  # , self.x_geno
 
+class BestSolution2(object):
+    """minimal tracker of a smallest f-value with variable meta-info"""
+    def __init__(self):
+        self.f = np.inf
+        self.info = None
+        self.saved_count = None
+        self.compared = 0
+        "  number of overall compared values"
+        self.previous = None
+    def update(self, f, info=None, info_construct=None):
+        """`info` may be a dictionary with everything we want to know,
+        `info_construct` may be used to finalize versatile elements of
+        `info`, like make a copy of an array within the info dictionary
+        """
+        self.compared += 1
+        if self.compared == 1 or (np.isfinite(f) and (not np.isfinite(self.f) or f < self.f)):
+            self.previous = dict(self.__dict__)
+            del self.previous['previous']  # otherwise we get a linked list of all previous entries
+            self.f = f
+            self.info = info_construct(info) if info_construct else info
+            self.saved_count = self.compared
+        return self
+    def __str__(self):
+        return str(self.__dict__)
 class ExponentialSmoothing(object):
     """not in use (yet)
 
