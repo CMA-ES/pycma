@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function  #, unicode_lit
 import warnings as _warnings
 import numpy as np
 from numpy import logical_and as _and, logical_or as _or, logical_not as _not
-from .utilities.utils import rglen
+from .utilities.utils import rglen, is_
 from .utilities.math import Mh as _Mh
 from . import logger as _logger
 from .transformations import BoxConstraintsLinQuadTransformation
@@ -808,8 +808,11 @@ class AugmentedLagrangian(object):
                                 [max((condk1, condk2)), 1.25 + condk1, 2.5 + condk2]))
                 if self.mu[i] == 0:
                     continue  # for mu==0 all updates are zero anyway
-                # lambda update
-                self.lam[i] += self.mu[i] * g[i] / self.dgamma
+                # lambda update unless constraint is entirely inactive
+                if self.isequality[i] or g[i] * self.mu[i] > -self.lam[i] or (
+                    not is_(self.count_g_in_penalized_domain) or self.count_g_in_penalized_domain[i] > 0):
+                    # in the original algorithm this update is unconditional
+                    self.lam[i] += self.mu[i] * g[i] / self.dgamma
                 if not self.isequality[i] and self.lam[i] < 0:  # clamp to zero
                     # if we stay in the feasible domain, lam would diverge to -inf (as observed)
                     self.lam[i] = 0
