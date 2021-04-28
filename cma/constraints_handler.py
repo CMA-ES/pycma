@@ -621,6 +621,8 @@ class AugmentedLagrangian(object):
             self.chi_domega = 2**(1. / 5 / dimension)  # factor for mu change, 5 == domega
         self.f, self.g = 2 * [None]  # store previous values
         self.count = 0  # number of actual updates after any mu > 0 was set
+        self.count_g_in_penalized_domain = 0  # will be an array
+        "number of times g induced a penality in __call__ since last update"
 
         self.lam_opt = None  # only for display in logger
         self.logging = True
@@ -757,6 +759,8 @@ class AugmentedLagrangian(object):
         Penalties are zero in the optimum and can be negative down to
         ``-lam**2 / mu / 2``.
         """
+        try: self.count_g_in_penalized_domain += self.mu * g > -1 * self.lam
+        except TypeError: pass
         if self.lam is None:
             return [0.] * len(g)
         assert len(self.lam) == len(self.mu)
@@ -824,6 +828,7 @@ class AugmentedLagrangian(object):
             self.count += 1
         assert np.all((self.lam >= 0) + self.isequality)
         self.f, self.g = f, g  # self(g) == 0 if mu=lam=0
+        self.count_g_in_penalized_domain *= 0
         if self.logging:
             self.logger.push()
             self.logger_mu_conditions.push()
