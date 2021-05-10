@@ -1261,7 +1261,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
         if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
             d = dat_x[:, 5:]
-            yscale('symlog', linthreshy=np.min(np.abs(d[d != 0])))  # see matplotlib.scale.SymmetricalLogScale
+            try: yscale('symlog', linthresh=np.min(np.abs(d[d != 0])))  # see matplotlib.scale.SymmetricalLogScale
+            except: yscale('symlog', linthreshy=np.min(np.abs(d[d != 0])))  # see matplotlib.scale.SymmetricalLogScale
         if dat_x.shape[1] < 100:  # annotations
             ax = array(axis())
             axis(ax)
