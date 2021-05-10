@@ -1865,7 +1865,8 @@ class Logger(object):
                  color=next(color),
                  label=next(labels) if i in idx_labels else None)
             # plt.gca().get_lines()[0].set_color(next(color))
-        plt.legend(framealpha=0.3)  # more opaque than not
+        if self.labels:
+            plt.legend(framealpha=0.3)  # more opaque than not
         plt.gcf().canvas.draw()  # allows online use
         return self
 
