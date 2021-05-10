@@ -1630,7 +1630,7 @@ class Logger(object):
 
         or a name, or an absolute path to a file.
 
-        `attributes` are attributes of `obj_or_name`, however
+        `attributes` are attribute names[:`str`] of `obj_or_name`, however
 
         `callables` are more general in their usage and hence recommended.
         They allow attribute access and transformations, for example like
@@ -1856,7 +1856,7 @@ class Logger(object):
             m = 0
         if clear:
             plt.gca().clear()
-        if not m or len(self.labels) == 1:  # data cannot be indexed like data[:,0]
+        if m < 2:  # data cannot be indexed like data[:,0]
             plot(range(1, n + 1), self.data,
                  label=self.labels[0] if self.labels else None)
             return
@@ -1869,7 +1869,8 @@ class Logger(object):
             except (IndexError, TypeError): pass
             plot(range(1, n + 1), column,
                  color=next(color),
-                 label=next(labels) if i in idx_labels else None)
+                 label=next(labels) if i in idx_labels else None,
+                 linewidth=1 - 0.7 * m / (m + 10))
             # plt.gca().get_lines()[0].set_color(next(color))
         if self.labels:
             plt.legend(framealpha=0.3)  # more opaque than not
