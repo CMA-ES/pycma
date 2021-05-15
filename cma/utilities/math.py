@@ -4,6 +4,7 @@ functions in `Mh`
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 # from future.builtins.disabled import *  # don't use any function which could lead to different results in Python 2 vs 3
+import warnings as _warnings
 import numpy as np
 from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
@@ -54,6 +55,39 @@ def to_correlation_matrix(c):
     c = (c + c.T) / 2.0
     assert np.allclose(np.diag(c), 1)
     return c
+
+_warnings.filterwarnings(  # one message for each value (which is given in the message)
+    'once', message="using exponential smoothing with .* rolling average")
+def moving_average(x, w=7):
+    """rolling average without biasing boundary effects.
+
+    The first entries give the average over all first
+    values (until the window width is reached).
+
+    If `w` is not an integer, expontential smoothing with weights
+    proportionate to ``(1 - 1/w)**i`` summing to one is executed, thereby
+    putting about 1 - exp(-1) ≈ 0.63 of the weight sum on the last `w`
+    entries.
+
+    Details: the average is mainly based on `np.convolve`, whereas
+    exponential smoothing is for the time being numerically inefficient and
+    scales quadratically with the length of `x`.
+"""
+    if w == 1:
+        return x
+    elif isinstance(w, int):  # interpret as window width
+        w = min((w, len(x)))  # window width
+        return np.hstack([[np.mean(x[:i]) for i in range(1, w)],
+                          np.convolve(x, w * [1 / w], mode='valid')])
+    else:  # exponential smoothing
+        if w == int(w):
+            _warnings.warn("using exponential smoothing with time"
+                           " horizon {}. \nUse `int` type to get the"
+                           " rolling average.".format(w))
+        v = 1 - 1 / w
+        return np.asarray([sum([v**j * x[i-j] for j in range(i + 1)])
+                             / sum([v**j for j in range(i + 1)])
+                           for i in range(len(x))])
 
 # ____________________________________________________________
 # ____________________________________________________________
