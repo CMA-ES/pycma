@@ -102,6 +102,7 @@ setup(name="cma",
       install_requires=["numpy"],
       extras_require={
             "plotting": ["matplotlib"],
+            "constrained-solution-tracking": ["moarchiving"],
             # "wrap-skopt": ["scikit-optimize"]  # who wants to wrap skopt has skopt already installed
       },
       package_data={'': ['LICENSE']},  # i.e. cma/LICENSE
