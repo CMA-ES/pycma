@@ -872,7 +872,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         verticalalignment='center')
             return self  # nothing interesting to plot
         self._enter_plotting()
-        color = iter(pyplot.cm.cmap_d['plasma_r'](np.linspace(0.35, 1,
+        color = iter(pyplot.cm.get_cmap("plasma_r")(np.linspace(0.35, 1,
                                                   dat.D.shape[1] - 5)))
         for i in range(5, dat.D.shape[1]):
             pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, i],
