@@ -4520,6 +4520,22 @@ def fmin(objective_function, x0, sigma0,
 def no_constraints(x):
     return []
 
+def _al_set_logging(al, kwargs):
+    def extract_logging_value(kwargs):
+        if 'logging' in kwargs:
+            return kwargs['logging']
+        if 'verbose' in kwargs and kwargs['verbose'] <= -3:
+            return False
+        if 'options' in kwargs:
+            ko = kwargs['options']
+            if 'verb_log' in ko:
+                return ko['verb_log']
+            if 'verbose' in ko and ko['verbose'] <= -3:
+                return False
+    logging = extract_logging_value(kwargs)
+    if logging is not None:
+        al.logging = logging
+
 def fmin_con(objective_function, x0, sigma0,
              g=no_constraints, h=no_constraints, **kwargs):
     """optimize f with constraints g (inequalities) and h (equalities).
@@ -4530,6 +4546,9 @@ def fmin_con(objective_function, x0, sigma0,
 
     Return a `tuple` ``es.results.xfavorite:numpy.array, es:CMAEvolutionStrategy``,
     where ``es == cma.fmin2(f_aug_lag, x0, sigma0, **kwargs)[1]``.
+
+    Depending on ``kwargs['logging']`` and on the verbosity settings in
+    ``kwargs['options']``, the `AugmentedLagrangian` writes logging files.
 
     See `cma.fmin` for further parameters ``**kwargs``.
 
@@ -4563,8 +4582,10 @@ def fmin_con(objective_function, x0, sigma0,
     F = []
     G = []
     _al = AugmentedLagrangian(len(x0))
+    _al_set_logging(_al, kwargs)
+
     # _al.chi_domega = 1.1
-    # al.dgamma = 1.5
+    # _al.dgamma = 1.5
 
     def f(x):
         F.append(objective_function(x))
