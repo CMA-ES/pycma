@@ -4589,7 +4589,7 @@ def fmin_con(objective_function, x0, sigma0,
     # because f-values depend on the adaptive multipliers. Hence we overwrite
     # the default tolstagnation value:
     kwargs.setdefault('options', {}).setdefault('tolstagnation', 0)
-    xopt, es = fmin2(auglag, x0, sigma0, **kwargs)
+    _, es = fmin2(auglag, x0, sigma0, **kwargs)
     es.objective_function_complements = [_al]
-    return xopt, es
+    return es.result.xfavorite, es
 
