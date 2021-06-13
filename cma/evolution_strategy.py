@@ -4524,11 +4524,14 @@ def fmin_con(objective_function, x0, sigma0,
              g=no_constraints, h=no_constraints, **kwargs):
     """optimize f with constraints g (inequalities) and h (equalities).
 
-    Construct an Augmented Lagrangian instance ``f_aug_lag`` of class
-    `cma.constraints_handler.AugmentedLagrangian` from f and g and h and
-    ``return cma.fmin2(f_aug_lag, x0, sigma0, **kwargs)``.
+    Construct an Augmented Lagrangian instance ``f_aug_lag`` of the type
+    `cma.constraints_handler.AugmentedLagrangian` from `objective_function`
+    and `g` and `h`.
 
-    See `cma.fmin` for further parameters.
+    Return a `tuple` ``es.results.xfavorite:numpy.array, es:CMAEvolutionStrategy``,
+    where ``es == cma.fmin2(f_aug_lag, x0, sigma0, **kwargs)[1]``.
+
+    See `cma.fmin` for further parameters ``**kwargs``.
 
     >>> import cma
     >>> x, es = cma.evolution_strategy.fmin_con(
