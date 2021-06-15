@@ -623,7 +623,7 @@ class LoggerList(list):
                                  color='r', linewidth=0.15)
 
 def _log_lam(s):
-    return s.lam if s.lam_opt is None else np.log10(np.abs(s.lam - s.lam_opt) + 1e-9)
+    return np.log10(np.abs(s.lam - (0 if s.lam_opt is None else s.lam_opt)) + 1e-9)
 def _log_mu(s):
     return np.log10(s.mu + 1e-9)
 def _log_feas_events(s):
@@ -878,13 +878,13 @@ class AugmentedLagrangian(object):
         self._check_dtypes()
         if self.g is not None and np.any(self.mu > 0):  # mu==0 makes a zero update anyway
             assert len(self.lam) == len(self.mu) == len(g)
-            if not self.count and self.chi_domega < 1.05:
+            if 11 < 3 and not self.count and self.chi_domega < 1.05:
                 _warnings.warn("chi_omega=%f as by default, however values <<1.1 may not work well"
                                 % self.chi_domega)
             dg = np.asarray(g) - self.g
             dh = f + sum(self(g)) - self.f - sum(self(self.g))  # using the same coefficients
             for i in range(len(self.lam)):
-                if self.logging:
+                if self.logging > 0 and not (self.count + 1) % self.logging and self.logger_mu_conditions:
                     condk1 = bool(self.mu[i] * g[i]**2 < self.k1 * np.abs(dh) / self.dimension)
                     condk2 = bool(self.k2 * np.abs(dg[i]) < np.abs(self.g[i]))
                     self.logger_mu_conditions.add(i - 0.1 + 0.25 * np.asarray(
@@ -918,5 +918,5 @@ class AugmentedLagrangian(object):
         if self.logging > 0 and not self.count % self.logging:
             for logger in self.loggers:
                 logger.push()
-            self.logger_mu_conditions.push()
+            self.logger_mu_conditions and self.logger_mu_conditions.push()
 
