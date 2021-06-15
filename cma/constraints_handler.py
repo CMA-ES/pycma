@@ -7,7 +7,7 @@ import warnings as _warnings
 import numpy as np
 from numpy import logical_and as _and, logical_or as _or, logical_not as _not
 from .utilities.utils import rglen, is_
-from .utilities.math import Mh as _Mh
+from .utilities.math import Mh as _Mh, moving_average
 from . import logger as _logger
 from .transformations import BoxConstraintsLinQuadTransformation
 from .utilities.python3for2 import range
@@ -570,10 +570,30 @@ class PopulationEvaluator(object):
         return np.mean(np.asarray(self.G) <= 0, axis=0)
         # return [np.mean(g <= 0) for g in np.asarray(self.G).T]
 
+class LoggerList(list):
+    """list of loggers with plot method"""
+    def plot(self, moving_window_width=7):
+        """versatile plot method, argument list positions may change"""
+        from matplotlib import pyplot as plt
+        for i, logger in enumerate(self):
+            plt.subplot(2, 2, i + 1)
+            logger.plot()
+            if i < 3 and len(logger.data.shape) > 1 and logger.data.shape[1] > 1:
+                for j, d in enumerate(logger.data.T):
+                    if i < 2:  # variable number annotation
+                        plt.text(len(d), d[-1], str(j))
+                    elif i == 2:  # plot rolling average
+                        plt.plot(moving_average(d, min((moving_window_width, len(d)))),
+                                 color='r', linewidth=0.15)
+
 def _log_lam(s):
     return s.lam if s.lam_opt is None else np.log10(np.abs(s.lam - s.lam_opt) + 1e-9)
 def _log_mu(s):
     return np.log10(s.mu + 1e-9)
+def _log_feas_events(s):
+    return [len(s.g) + np.any(np.asarray(s.g) > 0)] + [
+            i + 0.5 * (gi > 0) - 0.25 + 0.2 * np.tanh(gi) for i, gi in enumerate(s.g)]
+
 class AugmentedLagrangian(object):
     """Augmented Lagrangian with adaptation of the coefficients
 
