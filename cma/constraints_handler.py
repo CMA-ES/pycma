@@ -9,7 +9,7 @@ import numpy as np
 from numpy import logical_and as _and, logical_or as _or, logical_not as _not
 from .utilities.utils import rglen, is_
 from .utilities.math import Mh as _Mh, moving_average
-from . import logger as _logger
+from .logger import Logger as _Logger  # we can assign _Logger = cma.logger.LoggerDummy to turn off logging
 from .transformations import BoxConstraintsLinQuadTransformation
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
@@ -704,21 +704,25 @@ class AugmentedLagrangian(object):
         "number of times g induced a penality in __call__ since last update"
 
         self.lam_opt = None  # only for display in logger
-        self.logging = True
+        self.logging = 1
         self._init_()
 
     def _init_(self):
         """allow to reset the logger with a single call"""
-        self.logger = _logger.Logger(self,
-            callables=[_log_lam, _log_mu],
-            labels=['lambda' if self.lam_opt is None else 'lg(lambda-lam_opt)',
-                    'lg(mu)'],
-            name='outauglag',
-            )
-        self.logger_mu_conditions = _logger.Logger("mu_conditions", labels=[
-                        r'$\mu$ increases',
-                        r'$\mu g^2 < %.0f |\Delta h| / n$' % self.k1,
-                        r'$|\Delta g| < |g| / %.0f$' % self.k2])
+        self.loggers = LoggerList()
+        if self.logging > 0:
+            self.loggers.append(_Logger(self, callables=[_log_lam],
+                labels=['lg(abs(lambda))' if self.lam_opt is None
+                        else 'lg(abs(lambda-lam_opt))'],
+                name='outauglaglam'))
+            self.loggers.append(_Logger(self, callables=[_log_mu],
+                            labels=['lg(mu)'], name='outauglagmu'))
+            self.loggers.append(_Logger(self, callables=[_log_feas_events],
+                            labels=['sign(gi) + i and overall feasibility'], name='outauglagfeas'))
+            self.logger_mu_conditions = _Logger("mu_conditions", labels=[
+                            r'$\mu$ increases',
+                            r'$\mu g^2 < %.0f |\Delta h| / n$' % self.k1,
+                            r'$|\Delta g| < |g| / %.0f$' % self.k2])
 
     @property
     def m(self):
@@ -911,7 +915,8 @@ class AugmentedLagrangian(object):
         assert np.all((self.lam >= 0) + self.isequality)
         self.f, self.g = f, g  # self(g) == 0 if mu=lam=0
         self.count_g_in_penalized_domain *= 0
-        if self.logging:
-            self.logger.push()
+        if self.logging > 0 and not self.count % self.logging:
+            for logger in self.loggers:
+                logger.push()
             self.logger_mu_conditions.push()
 
