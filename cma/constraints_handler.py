@@ -4,6 +4,7 @@
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 # __package__ = 'cma'
 import warnings as _warnings
+import collections as _collections
 import numpy as np
 from numpy import logical_and as _and, logical_or as _or, logical_not as _not
 from .utilities.utils import rglen, is_
@@ -569,6 +570,36 @@ class PopulationEvaluator(object):
         """or bias for equality constraints"""
         return np.mean(np.asarray(self.G) <= 0, axis=0)
         # return [np.mean(g <= 0) for g in np.asarray(self.G).T]
+
+class DequeCDF(_collections.deque):
+    """a queue with (in case) element-wise cdf computation.
+
+    The `deque` is here used like a `list` with maximum length functionality,
+    the (inherited) constructor takes `maxlen` as keyword argument (since Python 2.6).
+
+    >>> import cma
+    >>> d = cma.constraints_handler.DequeCDF(maxlen=22)
+    >>> for i in range(5):
+    ...     d.append([i])
+    >>> d.cdf(0, 0), d.cdf(0, 2), d.cdf(0, 2.1), d.cdf(0, 22.1), d.cdf(0, 4, 2)
+    (0.1, 0.5, 0.6, 1.0, 0.75)
+
+    """
+    def cdf(self, i, val=0, len_=None):
+        """return ecdf(`val`) from the `i`-th element of the last `len_`
+        values in self,
+
+        in other words, the ratio of values in ``self[-len_:][i]`` to
+        be smaller than `val`.
+        """
+        j0 = int(min((len_ or len(self), len(self))))
+        data = np.asarray([self[j][i] for j in range(-j0, 0)])
+        return np.mean((data < val) + 0.5 * (data == val))
+    def cdf1(self, val=0, len_=None):
+        """return ECDF at `val` in case this is a `deque` of scalars"""
+        j0 = int(min((len_ or len(self), len(self))))
+        data = np.asarray([self[j] for j in range(-j0, 0)])
+        return np.mean((data < val) + 0.5 * (data == val))
 
 class LoggerList(list):
     """list of loggers with plot method"""
