@@ -728,7 +728,10 @@ class AugmentedLagrangian(object):
     def m(self):
         """number of constraints, raise `TypeError` if not set yet"""
         return len(self.lam)
-
+    @property
+    def is_initialized(self):
+        try: return all(self._initialized)
+        except TypeError: return bool(self._initialized)
     @property
     def feasibility_ratios(self):
         """or bias for equality constraints, versatile interface may change"""
