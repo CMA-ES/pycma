@@ -687,7 +687,7 @@ class AugmentedLagrangian(object):
     suboptimal. Setting ``self.chi_domega = 1.15`` as is the current
     default seems to give better results than the original setting.
 
-    """
+"""
     def __init__(self, dimension, equality=False, chi_domega=2**0.2):
         """if ``chi_domega is None``, set to the original (worse) setting ``2**(0.2 / dimension)``"""
         self.dimension = dimension  # maybe not desperately needed
@@ -706,6 +706,7 @@ class AugmentedLagrangian(object):
         self.count_g_in_penalized_domain = 0  # will be an array
         "number of times g induced a penality in __call__ since last update"
 
+        self.count_calls = 0
         self.lam_opt = None  # only for display in logger
         self.logging = 1
         self._init_()
@@ -861,6 +862,7 @@ class AugmentedLagrangian(object):
         if any(idx):
             g = np.array(g, copy=True)
             g[idx] = -self.lam[idx] / self.mu[idx]
+        self.count_calls += 1
         return [self.lam[i] * g[i] + 0.5 * self.mu[i] * g[i]**2
                 for i in range(len(g))]
 
