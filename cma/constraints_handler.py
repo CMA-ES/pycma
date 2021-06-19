@@ -498,6 +498,47 @@ class BoundPenalty(BoundaryHandlerBase):
         # es.more_to_write = self.gamma if not np.isscalar(self.gamma) else N*[1]
         return self  # bound penalty values
 
+def _g_pos_max(gvals):
+    return max([gi * (gi > 0) for gi in gvals])
+def _g_pos_sum(gvals):
+    return sum([gi * (gi > 0) for gi in gvals])
+def _g_pos_squared_sum(gvals):
+    return sum([gi**2 * (gi > 0) for gi in gvals])
+class ConstrainedSolutionsArchive:
+    """Biobjective Pareto archive to store some Pareto optimal solutions
+    for constrained optimization.
+
+    The user can define the aggregator for the constraints values which
+    is by default the sum of the positive parts.
+
+    The Pareto archive is maintained in the `archive` attribute and the
+    Pareto optimal solutions can be recovered in `archive.infos`.
+"""
+    def __init__(self, aggregator=_g_pos_sum):
+        self.aggregator = aggregator
+        self.archive = None
+        self.count = 0
+        self.maxlen = 10
+        try:
+            import moarchiving
+        except ImportError:
+            m = ("``import moarchiving`` failed, hence convergence tracking "
+                 "is disabled. \n  'pip install moarchiving' should fix this.")
+            _warnings.filterwarnings('once', message=m)
+            _warnings.warn(m)
+            return
+        self.archive = moarchiving.BiobjectiveNondominatedSortedList()
+    def update(self, f, g, info=None):
+        self.count += 1
+        if self.archive is not None:
+            gagg = self.aggregator(g)
+            try: self.archive.add([f, gagg], info=info)
+            except TypeError: self.archive.add([f, gagg])  # previous interface
+            while len(self.archive) > self.maxlen:
+                if self.archive[1][1] > 0:  # keep at least one infeasible solution
+                    self.archive.remove(self.archive[0])
+                else:
+                    self.archive.remove(self.archive[-1])
 class PopulationEvaluator(object):
     """evaluate and store f- and g-values of a population in attributes F and G.
 
