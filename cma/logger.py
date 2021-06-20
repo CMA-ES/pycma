@@ -1225,6 +1225,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             return
         if annotations is None:
             annotations = self.persistent_communication_dict.get('variable_annotations')
+        import matplotlib
         from matplotlib.pyplot import plot, semilogy, yscale, text, grid, axis, title
         dat = self  # for convenience and historical reasons
         if not np.any(x_opt):
@@ -1260,9 +1261,14 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._enter_plotting()
         plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
         if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
-            d = dat_x[:, 5:]
-            try: yscale('symlog', linthresh=np.min(np.abs(d[d != 0])))  # see matplotlib.scale.SymmetricalLogScale
-            except: yscale('symlog', linthreshy=np.min(np.abs(d[d != 0])))  # see matplotlib.scale.SymmetricalLogScale
+            _d = dat_x[:, 5:]
+            _d_pos = np.abs(_d[_d != 0])
+            if len(_d_pos):
+                if matplotlib.__version__[:3] < '3.3':
+                    # a terrible interface change that swallows the new/old parameter and breaks code
+                    yscale('symlog', linthreshy=np.min(_d_pos))  # see matplotlib.scale.SymmetricalLogScale
+                else:
+                    yscale('symlog', linthresh=np.min(_d_pos))
         if dat_x.shape[1] < 100:  # annotations
             ax = array(axis())
             axis(ax)
