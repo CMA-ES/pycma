@@ -71,6 +71,11 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``3.1.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.1.0)
+  fixes the return value of `fmin_con`, improves its usability and provides
+  a `best_feasible` attribute in `CMAEvolutionStrategy`, in addition to
+  various other more minor code fixes and improvements.
+
 * [Release ``3.0.3``](https://github.com/CMA-ES/pycma/releases/tag/r3.0.3) provides parallelization with ``OOOptimizer.optimize(..., n_jobs=...)`` (fix for ``3.0.1/2``) and improved `pickle` support.
 
 * [Release ``3.0.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.0.0) provides non-linear constraints handling, improved plotting and termination options and better resilience to injecting bad solutions, and further various fixes.
