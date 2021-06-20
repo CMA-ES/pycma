@@ -4564,7 +4564,7 @@ def fmin_con(objective_function, x0, sigma0,
     Details: this is a versatile function subject to changes. It is possible to access
     the `AugmentedLagrangian` instance like
 
-    >>> al = es.objective_function_complements[0]
+    >>> al = es.augmented_lagrangian
     >>> isinstance(al, cma.constraints_handler.AugmentedLagrangian)
     True
     >>> # al.logger.plot()  # plots the evolution of AL coefficients
@@ -4615,5 +4615,6 @@ def fmin_con(objective_function, x0, sigma0,
     kwargs.setdefault('options', {}).setdefault('tolstagnation', 0)
     _, es = fmin2(auglag, x0, sigma0, **kwargs)
     es.objective_function_complements = [_al]
+    es.augmented_lagrangian = _al
     return es.result.xfavorite, es
 
