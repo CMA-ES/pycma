@@ -203,6 +203,7 @@ from . import transformations
 from . import optimization_tools as ot
 from . import sampler
 from .utilities import utils as _utils
+from . import constraints_handler as _constraints_handler
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
 from .recombination_weights import RecombinationWeights
 from .logger import CMADataLogger  # , disp, plot
@@ -4594,7 +4595,8 @@ def _al_set_logging(al, kwargs, *more_kwargs):
     return logging
 
 def fmin_con(objective_function, x0, sigma0,
-             g=no_constraints, h=no_constraints, post_optimization=False, **kwargs):
+             g=no_constraints, h=no_constraints, post_optimization=False,
+             archiving=True, **kwargs):
     """optimize f with constraints g (inequalities) and h (equalities).
 
     Construct an Augmented Lagrangian instance ``f_aug_lag`` of the type
@@ -4629,6 +4631,10 @@ def fmin_con(objective_function, x0, sigma0,
     then `post_optimization` must be a strictly positive float indicating the error
     on the inequality constraints.
 
+    The second return value:`CMAEvolutionStrategy` has also a
+    `con_archives` attribute which is nonempty if `archiving`. The last
+    element of each archive is the best feasible solution if there was any.
+
     See `cma.fmin` for further parameters ``**kwargs``.
 
     >>> import cma
@@ -4662,7 +4668,7 @@ def fmin_con(objective_function, x0, sigma0,
     ...             post_optimization=True, options={"verbose": -9})
     >>> assert all(y <= -1 for y in x)  # assert feasibility of x
 
-    """
+"""
     # TODO: need to rethink equality/inequality interface?
 
     if 'parallel_objective' in kwargs:
@@ -4686,6 +4692,14 @@ def fmin_con(objective_function, x0, sigma0,
     # _al.dgamma = 1.5
 
     best_feasible_solution = ot.BestSolution2()
+    if archiving:
+        archives = [
+            _constraints_handler.ConstrainedSolutionsArchive(_constraints_handler._g_pos_max),
+            _constraints_handler.ConstrainedSolutionsArchive(_constraints_handler._g_pos_sum),
+            _constraints_handler.ConstrainedSolutionsArchive(_constraints_handler._g_pos_squared_sum),
+        ]
+    else:
+        archives = []
 
     def f(x):
         F.append(objective_function(x))
@@ -4705,6 +4719,10 @@ def fmin_con(objective_function, x0, sigma0,
         if all([gi <= 0 for gi in gvals]):
             best_feasible_solution.update(fval, x,
                 info={'x':x, 'f': fval, 'g':gvals, 'g_al':alvals})
+        info = _constraints_handler.constraints_info_dict(
+                    _al.count_calls, x, fval, gvals, alvals)
+        for a in archives:
+            a.update(fval, gvals, info)
         return fval + sum(alvals)
     def set_coefficients(es):
         _al.set_coefficients(F, G)
@@ -4719,7 +4737,7 @@ def fmin_con(objective_function, x0, sigma0,
     # the default tolstagnation value:
     kwargs.setdefault('options', {}).setdefault('tolstagnation', 0)
     _, es = fmin2(auglag, x0, sigma0, **kwargs)
-    es.objective_function_complements = [_al]
+    es.objective_function_complements = [_al]  # for historical reasons only
     es.augmented_lagrangian = _al
     es.best_feasible = best_feasible_solution
 
@@ -4756,4 +4774,5 @@ def fmin_con(objective_function, x0, sigma0,
             utils.print_warning('Post optimization was unsuccessful',
                                 verbose=es.opts['verbose'])
 
+    es.con_archives = archives
     return es.result.xfavorite, es  # do not return es.best_feasible.x because it could be quite bad
