@@ -4544,23 +4544,29 @@ def fmin_con(objective_function, x0, sigma0,
     `cma.constraints_handler.AugmentedLagrangian` from `objective_function`
     and `g` and `h`.
 
+    Equality constraints should preferably be passed as two inequality
+    constraints like ``[h - eps, -h - eps]``, with eps >= 0. When eps > 0,
+    also feasible solution tracking can succeed.
+
     Return a `tuple` ``es.results.xfavorite:numpy.array, es:CMAEvolutionStrategy``,
     where ``es == cma.fmin2(f_aug_lag, x0, sigma0, **kwargs)[1]``.
 
     Depending on ``kwargs['logging']`` and on the verbosity settings in
-    ``kwargs['options']``, the `AugmentedLagrangian` writes logging files.
+    ``kwargs['options']``, the `AugmentedLagrangian` writes (hidden)
+    logging files.
 
     The second return value:`CMAEvolutionStrategy` has an (additional)
-    attribute ``best_feasible`` which contains the information in the
-    ``best_feasible.info`` dictionary if any feasible solution was found.
-    This only works with inequality constraints (equality constraints are
-    wrongly interpreted as inequality constraints).
+    attribute ``best_feasible`` which contains the information about the
+    best feasible solution in the ``best_feasible.info`` dictionary, given
+    any feasible solution was found. This only works with inequality
+    constraints (equality constraints are wrongly interpreted as inequality
+    constraints).
 
     See `cma.fmin` for further parameters ``**kwargs``.
 
     >>> import cma
     >>> x, es = cma.evolution_strategy.fmin_con(
-    ...             cma.ff.sphere, 3 * [0], 1, h=lambda x: [x[0]**2 - 1],
+    ...             cma.ff.sphere, 3 * [0], 1, g=lambda x: [1 - x[0]**2, -(1 - x[0]**2) - 1e-6],
     ...             options={'termination_callback': lambda es: -1e-5 < es.mean[0]**2 - 1 < 1e-5,
     ...                      'verbose':-9})
     >>> assert 'callback' in es.stop()
