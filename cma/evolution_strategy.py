@@ -4550,6 +4550,12 @@ def fmin_con(objective_function, x0, sigma0,
     Depending on ``kwargs['logging']`` and on the verbosity settings in
     ``kwargs['options']``, the `AugmentedLagrangian` writes logging files.
 
+    The second return value:`CMAEvolutionStrategy` has an (additional)
+    attribute ``best_feasible`` which contains the information in the
+    ``best_feasible.info`` dictionary if any feasible solution was found.
+    This only works with inequality constraints (equality constraints are
+    wrongly interpreted as inequality constraints).
+
     See `cma.fmin` for further parameters ``**kwargs``.
 
     >>> import cma
@@ -4587,6 +4593,8 @@ def fmin_con(objective_function, x0, sigma0,
     # _al.chi_domega = 1.1
     # _al.dgamma = 1.5
 
+    best_feasible_solution = ot.BestSolution2()
+
     def f(x):
         F.append(objective_function(x))
         return F[-1]
@@ -4600,7 +4608,12 @@ def fmin_con(objective_function, x0, sigma0,
         G.append(list(gvals) + list(hvals))
         return G[-1]
     def auglag(x):
-        return f(x) + sum(_al(constraints(x)))
+        fval, gvals = f(x), constraints(x)
+        alvals = _al(gvals)
+        if all([gi <= 0 for gi in gvals]):
+            best_feasible_solution.update(fval,
+                info={'x':x, 'f': fval, 'g':gvals, 'g_al':alvals})
+        return fval + sum(alvals)
     def set_coefficients(es):
         _al.set_coefficients(F, G)
         F[:], G[:] = [], []
@@ -4616,5 +4629,5 @@ def fmin_con(objective_function, x0, sigma0,
     _, es = fmin2(auglag, x0, sigma0, **kwargs)
     es.objective_function_complements = [_al]
     es.augmented_lagrangian = _al
+    es.best_feasible = best_feasible_solution
     return es.result.xfavorite, es
-
