@@ -575,8 +575,13 @@ class LoggerList(list):
     def plot(self, moving_window_width=7):
         """versatile plot method, argument list positions may change"""
         from matplotlib import pyplot as plt
+        # _, axes = plt.gcf().subplots(2, 2)  # gcf().subplots return array of subplots, plt.subplots returns array of axes
+        # axes = list(axes[0]) + list(axes[1])
         for i, logger in enumerate(self):
-            plt.subplot(2, 2, i + 1)
+            # plt.sca(axes[i])
+            with _warnings.catch_warnings():  # catch misfiring add_subplot warning
+                _warnings.filterwarnings('ignore', message='Adding an axes using the same arguments')
+                plt.subplot(2, 2, i + 1)
             logger.plot()
             if i < 3 and len(logger.data.shape) > 1 and logger.data.shape[1] > 1:
                 for j, d in enumerate(logger.data.T):
