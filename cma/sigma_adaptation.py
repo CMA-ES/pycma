@@ -220,7 +220,6 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
 
         From input `es`, either attribute N or const.chiN is used.
         """
-        delta_old = self.delta
         self._update_ps(es)  # caveat: if es.B or es.D are already updated and ps is not, this goes wrong!
         p = self.ps
         if 'pc for ps' in es.opts['vv']:
@@ -234,7 +233,6 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             s = _norm(p) / es.const.chiN - 1
         s *= self.cs / self.damps
         s_clipped = Mh.minmax(s, -self.max_delta_log_sigma, self.max_delta_log_sigma)
-        self.delta *= np.exp(s_clipped)
         # "error" handling
         if s_clipped != s:
             utils.print_warning('sigma change np.exp(' + str(s) + ') = ' + str(np.exp(s)) +
@@ -242,7 +240,8 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
                           'update',
                           'CMAAdaptSigmaCSA',
                                 es.countiter, es.opts['verbose'])
-        return self.delta / delta_old
+        self.delta *= np.exp(s_clipped)
+        return np.exp(s_clipped)
     def update(self, es, **kwargs):
         """call ``self._update_ps(es)`` and update ``es.sigma``.
 
