@@ -2,7 +2,7 @@
 [![CircleCI](https://circleci.com/gh/CMA-ES/pycma/tree/master.svg?style=shield)](https://circleci.com/gh/CMA-ES/pycma/tree/master)
 [![Build status](https://ci.appveyor.com/api/projects/status/1rge11pwyt55b26k?svg=true)](https://ci.appveyor.com/project/nikohansen/pycma)
 [![DOI](https://zenodo.org/badge/68926339.svg)](https://doi.org/10.5281/zenodo.2559634)
-[[BibTeX](http://cma.gforge.inria.fr/pycmabibtex.bib)] cite as:
+[[BibTeX](http://cma-es.github.io/pycmabibtex.bib)] cite as:
 > Nikolaus Hansen, Youhei Akimoto, and Petr Baudis. CMA-ES/pycma on Github. Zenodo, [DOI:10.5281/zenodo.2559634](https://doi.org/10.5281/zenodo.2559634), February 2019. 
 ---
 
@@ -14,10 +14,10 @@ Zenodo: 34 points to the latest, this is 35: https://zenodo.org/badge/latestdoi/
 
 --->
   
-``pycma`` is a Python implementation of [CMA-ES](http://cma.gforge.inria.fr/) and a few related numerical optimization tools.
+``pycma`` is a Python implementation of [CMA-ES](http://cma-es.github.io/) and a few related numerical optimization tools.
 
 The [Covariance Matrix Adaptation Evolution Strategy](https://en.wikipedia.org/wiki/CMA-ES) 
-([CMA-ES](http://cma.gforge.inria.fr/)) is a stochastic derivative-free numerical optimization
+([CMA-ES](http://cma-es.github.io/)) is a stochastic derivative-free numerical optimization
 algorithm for difficult (non-convex, ill-conditioned, multi-modal, rugged, noisy) optimization
 problems in continuous search spaces.
 
@@ -25,9 +25,9 @@ Useful links:
 
 * [A quick start guide with a few usage examples](https://pypi.python.org/pypi/cma)
 
-* [The API Documentation](http://cma.gforge.inria.fr/apidocs-pycma)
+* [The API Documentation](http://cma-es.github.io/apidocs-pycma)
 
-* [Hints for how to use this (kind of) optimization module in practice](http://cma.gforge.inria.fr/cmaes_sourcecode_page.html#practical)
+* [Hints for how to use this (kind of) optimization module in practice](http://cma-es.github.io/cmaes_sourcecode_page.html#practical)
 
 * [FAQs and HowTos (under development)](https://github.com/CMA-ES/pycma/issues?q=is:issue+label:FAQ).
 
