@@ -597,6 +597,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              foffset=1e-19, x_opt=None, fontsize=7,
              downsample_to=1e7,
              xsemilog=False,
+             xnormalize=False,
              addcols=0,
              load=True):
         """plot data from a `CMADataLogger` (using the files written
@@ -716,9 +717,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         subplot(2, 2 + addcols, 2)
         if plot_mean:
-            self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog)
+            self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         else:
-            self.plot_xrecent(iabscissa, x_opt, xsemilog=xsemilog)
+            self.plot_xrecent(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         pyplot.xlabel('')
         # pyplot.xticks(xticklocs)
 
@@ -950,20 +951,23 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_mean(self, iabscissa=1, x_opt=None, annotations=None, xsemilog=None):
+    def plot_mean(self, iabscissa=1, x_opt=None, annotations=None, xsemilog=None, xnormalize=None):
         if not hasattr(self, 'xmean'):
             self.load()
         self.x = self.xmean
         if xsemilog is None and x_opt is not None:
             xsemilog = True
-        self._plot_x(iabscissa, x_opt, 'mean', annotations=annotations, xsemilog=xsemilog)
+        self._plot_x(iabscissa, x_opt, 'mean', annotations=annotations,
+                     xsemilog=xsemilog, xnormalize=xnormalize)
         self._xlabel(iabscissa)
         return self
-    def plot_xrecent(self, iabscissa=1, x_opt=None, annotations=None, xsemilog=None):
+    def plot_xrecent(self, iabscissa=1, x_opt=None, annotations=None,
+                     xsemilog=None, xnormalize=None):
         if not hasattr(self, 'xrecent'):
             self.load()
         self.x = self.xrecent
-        self._plot_x(iabscissa, x_opt, 'curr best', annotations=annotations, xsemilog=xsemilog)
+        self._plot_x(iabscissa, x_opt, 'curr best', annotations=annotations,
+                     xsemilog=xsemilog, xnormalize=xnormalize)
         self._xlabel(iabscissa)
         return self
     def plot_correlations(self, iabscissa=1, name='corrspec'):
@@ -1213,7 +1217,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         pyplot.xlabel('iterations' if iabscissa == 0
                       else 'function evaluations')
     def _plot_x(self, iabscissa=1, x_opt=None, remark=None,
-                annotations=None, xsemilog=None):
+                annotations=None, xsemilog=None, xnormalize=False):
         """If ``len(x_opt) == dimension``, the difference to `x_opt` is plotted.
         Otherwise, the first row of ``x_opt`` is taken as indices and the second
         row, if present, is used to take the difference.
@@ -1246,6 +1250,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         dat_x[:, 5:] -= x_opt_vals
                     return dat_x
                 dat_x = apply_xopt(dat_x, x_opt)
+        if xnormalize:
+            dat_x[:, 5:] /= dat.std[:, 5:]
+            if xsemilog is None:
+                xsemilog = True  # normalization assumes that zero is meaningful
 
         # modify fake last entry in x for line extension-annotation
         if dat_x.shape[1] < 100:
@@ -1448,7 +1456,7 @@ last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
-         xsemilog=None, addcols=0, **kwargs):
+         xsemilog=None, xnormalize=None, addcols=0, **kwargs):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for
@@ -1503,7 +1511,8 @@ def plot(name=None, fig=None, abscissa=1, iteridx=None,
     if isinstance(fig, (int, float)):
         last_figure_number = fig
     return CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
-                             x_opt, fontsize, downsample_to, xsemilog, addcols, **kwargs)
+                             x_opt, fontsize, downsample_to, xsemilog, xnormalize,
+                             addcols, **kwargs)
 
 def disp(name=None, idx=None):
     """displays selected data from (files written by) the class
