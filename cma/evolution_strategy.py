@@ -339,68 +339,68 @@ def is_feasible(x, f):
     return f is not None and not np.isnan(f)
 
 
-if use_archives:
+class _CMASolutionDict_functional(_SolutionDict):
+    def __init__(self, *args, **kwargs):
+        # _SolutionDict.__init__(self, *args, **kwargs)
+        super(_CMASolutionDict, self).__init__(*args, **kwargs)
+        self.last_solution_index = 0
 
-    class _CMASolutionDict(_SolutionDict):
-        def __init__(self, *args, **kwargs):
-            # _SolutionDict.__init__(self, *args, **kwargs)
-            super(_CMASolutionDict, self).__init__(*args, **kwargs)
-            self.last_solution_index = 0
+    # TODO: insert takes 30% of the overall CPU time, mostly in def key()
+    #       with about 15% of the overall CPU time
+    def insert(self, key, geno=None, iteration=None, fitness=None,
+                value=None, cma_norm=None):
+        """insert an entry with key ``key`` and value
+        ``value if value is not None else {'geno':key}`` and
+        ``self[key]['kwarg'] = kwarg if kwarg is not None`` for the further kwargs.
 
-        # TODO: insert takes 30% of the overall CPU time, mostly in def key()
-        #       with about 15% of the overall CPU time
-        def insert(self, key, geno=None, iteration=None, fitness=None,
-                   value=None, cma_norm=None):
-            """insert an entry with key ``key`` and value
-            ``value if value is not None else {'geno':key}`` and
-            ``self[key]['kwarg'] = kwarg if kwarg is not None`` for the further kwargs.
-
-            """
-            # archive returned solutions, first clean up archive
-            if iteration is not None and iteration > self.last_iteration and (iteration % 10) < 1:
+        """
+        # archive returned solutions, first clean up archive
+        if iteration is not None and iteration > self.last_iteration and (iteration % 10) < 1:
+            self.truncate(300, iteration - 3)
+        elif value is not None and value.get('iteration'):
+            iteration = value['iteration']
+            if (iteration % 10) < 1:
                 self.truncate(300, iteration - 3)
-            elif value is not None and value.get('iteration'):
+
+        self.last_solution_index += 1
+        if value is not None:
+            try:
                 iteration = value['iteration']
-                if (iteration % 10) < 1:
-                    self.truncate(300, iteration - 3)
+            except:
+                pass
+        if iteration is not None:
+            if iteration > self.last_iteration:
+                self.last_solution_index = 0
+            self.last_iteration = iteration
+        else:
+            iteration = self.last_iteration + 0.5  # a hack to get a somewhat reasonable value
+        if value is not None:
+            self[key] = value
+        else:
+            self[key] = {'pheno': key}
+        if geno is not None:
+            self[key]['geno'] = geno
+        if iteration is not None:
+            self[key]['iteration'] = iteration
+        if fitness is not None:
+            self[key]['fitness'] = fitness
+        if cma_norm is not None:
+            self[key]['cma_norm'] = cma_norm
+        return self[key]
 
-            self.last_solution_index += 1
-            if value is not None:
-                try:
-                    iteration = value['iteration']
-                except:
-                    pass
-            if iteration is not None:
-                if iteration > self.last_iteration:
-                    self.last_solution_index = 0
-                self.last_iteration = iteration
-            else:
-                iteration = self.last_iteration + 0.5  # a hack to get a somewhat reasonable value
-            if value is not None:
-                self[key] = value
-            else:
-                self[key] = {'pheno': key}
-            if geno is not None:
-                self[key]['geno'] = geno
-            if iteration is not None:
-                self[key]['iteration'] = iteration
-            if fitness is not None:
-                self[key]['fitness'] = fitness
-            if cma_norm is not None:
-                self[key]['cma_norm'] = cma_norm
-            return self[key]
+class _CMASolutionDict_empty(dict):
+    """a hack to get most code examples running"""
+    def insert(self, *args, **kwargs):
+        pass
+    def get(self, key):
+        return None
+    def __getitem__(self, key):
+        return None
+    def __setitem__(self, key, value):
+        pass
 
-else:  # if not use_archives:
-    class _CMASolutionDict(dict):
-        """a hack to get most code examples running"""
-        def insert(self, *args, **kwargs):
-            pass
-        def get(self, key):
-            return None
-        def __getitem__(self, key):
-            return None
-        def __setitem__(self, key, value):
-            pass
+_CMASolutionDict = _CMASolutionDict_functional if use_archives else _CMASolutionDict_empty
+# _CMASolutionDict = _CMASolutionDict_empty
 
 # ____________________________________________________________
 # ____________________________________________________________
