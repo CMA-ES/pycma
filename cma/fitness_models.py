@@ -795,7 +795,21 @@ class LQModel(object):
         return self.hashes.index(self._hash(x))
 
     def _hash(self, x):
-        return sum(x)  # with a tuple as hash ``self._hash(x) in self.hashes`` fails under Python 2.6 and 3.4
+        # was: return sum(x)  # with a tuple as hash ``self._hash(x) in self.hashes`` fails under Python 2.6 and 3.4
+        if isinstance(x, int):
+            # let _hash be idempotent: _hash = _hash o _hash
+            return x
+        elif isinstance(x, np.ndarray):
+            try: 
+                return hash(x.tobytes())  # fails with numpy < 1.9
+            except AttributeError:
+                return hash(bytes(x))  # hash(tuple(x)) would be faster when x.size < 1e4
+        else:
+            try:
+                return hash(x)
+            except TypeError: 
+                # Data type must be immutable, transform into tuple first
+                return hash(tuple(x))
 
     def mahalanobis_norm_squared(self, dx):
         """caveat: this can be negative because hessian is not guarantied
