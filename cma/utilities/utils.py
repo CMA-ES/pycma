@@ -497,6 +497,12 @@ class SolutionDict(DerivedDictBase):
         >>> d[x] = {'f': sum(x**2), 'iteration': 1}
         >>> assert d[x]['iteration'] == 1
         >>> assert d.get(x) == (d[x] if d.key(x) in d.keys() else None)
+        >>> y = [1,2,4]
+        >>> d[y] = {'f': sum([n ** 2 for n in y]), 'iteration': 1}
+        >>> assert d[y]['iteration'] == 1
+        >>> assert d.get(y) == (d[y] if d.key(y) in d.keys() else None)
+        >>> d[2] = 3
+        >>> assert d[2] == 3
 
     TODO: data_with_same_key behaves like a stack (see setitem and
     delitem), but rather should behave like a queue?! A queue is less
@@ -516,13 +522,23 @@ class SolutionDict(DerivedDictBase):
         return x
     def key(self, x):
         """compute key of ``x``"""
-        try:
-            return self._hash(np.ascontiguousarray(x).data.tobytes())  # much faster than tuple(.)
-        except AttributeError:
+        if isinstance(x, int):
+            # Do not hash key again
+            return x
+        elif isinstance(x, np.ndarray):
+            try: 
+                return hash(x.tobytes())
+            except AttributeError: 
+                if x.size < 10**4:
+                    return hash(tuple(x))
+                else:
+                    return hash(bytes(x))
+        else:
             try:
-                return self._hash(tuple(x))  # using sum(x) is slower, using x[0] is slightly faster
-            except TypeError:
-                return self._hash(x)
+                return hash(x)
+            except TypeError: 
+                # Data type must be immutable, transform into tuple first
+                return hash(tuple(x))
     def __setitem__(self, key, value):
         """define ``self[key] = value``"""
         key = self.key(key)
