@@ -3619,7 +3619,7 @@ class _CMAStopDict(dict):
 
         sigma_x_sigma_vec_x_sqrtdC = es.sigma * (es.sigma_vec.scaling * np.sqrt(es.dC))
         self._addstop('tolfacupx',
-                      np.any(sigma_x_sigma_vec_x_sqrtdC >
+                      any(sigma_x_sigma_vec_x_sqrtdC >
                           es.sigma0 * es.sigma_vec0 * opts['tolfacupx']))
         self._addstop('tolx',
                       all(sigma_x_sigma_vec_x_sqrtdC < opts['tolx']) and
@@ -3662,9 +3662,10 @@ class _CMAStopDict(dict):
                     np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l]))
         # iiinteger: stagnation termination can prevent to find the optimum
 
+        s = es.sigma / es.D.max()
         self._addstop('tolupsigma', opts['tolupsigma'] and
-                      es.sigma / np.max(es.D) > es.sigma0 * opts['tolupsigma'],
-                      es.sigma / np.max(es.D) if self._get_value else None)
+                      s > es.sigma0 * opts['tolupsigma'],
+                      s if self._get_value else None)
         try:
             self._addstop('timeout',
                           es.timer.elapsed > opts['timeout'],
@@ -3675,14 +3676,14 @@ class _CMAStopDict(dict):
             # else: raise
 
         if 11 < 3 and 2 * l < len(es.fit.histbest):  # TODO: this might go wrong, because the nb of written columns changes
-            tmp = np.array((-np.median(es.fit.histmedian[:l]) + np.median(es.fit.histmedian[l:2 * l]),
-                        - np.median(es.fit.histbest[:l]) + np.median(es.fit.histbest[l:2 * l])))
+            tmp = (-np.median(es.fit.histmedian[:l]) + np.median(es.fit.histmedian[l:2 * l]),
+                   - np.median(es.fit.histbest[:l]) + np.median(es.fit.histbest[l:2 * l]))
             es.more_to_write += [(10**t if t < 0 else t + 1) for t in tmp]  # the latter to get monotonicy
 
         if 1 < 3:
             # non-user defined, method specific
             # noeffectaxis (CEC: 0.1sigma), noeffectcoord (CEC:0.2sigma), conditioncov
-            idx = np.nonzero(es.mean == es.mean + 0.2 * sigma_x_sigma_vec_x_sqrtdC)[0]
+            idx = (es.mean == es.mean + 0.2 * sigma_x_sigma_vec_x_sqrtdC).nonzero()[0]
             self._addstop('noeffectcoord', any(idx), list(idx))
 #                         any([es.mean[i] == es.mean[i] + 0.2 * es.sigma *
 #                                                         (es.sigma_vec if np.isscalar(es.sigma_vec) else es.sigma_vec[i]) *
@@ -3694,9 +3695,9 @@ class _CMAStopDict(dict):
                 i = es.countiter % N
                 try:
                     self._addstop('noeffectaxis',
-                                 np.sum(es.mean == es.mean + 0.1 * es.sigma *
+                                  all(es.mean == es.mean + 0.1 * es.sigma *
                                      es.sm.D[i] * es.sigma_vec.scaling *
-                                     (es.sm.B[:, i] if len(es.sm.B.shape) > 1 else es.sm.B[0])) == N)
+                                     (es.sm.B[:, i] if len(es.sm.B.shape) > 1 else es.sm.B[0])))
                 except AttributeError:
                     pass
             self._addstop('tolconditioncov',
