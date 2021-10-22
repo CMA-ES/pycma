@@ -517,9 +517,6 @@ class SolutionDict(DerivedDictBase):
         super(SolutionDict, self).__init__(*args, **kwargs)
         self.data_with_same_key = {}
         self.last_iteration = 0
-    @staticmethod
-    def _hash(x):
-        return x
     def key(self, x):
         """compute key of ``x``"""
         if isinstance(x, int):
@@ -529,7 +526,7 @@ class SolutionDict(DerivedDictBase):
             try: 
                 return hash(x.tobytes())
             except AttributeError: 
-                if x.size < 10**4:
+                if x.size < 1e4:  # based on timing results
                     return hash(tuple(x))
                 else:
                     return hash(bytes(x))
