@@ -308,6 +308,11 @@ class ScaleCoordinates(ComposedFunction):
     """compose a (fitness) function with a scaling for each variable
     (more concisely, a coordinate-wise affine transformation).
 
+    After ``fun2 = cma.ScaleCoordinates(fun, multipliers, zero)``, we have
+    ``fun2(x) == fun(multipliers * (x - zero))``, where the size of
+    `multipliers` and `zero` is adapated to the size of `x`, in case by
+    recycling their last entry.
+
     >>> import numpy as np
     >>> import cma
     >>> f = cma.ScaleCoordinates(cma.ff.sphere, [100, 1])
@@ -330,9 +335,10 @@ class ScaleCoordinates(ComposedFunction):
             calling the `ScaleCoordinates` instance returns
             ``fitness_function(multipliers * (x - zero))``.
 
-        For both arguments, ``multipliers`` and ``zero``, to fit in
-        case the length of the given input, superfluous trailing
-        elements are ignored or the last element is recycled.
+        For both arguments, ``multipliers`` and ``zero``, to fit
+        the length of the given input, superfluous trailing
+        elements are ignored and the last element is recycled
+        if needed.
         """
         ComposedFunction.__init__(self,
                 [fitness_function, self.scale_and_offset])

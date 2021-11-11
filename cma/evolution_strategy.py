@@ -3803,7 +3803,8 @@ class _CMAParameters(object):
         self.N = N
         if ccovfac == 1:
             ccovfac = opts['CMA_on']  # that's a hack
-        self.popsize = None  # type: int - declaring the attribute, not necessary though
+        self.popsize = None  # type: int
+        """number of candidation solutions per iteration, AKA population size"""
         self.set(opts, ccovfac=ccovfac, verbose=verbose)
 
     def set(self, opts, popsize=None, ccovfac=1, verbose=True):
