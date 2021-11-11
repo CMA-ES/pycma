@@ -1613,10 +1613,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.sigma_vec *= np.ones(N)  # make sure to get a vector
             self.sigma_vec0 = self.sigma_vec if np.isscalar(self.sigma_vec) \
                                             else self.sigma_vec.copy()
-        stds = eval_vector(self.opts['CMA_teststds'], opts, N)
         if self.opts['CMA_diagonal']:  # is True or > 0
             # linear time and space complexity
-            self.sigma_vec = transformations.DiagonalDecoding(stds * np.ones(N))
             self.sm = sampler.GaussStandardConstant(N, randn=self.opts['randn'])
             self._updateBDfromSM(self.sm)
             if self.opts['CMA_diagonal'] is True:
@@ -1633,6 +1631,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                                       self.sp.c1,
                                                       self.sp.cmu)
         else:
+            stds = eval_vector(self.opts['CMA_teststds'], opts, N)
             if 11 < 3:
                 if hasattr(self.opts['vv'], '__getitem__') and \
                         'sweep_ccov' in self.opts['vv']:
