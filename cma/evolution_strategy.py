@@ -442,7 +442,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_dampsvec_fac='np.Inf  # tentative and subject to changes, 0.5 would be a "default" damping for sigma vector update',
     CMA_dampsvec_fade='0.1  # tentative fading out parameter for sigma vector update',
     CMA_teststds='None  # factors for non-isotropic initial distr. of C, mainly for test purpose, see CMA_stds for production',
-    CMA_stds='None  # multipliers for sigma0 in each coordinate, not represented in C, makes scaling_of_variables obsolete',
+    CMA_stds='None  # multipliers for sigma0 in each coordinate, not represented in C, better use `cma.ScaleCoordinates` instead',
     # CMA_AII='False  # not yet tested',
     CSA_dampfac='1  #v positive multiplier for step-size damping, 0.3 is close to optimal on the sphere',
     CSA_damp_mueff_exponent='0.5  # zero would mean no dependency of damping on mueff, useful with CSA_disregard_length option',
