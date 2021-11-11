@@ -336,7 +336,7 @@ def is_feasible(x, f):
 
     :See also: CMAOptions, ``CMAOptions('feas')``.
     """
-    return f is not None and not np.isnan(f)
+    return f is not None and not utils.is_nan(f)
 
 
 class _CMASolutionDict_functional(_SolutionDict):
@@ -2439,9 +2439,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.append(f)
             X.append(x)
         self.evaluations_per_f_value = int(evaluations)
-        if any(f is None or np.isnan(f) for f in fit):
+        if any(f is None or utils.is_nan(f) for f in fit):
             idxs = [i for i in range(len(fit))
-                    if fit[i] is None or np.isnan(fit[i])]
+                    if fit[i] is None or utils.is_nan(fit[i])]
             utils.print_warning("f-values %s contain None or NaN at indices %s"
                                 % (str(fit[:30]) + ('...' if len(fit) > 30 else ''),
                                    str(idxs)),
@@ -2600,19 +2600,19 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                     method_name='tell', class_name='CMAEvolutionStrategy',
                                     verbose=9, iteration=self.countiter)
                 raise
-        if any(f is None or np.isnan(f) for f in function_values):
+        if any(f is None or utils.is_nan(f) for f in function_values):
             idx_none = [i for i, f in enumerate(function_values) if f is None]
-            idx_nan = [i for i, f in enumerate(function_values) if f is not None and np.isnan(f)]
+            idx_nan = [i for i, f in enumerate(function_values) if f is not None and utils.is_nan(f)]
             m = np.median([f for f in function_values
-                           if f is not None and not np.isnan(f)])
+                           if f is not None and not utils.is_nan(f)])
             utils.print_warning("function values with index %s/%s are nan/None and will be set to the median value %s"
                                 % (str(idx_nan), str(idx_none), str(m)), 'ask',
                                 'CMAEvolutionStrategy', self.countiter)
             for i in idx_nan + idx_none:
                 function_values[i] = m
-        if not np.isfinite(function_values).all():
+        if not all(np.isfinite(float(val)) for val in function_values):
             idx = [i for i, f in enumerate(function_values)
-                   if not np.isfinite(f)]
+                   if not np.isfinite(float(f))]
             utils.print_warning("function values with index %s are not finite but %s."
                                 % (str(idx), str([function_values[i] for i in idx])), 'ask',
                                 'CMAEvolutionStrategy', self.countiter)
