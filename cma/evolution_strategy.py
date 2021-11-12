@@ -3637,29 +3637,29 @@ class _CMAStopDict(dict):
         self._addstop('tolfunhist',
                       len(es.fit.hist) > 9 and
                       historic_fitness_range < opts['tolfunhist'])
-
-        # worst seen false positive: table N=80,lam=80, getting worse for fevals=35e3 \approx 50 * N**1.5
-        # but the median is not so much getting worse
-        # / 5 reflects the sparsity of histbest/median
-        # / 2 reflects the left and right part to be compared
-        ## meta_parameters.tolstagnation_multiplier == 1.0
-        l = max(( 1.0 * opts['tolstagnation'] / 5. / 2, len(es.fit.histbest) / 10))
-        # TODO: why max(..., len(histbest)/10) ???
-        # TODO: the problem in the beginning is only with best ==> ???
-        if 11 < 3:  # print for debugging
-            print(es.countiter, (opts['tolstagnation'], es.countiter > N * (5 + 100 / es.popsize),
-                  len(es.fit.histbest) > 100,
-                  np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]),
-                  np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l])))
-        # equality should handle flat fitness
-        if l <= es.countiter:
-            l = int(l)  # doesn't work for infinite l
-            self._addstop('tolstagnation',  # leads sometimes early stop on ftablet, fcigtab, N>=50?
-                    1 < 3 and opts['tolstagnation'] and es.countiter > N * (5 + 100 / es.popsize) and
-                    len(es.fit.histbest) > 100 and 2 * l < len(es.fit.histbest) and
-                    np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]) and
-                    np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l]))
-        # iiinteger: stagnation termination can prevent to find the optimum
+        if opts['tolstagnation']:
+            # worst seen false positive: table N=80,lam=80, getting worse for fevals=35e3 \approx 50 * N**1.5
+            # but the median is not so much getting worse
+            # / 5 reflects the sparsity of histbest/median
+            # / 2 reflects the left and right part to be compared
+            ## meta_parameters.tolstagnation_multiplier == 1.0
+            l = max(( 1.0 * opts['tolstagnation'] / 5. / 2, len(es.fit.histbest) / 10))
+            # TODO: why max(..., len(histbest)/10) ???
+            # TODO: the problem in the beginning is only with best ==> ???
+            if 11 < 3:  # print for debugging
+                print(es.countiter, (opts['tolstagnation'], es.countiter > N * (5 + 100 / es.popsize),
+                    len(es.fit.histbest) > 100,
+                    np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]),
+                    np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l])))
+            # equality should handle flat fitness
+            if l <= es.countiter:
+                l = int(l)  # doesn't work for infinite l which can never happen anyways
+                self._addstop('tolstagnation',  # leads sometimes early stop on ftablet, fcigtab, N>=50?
+                        1 < 3 and opts['tolstagnation'] and es.countiter > N * (5 + 100 / es.popsize) and
+                        len(es.fit.histbest) > 100 and 2 * l < len(es.fit.histbest) and
+                        np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]) and
+                        np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l]))
+            # iiinteger: stagnation termination can prevent to find the optimum
 
         s = es.sigma / es.D.max()
         self._addstop('tolupsigma', opts['tolupsigma'] and
