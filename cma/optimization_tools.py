@@ -387,12 +387,13 @@ class BestSolution2(object):
     """minimal tracker of a smallest f-value with variable meta-info"""
     def __init__(self):
         self.f = np.inf
+        self.x = None
         self.info = None
         self.saved_count = None
         self.compared = 0
         "  number of overall compared values"
         self.previous = None
-    def update(self, f, info=None, info_construct=None):
+    def update(self, f, x=None, info=None, info_construct=None):
         """`info` may be a dictionary with everything we want to know,
         `info_construct` may be used to finalize versatile elements of
         `info`, like make a copy of an array within the info dictionary
@@ -402,6 +403,7 @@ class BestSolution2(object):
             self.previous = dict(self.__dict__)
             del self.previous['previous']  # otherwise we get a linked list of all previous entries
             self.f = f
+            self.x = x
             self.info = info_construct(info) if info_construct else info
             self.saved_count = self.compared
         return self

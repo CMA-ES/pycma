@@ -4698,7 +4698,7 @@ def fmin_con(objective_function, x0, sigma0,
         fval, gvals = f(x), constraints(x)
         alvals = _al(gvals)
         if all([gi <= 0 for gi in gvals]):
-            best_feasible_solution.update(fval,
+            best_feasible_solution.update(fval, x,
                 info={'x':x, 'f': fval, 'g':gvals, 'g_al':alvals})
         return fval + sum(alvals)
     def set_coefficients(es):
