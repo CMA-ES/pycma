@@ -4785,3 +4785,68 @@ def fmin_con(objective_function, x0, sigma0,
 
     es.con_archives = archives
     return es.result.xfavorite, es  # do not return es.best_feasible.x because it could be quite bad
+
+def fmin_con2(objective_function, x0, sigma0,
+             constraints=no_constraints,
+             find_feasible_first=False,
+             find_feasible_final=False,
+             kwargs_confit=None, **kwargs_fmin):
+    """optimize f with inequality constraints g.
+
+    `constraints` is a function that returns a list of constraints values,
+    where feasibility means <= 0. An equality constraint ``h(x) == 0`` can
+    be expressed as two inequality constraints like ``[h(x) - eps, -h(x) -
+    eps]`` with ``eps >= 0``.
+
+    `find_feasible_...` arguments toggle to search for a feasible solution
+    before and after the constrained problem is optimized. Because this can
+    not work with equality constraints, where the feasible domain has zero
+    volume, find-feasible are off by default.
+
+    `kwargs_confit` are keyword arguments to instantiate
+    `constraints_handler.ConstrainedFitnessAL` which is optimized and
+    returned as `objective_function` attribute in the second return
+    argument (type `CMAEvolutionStrategy`).
+
+    See `cma.fmin` for further parameters ``**kwargs``.
+
+"""
+    if kwargs_confit is None:
+        kwargs_confit = {}  # does not change default parameter value
+    kwargs_fmin.setdefault('options', {}).setdefault('tolstagnation', 0)
+
+    logging = _al_set_logging(None, kwargs_fmin, kwargs_confit) # the latter overwrites the former
+    if logging is not None:
+        kwargs_confit['logging'] = logging
+
+    # instantiate unconstrained fitness
+    fun = _constraints_handler.ConstrainedFitnessAL(
+            objective_function, constraints,
+            find_feasible_first=find_feasible_first,
+            **kwargs_confit)
+
+    # append fun.update to callback option argument
+    if 'callback' not in kwargs_fmin or kwargs_fmin['callback'] is None:
+        kwargs_fmin['callback'] = [fun.update]
+    else:
+        try: kwargs_fmin['callback'] = list(kwargs_fmin['callback']) + [fun.update]
+        except: kwargs_fmin['callback'] = [kwargs_fmin['callback']] + [fun.update]
+
+    # optimize fun using fmin2
+    _, es = fmin2(fun, x0, sigma0, **kwargs_fmin)
+    assert es.objective_function is fun  # we could also just assign it
+
+    # optimize to feasible solution, in case
+    if find_feasible_final:
+        x = fun.find_feasible(es)  # uses es.optimize
+        if kwargs_fmin['options'].get('eval_final_mean', None):
+            # this doesn't make sense if xfavorite is returned anyway
+            g = constraints(es.result.xfavorite)
+            fun._update_best(x, objective_function(x), g, fun.al(g))
+            x = fun.best_feas.x
+    else:
+        x = es.result.xfavorite
+
+    es.best_feasible = fun.best_feas
+    es.con_archives = fun.archives
+    return x, es  # fun == es.objective_function
