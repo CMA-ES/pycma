@@ -1634,7 +1634,7 @@ class Logger(object):
 
     def __init__(self, obj_or_name, attributes=None, callables=None,
                  path='outcmaes/', name=None, labels=None,
-                 delete=False):
+                 delete=False, plot_transformations=None):
         """`obj_or_name` is the instance that we want to observe,
 
         or a name, or an absolute path to a file.
@@ -1665,6 +1665,7 @@ class Logger(object):
         # handle output location, TODO: streamline
         self.path = path
         self._delete = delete
+        self.plot_transformations = plot_transformations
         self._autoname(obj_or_name)  # set _name attribute which is the output filename
         if self._name != os.path.abspath(self._name):
             self._name = self._create_path(path) + self._name
@@ -1869,6 +1870,8 @@ class Logger(object):
             plot(range(1, n + 1), self.data,
                  label=self.labels[0] if self.labels else None)
             return
+        if transformations is None:
+            transformations = self.plot_transformations
         color = iter(plt.cm.get_cmap('plasma')(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
         idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
         labels = iter(self.labels)
