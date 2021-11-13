@@ -4572,7 +4572,8 @@ def fmin(objective_function, x0, sigma0,
 def no_constraints(x):
     return []
 
-def _al_set_logging(al, kwargs):
+def _al_set_logging(al, kwargs, *more_kwargs):
+    """try to figure a good logging value from various verbosity options"""
     def extract_logging_value(kwargs):
         if 'logging' in kwargs:
             return kwargs['logging']
@@ -4584,9 +4585,13 @@ def _al_set_logging(al, kwargs):
                 return ko['verb_log']
             if 'verbose' in ko and ko['verbose'] <= -3:
                 return False
+    kwargs = dict(kwargs)
+    for m in more_kwargs:
+        kwargs.update(m)
     logging = extract_logging_value(kwargs)
-    if logging is not None:
+    if logging is not None and al is not None:
         al.logging = logging
+    return logging
 
 def fmin_con(objective_function, x0, sigma0,
              g=no_constraints, h=no_constraints, post_optimization=False, **kwargs):
