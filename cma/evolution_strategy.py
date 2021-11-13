@@ -498,7 +498,7 @@ def cma_default_options_(  # to get keyword completion back
     verbose='3  #v verbosity e.g. of initial/final message, -1 is very quiet, -9 maximally quiet, may not be fully implemented',
     verb_append='0  # initial evaluation counter, if append, do not overwrite output files',
     verb_disp='100  #v verbosity: display console output every verb_disp iteration',
-    verb_filenameprefix=CMADataLogger.default_prefix + '  # output path and filenames prefix',
+    verb_filenameprefix=CMADataLogger.default_prefix + '  # output path (folder) and filenames prefix',
     verb_log='1  #v verbosity: write data to files every verb_log iteration, writing can be'\
                   ' time critical on fast to evaluate functions',
     verb_log_expensive='N * (N <= 50)  # allow to execute eigendecomposition for logging every verb_log_expensive iteration,'\
