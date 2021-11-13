@@ -4604,7 +4604,9 @@ def _al_set_logging(al, kwargs, *more_kwargs):
 def fmin_con(objective_function, x0, sigma0,
              g=no_constraints, h=no_constraints, post_optimization=False,
              archiving=True, **kwargs):
-    """optimize f with constraints g (inequalities) and h (equalities).
+    """Deprecated: use `cma.ConstrainedFitnessAL` or `cma.fmin_con2` instead.
+
+    Optimize f with constraints g (inequalities) and h (equalities).
 
     Construct an Augmented Lagrangian instance ``f_aug_lag`` of the type
     `cma.constraints_handler.AugmentedLagrangian` from `objective_function`
