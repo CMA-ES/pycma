@@ -1866,24 +1866,26 @@ class Logger(object):
             m = 0
         if clear:
             plt.gca().clear()
-        if m < 2:  # data cannot be indexed like data[:,0]
-            plot(range(1, n + 1), self.data,
-                 label=self.labels[0] if self.labels else None)
-            return
         if transformations is None:
             transformations = self.plot_transformations
-        color = iter(plt.cm.get_cmap('plasma')(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
-        idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
-        labels = iter(self.labels)
-        for i in range(m):
-            column = self.data[:, i]
-            try: column = transformations[i](column)
-            except (IndexError, TypeError): pass
-            plot(range(1, n + 1), column,
-                 color=next(color),
-                 label=next(labels) if i in idx_labels else None,
-                 linewidth=1 - 0.7 * m / (m + 10))
-            # plt.gca().get_lines()[0].set_color(next(color))
+        if m < 2:  # data cannot be indexed like data[:,0]
+            try: data = transformations[0](self.data)
+            except (IndexError, TypeError): data = self.data
+            plot(range(1, n + 1), data,
+                 label=self.labels[0] if self.labels else None)
+        else:
+            color = iter(plt.cm.get_cmap('plasma')(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
+            idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
+            labels = iter(self.labels)
+            for i in range(m):
+                column = self.data[:, i]
+                try: column = transformations[i](column)
+                except (IndexError, TypeError): pass
+                plot(range(1, n + 1), column,
+                    color=next(color),
+                    label=next(labels) if i in idx_labels else None,
+                    linewidth=1 - 0.7 * m / (m + 10))
+                # plt.gca().get_lines()[0].set_color(next(color))
         if self.labels:
             plt.legend(framealpha=0.3)  # more opaque than not
         plt.gcf().canvas.draw()  # allows online use
