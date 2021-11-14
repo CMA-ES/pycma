@@ -1153,6 +1153,34 @@ class ConstrainedFitnessAL:
             return sum([g**2 for g in self.G[-1] if g > 0])  # same as sum(self.al(x))
         return self.F_plus_sum_al_G[-1]
 
+    def find_feasible(self, es, termination=('maxiter', 'maxfevals')):  # es: OOOptimizer, find_feasible -> solution
+        """find feasible solution by calling ``es.optimize(self)``.
+
+        Return best ever feasible solution `self.best_feas.x`.
+        See also `self.best_feas.info`.
+
+        Terminate when either (another) feasible solution was found or any
+        of the `termination` keys is matched in `es.stop()`.
+    """
+        # we could compare self.best_feas.count with self.count_call
+        # but can't really know whether count_call was done in the last iteration
+        x = es.result.xfavorite
+        g = self.constraints(x)
+        if all(gi <= 0 for gi in g):
+            self._update_best(x, self.fun(x), g, self.al(g))
+        else:
+            self.finding_feasible = True
+            while self.finding_feasible and not any(any(d == m for m in termination)
+                                                    for d in es.stop()):
+                es.optimize(self, 1, callback=self.update)  # callback is not really needed
+        # warn when no feasible solution was found
+        if self.best_feas.x is None or self.finding_feasible:
+            _warnings.warn("ConstrainedFitnessAL.find_feasible: "
+                           " No {}feasible solution found, stop() == {}".format(
+                               "new " if self.best_feas.x is not None else "", es.stop()))
+        assert self.best_feas.x is not None or self.finding_feasible, (self.best_feas, self.finding_feasible)
+        return self.best_feas.x
+
     @property
     def _best_fg(self):
         i = np.argmin(self.F_plus_sum_al_G)
