@@ -4324,9 +4324,9 @@ def fmin(objective_function, x0, sigma0,
                 # print('large basemul %s --> %s; maxiter %s' % (popsize_multiplier, opts['popsize'], opts['maxiter']))
 
             if not callable(objective_function) and callable(parallel_objective):
-                objective_function = lambda x, *args: parallel_objective([x], *args)[0]
-                objective_function.__doc__ = ('created from `parallel_objective`, '
-                                              'assign to `None` to pickle')
+                def objective_function(x, *args):
+                    """created from `parallel_objective` argument"""
+                    return parallel_objective([x], *args)[0]
 
             # recover from a CMA object
             if irun == 0 and isinstance(x0, CMAEvolutionStrategy):
