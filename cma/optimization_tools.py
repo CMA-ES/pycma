@@ -389,8 +389,8 @@ class BestSolution2(object):
         self.f = np.inf
         self.x = None
         self.info = None
-        self.saved_count = None
-        self.compared = 0
+        self.count_saved = None
+        self.count = 0
         "  number of overall compared values"
         self.previous = None
     def update(self, f, x=None, info=None, info_construct=None):
@@ -398,14 +398,14 @@ class BestSolution2(object):
         `info_construct` may be used to finalize versatile elements of
         `info`, like make a copy of an array within the info dictionary
         """
-        self.compared += 1
-        if self.compared == 1 or (np.isfinite(f) and (not np.isfinite(self.f) or f < self.f)):
+        self.count += 1
+        if self.count == 1 or (np.isfinite(f) and (not np.isfinite(self.f) or f < self.f)):
             self.previous = dict(self.__dict__)
             del self.previous['previous']  # otherwise we get a linked list of all previous entries
             self.f = f
             self.x = x
             self.info = info_construct(info) if info_construct else info
-            self.saved_count = self.compared
+            self.count_saved = self.count
         return self
     def __str__(self):
         return str(self.__dict__)
