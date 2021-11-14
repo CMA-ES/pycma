@@ -11,6 +11,7 @@ from .utilities.utils import rglen, is_
 from .utilities.math import Mh as _Mh, moving_average
 from .logger import Logger as _Logger  # we can assign _Logger = cma.logger.LoggerDummy to turn off logging
 from .transformations import BoxConstraintsLinQuadTransformation
+from .optimization_tools import BestSolution2
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
@@ -674,11 +675,20 @@ def _log_feas_events(s):
     return [i + 0.5 * (gi > 0) - 0.25 + 0.2 * np.tanh(gi) for i, gi in enumerate(s.g)
             ] + [len(s.g) + np.any(np.asarray(s.g) > 0)]
 
+def constraints_info_dict(count, x, f, g, g_al):
+    """return dictionary with arg values, mainly there to unify names"""
+    return {'x': x,  # caveat: x is not a copy
+            'f': f, 'g': g, 'f_al': f + sum(g_al), 'g_al': g_al,
+            'count': count}
+
 class AugmentedLagrangian(object):
     """Augmented Lagrangian with adaptation of the coefficients
 
     for minimization, implemented after Atamna et al FOGA 2017,
     Algorithm 1 and Sect 8.2, https://hal.inria.fr/hal-01455379/document.
+
+    `cma.ConstrainedFitnessAL` provides a (more) user-friendly interface to
+    the `AugmentedLagrangian` class.
 
     Input `dimension` is the search space dimension, boolean `equality`
     may be an iterable of length of number of constraints indicating the
@@ -777,6 +787,10 @@ class AugmentedLagrangian(object):
     def is_initialized(self):
         try: return all(self._initialized)
         except TypeError: return bool(self._initialized)
+    @property
+    def count_initialized(self):
+        """number of constraints with initialized coefficients"""
+        return 0 if self.mu is None else sum(self._initialized * (self.mu > 0))
     @property
     def feasibility_ratios(self):
         """or bias for equality constraints, versatile interface may change"""
@@ -968,4 +982,226 @@ class AugmentedLagrangian(object):
             for logger in self.loggers:
                 logger.push()
             self.logger_mu_conditions and self.logger_mu_conditions.push()
+
+def _get_favorite_solution(es):
+    "avoid unpicklable lambda construct"
+    return es.ask(1, sigma_fac=0)[0]
+class ConstrainedFitnessAL:
+    """Construct an unconstrained objective function from constraints.
+
+    This class constructs an unconstrained "fitness" function (to be
+    minimized) from an inequality constraints function, which returns a
+    list of constraint values, and an objective function. An equality
+    constraint ``h(x) == 0`` must be expressed as two inequality
+    constraints like ``[h(x) - eps, -h(x) - eps]`` with ``eps >= 0``.
+    Constraint values <= 0 are considered feasible.
+
+    The `update` method of the class instance needs to be called after each
+    iteration. Depending on the setting of `which`, `update` may call
+    ``get_solution(es)`` which shall return the solution to be used for the
+    constraints handling update, by default ``_get_favorite_solution ==
+    lambda es: es.ask(1, sigma_fac=0)[0]``. The additional evaluation of
+    objective and constraints is avoided by the default ``which='best'``,
+    using the best solution in the current iteration.
+
+    `find_feasible_first` optimizes to get a feasible solution first, which
+    only works if no equality constraints are implemented. For this reason
+    the default is `False`.
+
+    Minimal example (verbosity set for doctesting):
+
+    >>> import cma
+    >>> def constraints(x):  # define the constraint
+    ...     return [x[0] + 1, x[1]]  # shall be <= 0
+    >>> cfun = cma.ConstrainedFitnessAL(cma.ff.sphere, constraints, find_feasible_first=True)
+    >>> x, es = cma.fmin2(cfun, 3 * [1.1], 0.1,
+    ...                   {'tolstagnation': 0, 'verbose':-9},  # verbosity for doctest only
+    ...                   callback=cfun.update)
+    >>> x = es.result.xfavorite
+
+    The best `x` return value of `fmin2` may not be useful, because the
+    underlying function changes over time. Therefore, we rather use
+    `es.result.xfavorite`. However, this is still not guarantied to be a
+    feasible solution. Alternatively, `cfun.best_feas.x` contains the best
+    evaluated feasible solution. However, this is not necessarily a good
+    solution, see below.
+
+    >>> assert sum((x - [-1, 0, 0])**2) < 1e-9, x
+    >>> assert es.countevals < 2200, es.countevals
+    >>> assert cfun.best_feas.f < 10, str(cfun.best_feas)
+    >>> # print(es.countevals, cfun.best_feas.__dict__)
+
+    We can make sure to find (another) truly feasible solution close to
+    `es.result.xfavorite` by using the current `CMAEvolutionStrategy`
+    instance `es`:
+
+    >>> x = cfun.find_feasible(es)  # uses es.optimize to find (another) feasible solution
+    >>> assert constraints(x)[0] <= 0, (x, cfun.best_feas.x)
+    >>> assert cfun.best_feas.f < 1 + 2e-6, str(cfun.best_feas)
+
+    Details: The fitness, to be minimized, is changing over time such that
+    the overall minimal value does not indicate the best solution.
+
+    The construction is based on the `AugmentedLagrangian` class.
+
+    `find_feasible` omits `f + sum_i lam_i g_i` in the fitness and only
+    optimizes for `sum (g_i > 0) * g_i**2`. This works well with
+    `CMAEvolutionStrategy` but may easily fail with solvers that do not
+    consistently pass over the optimum in search space but approach the
+    optimum from one side only.
+
+    An equality constraint, h(x) = 0, cannot be handled like h**2 <= 0,
+    because the Augmented Lagrangian requires the derivative at h == 0 to
+    be non-zero. Using |h| <= 0 leads to divergence of coefficient mu and
+    the condition number. The best way is apparently using the two
+    inequality constraints [h <= 0, -h <= 0], which seems to work perfectly
+    well. The underlying `AugmentedLagrangian` class also accepts equality
+    constraints.
+
+"""
+    archive_aggregators = (_g_pos_max, _g_pos_sum, _g_pos_squared_sum)
+    def __init__(self, fun, constraints,
+                 dimension=None,
+                 which='best',
+                 find_feasible_first=False,
+                 get_solution=_get_favorite_solution,
+                 logging=None,
+                 archives=archive_aggregators,
+                 ):
+        """constructor with lazy initialization.
+
+        If ``which in ['mean', 'solution']``, `get_solution` is called
+        (with the argument passed to the `update` method) to determine the
+        solution used to update the AL coefficients.
+
+        If `find_feasible_first`, only the constraints are optimized until
+        the first (fully) feasible solution is found.
+
+        `logging` is the iteration gap for logging constraints related
+        data, in `AugmentedLagrangian`. 0 means no logging and negative
+        values have unspecified behavior.
+
+        `archives` are the aggregator functions for constraints for
+        non-dominated biobjective archives. By default, the second
+        objective is ``max(g_+)``, ``sum(g_+)`` or ``sum(g_+^2)``,
+        respectively. ``archives=True`` invokes the same behavior.
+        ``archives=False`` or an empty `tupel` prevents maintaining
+        archives.
+
+        """
+        self.fun = fun
+        self.constraints = constraints
+        self.dimension = dimension
+        self.get_solution = get_solution
+        self.which = which
+        self.finding_feasible = find_feasible_first
+        self.logging = logging
+        self.omit_f_calls_when_possible = True
+        self._al = None
+        self.F = []
+        self.G = []
+        self.F_plus_sum_al_G = []
+        self.Offset = []  # not in use
+        self.best_aug  = BestSolution2()
+        self.best_feas = BestSolution2()
+        self.best_f_plus_gpos = BestSolution2()
+        try:  # treat archives as list of constraints aggregation functions
+            self.archives = [ConstrainedSolutionsArchive(fun) for fun in archives]
+        except TypeError:  # treat archives as flag
+            if self.archives:
+                self.archives = [ConstrainedSolutionsArchive(fun) for fun in
+                                 ConstrainedFitnessAL.archive_aggregators]
+            else:
+                self.archives = []
+        self.count_calls = 0
+        self.count_updates = 0
+        self._set_coefficient_counts = []
+    def _reset_arrays(self):
+        self.F, self.G, self.F_plus_sum_al_G, self.Offset = [], [], [], []
+
+    @property
+    def al(self):
+        """`AugmentedLagrangian` class instance"""
+        if not self._al and self.dimension:
+            self._al = AugmentedLagrangian(self.dimension)
+            if self.logging is not None:
+                self._al.logging = self.logging
+        return self._al
+
+    def set_mu_lam(self, mu, lam):
+        """set AL coefficients"""
+        self.al.set_mu_lam(mu, lam)
+
+    def initialize(self, dimension):
+        """set search space dimension explicitely"""
+        self.dimension = dimension
+
+    def __call__(self, x):
+        if not self.dimension:
+            self.initialize(len(x))
+        self.count_calls += 1
+        self.G += [self.constraints(x)]
+        if np.all([g <= 0 for g in self.G[-1]]):
+            self.finding_feasible = False  # found
+        self.F += [np.nan if self.finding_feasible and self.omit_f_calls_when_possible
+                   else self.fun(x)]
+        g_al = self.al(self.G[-1])
+        self.F_plus_sum_al_G += [self.F[-1] + sum(g_al)]
+        self._update_best(x, self.F[-1], self.G[-1], g_al)
+        if self.finding_feasible:
+            # the boundary of sum(g) can still be a sharp ridge, even when one side is a plateau
+            return sum([g**2 for g in self.G[-1] if g > 0])  # same as sum(self.al(x))
+        return self.F_plus_sum_al_G[-1]
+
+    @property
+    def _best_fg(self):
+        i = np.argmin(self.F_plus_sum_al_G)
+        return self.F[i], self.G[i]
+
+    def _fg_values(self, es):
+        """f, g values used to update the Augmented Lagrangian coefficients"""
+        if self.which == 'mean' or self.which == 'solution':
+            x = self.get_solution(es)
+            return self.fun(x), self.constraints(x)
+        else:
+            return self._best_fg
+    def _update_best(self, x, f, g, g_al=None):
+        """keep track of best solution and best feasible solution"""
+        if g_al is None:
+            g_al = self.al(g)
+        d = constraints_info_dict(self.count_calls, x, f, g, g_al)
+        self.best_aug.update(d['f_al'], x, d)
+        self.best_f_plus_gpos.update(f + sum([gi for gi in g if gi > 0]), x, d)
+        if all([gi <= 0 for gi in g]):
+            self.best_feas.update(f, x, d)
+        if np.isfinite(f):
+            for a in self.archives:
+                a.update(f, g, d)
+
+    def update(self, es):
+        """update AL coefficitions, may be used as callback to `OOOptimizer.optimize`
+        """
+        self.count_updates += 1
+        if not self.dimension:
+            self.initialize(len(self.solution(es)))
+        if not self.al.is_initialized and np.isfinite(self.F).all():
+            s = self.al.count_initialized
+            self.al.set_coefficients(self.F, self.G)
+            if self.al.count_initialized > s:
+                self._set_coefficient_counts += [self.count_updates]
+        f, g = self._fg_values(es)
+        if np.isfinite(f):
+            self.al.update(f, g)
+        self.log_in_es(es, f, g)
+        self._reset_arrays()
+
+    def log_in_es(self, es, f, g):
+        """a hack to have something in the cma-logger divers plot"""
+        g_pos = sum([gi * (gi > 0) for gi in g])
+        al_pen = sum(self.al(g))  # Lagrange penalization, equals zero initially, may also be negative
+        try:
+            es.more_to_write += [f, g_pos if g_pos else np.nan,
+                                    al_pen if al_pen else np.nan]  # initial zeros mess up log plot
+        except:
+            pass
 
