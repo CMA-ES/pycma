@@ -4,7 +4,7 @@
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 # __package__ = 'cma'
 import warnings as _warnings
-import collections as _collections
+import collections as _collections, functools as _functools
 import numpy as np
 from numpy import logical_and as _and, logical_or as _or, logical_not as _not
 from .utilities.utils import rglen, is_
@@ -675,6 +675,65 @@ def _log_feas_events(s):
     return [i + 0.5 * (gi > 0) - 0.25 + 0.2 * np.tanh(gi) for i, gi in enumerate(s.g)
             ] + [len(s.g) + np.any(np.asarray(s.g) > 0)]
 
+class CountLastSameChanges:
+    """An array/list of successive same-sign counts.
+
+    ``.same_changes[i]`` counts how often the same sign was successively
+    observed during ``update(..., i, change)``. When the sign flips,
+    ``.same_changes[i]`` is reset to 1 or -1.
+
+    `init` needs to be called before the class instance can be used.
+    A valid use case is ``lsc = CountLastSameChanges().init(dimension)``.
+
+    TODO: parameters may need to depend on population size?
+    """
+    def __init__(self, parent=None):
+        self.same_changes = None
+        self.parent = parent  # get easy access for hacks, not in use
+        "  count of the number of changes with the same sign, where"
+        "  the count sign signifies the sign"
+        self.chi_exponent_threshold = None  # waiting and ramp up time
+        self.chi_exponent_factor = None  # steepness of ramp up
+        "  increase chi exponent up to given threshold, can make up for dimension dependent chi"
+    def init(self, dimension, force=False):
+        """do not overwrite user-set values unless `force`"""
+        if force or self.same_changes is None:
+            self.same_changes = dimension * [0]
+        if force or self.chi_exponent_threshold is None:  # threshold for number of consecutive changes
+            # self.chi_exponent_threshold = 5 + self.dimension**0.5  # previous value, probably too small in >- 20-D
+            # self.chi_exponent_threshold = 5 + self.dimension**0.75  # sweeps in aug-lag4-mu-update.ipynv
+            self.chi_exponent_threshold = 2 + self.dimension 
+        if force or self.chi_exponent_factor is None:  # factor used in shape_exponent
+            # self.chi_exponent_factor = 3 / dimension**0.5 # previous value
+            # self.chi_exponent_factor = 1 * dimension**0.25 / self.chi_exponent_threshold  # steepness of ramp up
+            self.chi_exponent_factor = 4 / self.chi_exponent_threshold  # steepness of ramp up
+        return self
+    @property
+    def dimension(self):
+        return len(self.same_changes)
+    def update(self, i, change):
+        """update ``same_changes[i]`` count based on the sign of `change`"""
+        if change * self.same_changes[i] < 0:
+            self.same_changes[i] = 0
+        self.same_changes[i] += change
+        return self
+    def shape_exponent(self, i):
+        """return value to be added to exponent from change count.
+
+        return a positive/negative value (or zero) when the last change was
+        respectively postive/negative.
+
+        The value is zero for the first `chi_exponent_threshold` same changes
+        and increases linearly for the next `chi_exponent_threshold` same changes
+        and then stays at the threshold value as long as the change does not
+        flip sign.
+        """
+        d = self.same_changes[i]
+        s = np.sign(d)
+        d -= s * self.chi_exponent_threshold  # wait until increase
+        d *= d * s > 0  # sign must not have changed
+        return self.chi_exponent_factor * s * min((self.chi_exponent_threshold, s * d))  # bound change
+
 def constraints_info_dict(count, x, f, g, g_al):
     """return dictionary with arg values, mainly there to unify names"""
     return {'x': x,  # caveat: x is not a copy
@@ -738,29 +797,85 @@ class AugmentedLagrangian(object):
     suboptimal. Setting ``self.chi_domega = 1.15`` as is the current
     default seems to give better results than the original setting.
 
+    More testing based on the simpler `ConstrainedFitnessAL` interface:
+
+    >>> import cma
+    >>> for algorithm, evals in zip((0, 1, 2, 3), (2000, 2200, 1500, 1800)): 
+    ...     alf = cma.ConstrainedFitnessAL(cma.ff.sphere, lambda x: [x[0] + 1], 3,
+    ...                                    find_feasible_first=True)
+    ...     _ = alf.al.set_algorithm(algorithm)
+    ...     alf.al.logging = False
+    ...     x, es = cma.fmin2(alf, 3 * [1], 0.1, {'verbose':-9, 'seed':algorithm},  # verbosity+seed for doctest only
+    ...                       callback=alf.update)
+    ...     assert sum((es.mean - [-1, 0, 0])**2) < 1e-9, (algorithm, es.mean)
+    ...     assert es.countevals < evals, (algorithm, es.countevals)
+    ...     assert alf.best_feas.f < 10, (algorithm, str(alf.best_feas))
+    ...     # print(algorithm, es.countevals, ) #alf.best_feas.__dict__)
+
 """
-    def __init__(self, dimension, equality=False, chi_domega=2**0.2):
-        """if ``chi_domega is None``, set to the original (worse) setting ``2**(0.2 / dimension)``"""
+    def __init__(self, dimension, equality=False):
+        """use `set_algorithm()` and ``set_...()`` methods to change defaults"""
+        self.algorithm = 0  # 1 = original, < 1 is now default
         self.dimension = dimension  # maybe not desperately needed
         self.lam, self.mu = None, None  # will become np arrays
         self._initialized = np.array(False)  # only used for setting, not for update
         self._equality = np.array(equality, dtype=bool)
-        self.k1 = 3
         self.k2 = 5
         self.dgamma = 5  # damping for lambda change
-        if chi_domega:
-            self.chi_domega = chi_domega  # 2**0.2 seems to work better than the default
-        else:
-            self.chi_domega = 2**(1. / 5 / dimension)  # factor for mu change, 5 == domega
+        self.mucdf3_horizon = int(5 + self.dimension**1)
+        "  number of data to compute cdf for mu adaptation"
         self.f, self.g = 2 * [None]  # store previous values
         self.count = 0  # number of actual updates after any mu > 0 was set
         self.count_g_in_penalized_domain = 0  # will be an array
-        "number of times g induced a penality in __call__ since last update"
+        "  number of times g induced a penality in __call__ since last update"
+        self.count_mu_last_same_changes = CountLastSameChanges()
+        "  number of same changes of mu, -3 means it decreased in all last three iterations"
+        self.counts = _collections.defaultdict(int)
+        self.g_history = DequeCDF(maxlen=self.dimension + 20)
+        "  g-values from calling update"
+        self.g_all = _collections.defaultdict(_functools.partial(DequeCDF, maxlen=2 * self.dimension + 20))
+        "  all g-values from calling the class, recorded but not in use"
 
         self.count_calls = 0
         self.lam_opt = None  # only for display in logger
         self.logging = 1
+        self._set_parameters()
         self._init_()
+
+    def set_atamna2017(self):
+        """Atamna et al 2017 parameter settings"""
+        self.k1 = 3
+        self.chi_domega = 2**(1. / 5 / self.dimension)  # factor for mu change, 5 == domega
+        return self
+    def set_dufosse2020(self):
+        """Dufosse & Hansen 2020 parameter settings"""
+        self.k1 = 10
+        self.chi_domega = 2**(1. / self.dimension**0.5)
+        return self
+    def _set_parameters(self):
+        """set parameters based on the value of `self.algorithm`"""
+        if self.algorithm <= 0:  # default is 3
+            self.set_atamna2017()
+        elif self.algorithm in (1, 3, 4):
+            self.set_atamna2017()
+        elif self.algorithm == 2:
+            self.set_dufosse2020()
+        else:
+            raise ValueError("Algorithm id {} is not recognized".format(self.algorithm))
+    def set_algorithm(self, algorithm=None):
+        """if algorithm not `None`, set it and return self,
+
+        otherwise return current algorithm value which should be an integer.
+
+        Values < 1 are the (new) default, 1 == Atamna et al 2017, 2 == modified 1.
+        """
+        if algorithm is None:  # like get_algorithm
+            return self.algorithm
+        elif algorithm != self.algorithm:
+            # modify parameters, if necessary
+            self.algorithm = algorithm
+            self._set_parameters()
+        return self
 
     def _init_(self):
         """allow to reset the logger with a single call"""
@@ -773,8 +888,11 @@ class AugmentedLagrangian(object):
             self.loggers.append(_Logger(self, callables=[_log_mu],
                             labels=['lg(mu)'], name='outauglagmu'))
             self.loggers.append(_Logger(self, callables=[_log_feas_events],
-                            labels=['sign(gi) + i and overall feasibility'], name='outauglagfeas'))
-            self.logger_mu_conditions = _Logger("mu_conditions", labels=[
+                            labels=['sign(gi) + i and overall feasibility'],
+                            name='outauglagfeas'))
+            self.logger_mu_conditions = None
+            if self.algorithm in (1, 2):
+                self.logger_mu_conditions = _Logger("mu_conditions", labels=[
                             r'$\mu$ increases',
                             r'$\mu g^2 < %.0f |\Delta h| / n$' % self.k1,
                             r'$|\Delta g| < |g| / %.0f$' % self.k2])
@@ -906,6 +1024,8 @@ class AugmentedLagrangian(object):
         """
         try: self.count_g_in_penalized_domain += self.mu * g > -1 * self.lam
         except TypeError: pass
+        for i in range(len(g)):
+            self.g_all[i].append(g[i])
         if self.lam is None:
             return [0.] * len(g)
         assert len(self.lam) == len(self.mu)
@@ -921,6 +1041,63 @@ class AugmentedLagrangian(object):
         return [self.lam[i] * g[i] + 0.5 * self.mu[i] * g[i]**2
                 for i in range(len(g))]
 
+    def muplus2(self, g, i, threshold=0.4):
+        """provisorial function to correct mu plus condition, original is `True`"""
+        # cplus = g[i] > 0 or self.g[i] > 0   # is too strong -> too small mu as learning rate
+        n = int(1 + self.dimension**0.5)  # number of data to compute cdf
+        cplus = not threshold < self.g_history.cdf(i, len_=n + n % 2) < 1 - threshold
+        return cplus and g[i] * self.g[i] > 0
+    def muminus2(self, g, i, threshold=0.05):
+        """provisorial function to correct mu minus condition, original is `True`"""
+        res = threshold < self.g_history.cdf(i) < 1 - threshold
+        #if not res:
+        #    print('muminus1 %f threshold triggered var %d: %f' % (threshold, i, self.g_history.cdf(i)))
+        return res
+    def muplus3(self, g, i, threshold=0.95):
+        """return `True` if mu should be increased, else `False`"""
+        if g[i] > 0:
+            return True
+        if g[i] * self.mu[i] > -self.lam[i]:  # in penalized but feasible domain
+            p_feas = self.g_history.cdf(i, len_=self.mucdf3_horizon)
+            # p_feas = self.g_all[i].cdf1(len_=n)  # TODO: try to understand why this leads to increase of mu on a linear fct with n linear constraints
+                                                   #       p_feas seem to be smaller than 0.5, but why?
+            if p_feas > threshold:
+                """too many feasible solutions were penalized, the constraint may be inactive,
+                hence we move the penalization boundary closer to the constraint boundary by
+                increasing mu"""
+                return True
+        return False
+    def muminus3(self, g, i, threshold=0.9):
+        """return `True` if mu should be reduced, else `False`"""
+        p_feas = self.g_history.cdf(i, len_=self.mucdf3_horizon)
+        # p_feas = self.g_all[i].cdf1(len_=n)  # TODO: try to understand why this leads to increase of mu on a linear fct with n linear constraints
+        if p_feas < threshold and 0 > g[i]:  # * self.mu[i] > -1 * self.lam[i]:
+            """g is feasible but penalized and >10% are infeasible"""
+            return True
+        return False
+        # return g[i] < 0  # asymmetric condition is less desirable
+
+    def muplus4(self, g, i, threshold=0.95):
+        """return `True` if mu should be increased, else `False`"""
+        if self.g_all[i].cdf1(len_=2*self.dimension) == 0:  # all samples were infeasible
+            return True
+        if g[i] * self.mu[i] > -self.lam[i]:  # in penalized but feasible domain
+            p_feas = self.g_history.cdf(i, len_=self.mucdf3_horizon)
+            if p_feas > threshold:
+                """too many feasible solutions were penalized, the constraint may be inactive,
+                hence we move the penalization boundary closer to the constraint boundary by
+                increasing mu"""
+                return True
+        return False
+    def muminus4(self, g, i, threshold=0.9):
+        """return `True` if mu should be reduced, else `False`"""
+        if g[i] * self.mu[i] < -1 * self.lam[i] and (
+                self.g_all[i].cdf1(len_=2*self.dimension) < 1):
+            """g is feasible but penalized and >10% are infeasible"""
+            return True
+        return False
+        # return g[i] < 0  # asymmetric condition is less desirable
+
     def update(self, f, g):
         """f is a scalar, g is a vector.
 
@@ -929,6 +1106,7 @@ class AugmentedLagrangian(object):
 
         Details: do nothing if Lagrange coefficients `lam` were not yet set.
         """
+        self.g_history.append(g)  # is a deque with maxlen
         if self.lam is None:
             try: self._count_noupdate += 1
             except AttributeError: self._count_noupdate = 1
@@ -946,6 +1124,7 @@ class AugmentedLagrangian(object):
                                 % self.chi_domega)
             dg = np.asarray(g) - self.g
             dh = f + sum(self(g)) - self.f - sum(self(self.g))  # using the same coefficients
+            self.count_mu_last_same_changes.init(len(self.mu))
             for i in range(len(self.lam)):
                 if self.logging > 0 and not (self.count + 1) % self.logging and self.logger_mu_conditions:
                     condk1 = bool(self.mu[i] * g[i]**2 < self.k1 * np.abs(dh) / self.dimension)
@@ -969,11 +1148,40 @@ class AugmentedLagrangian(object):
                     continue  # not in the original algorithm
                     # prevent that mu diverges temporarily (as observed)
                 # mu update
-                if self.mu[i] * g[i]**2 < self.k1 * np.abs(dh) / self.dimension or (
-                    self.k2 * np.abs(dg[i]) < np.abs(self.g[i])):  # this condition is always true if constraint i is not active
-                    self.mu[i] *= self.chi_domega**0.25  # 4 / 1 is the stationary odds ratio of increment / decrement
+                if self.algorithm == 1:
+                    if self.mu[i] * g[i]**2 < self.k1 * np.abs(dh) / self.dimension or (
+                        self.k2 * np.abs(dg[i]) < np.abs(self.g[i])):  # this condition is always true if constraint i is not active
+                        self.mu[i] *= self.chi_domega**0.25  # 4 / 1 is the stationary odds ratio of increment / decrement
+                    else:
+                        self.mu[i] /= self.chi_domega
+                elif self.algorithm == 2:
+                    if self.mu[i] * g[i]**2 < self.k1 * np.abs(dh) / self.dimension or (
+                        self.k2 * np.abs(dg[i]) < np.abs(self.g[i])):  # this condition is always true if constraint i is not active
+                        self.counts['%d:muup0' % i] += 1
+                        if self.muplus2(g, i):
+                            self.mu[i] *= self.chi_domega**0.25  # 4 / 1 is the stationary odds ratio of increment / decrement
+                            self.counts['%d:muup1' % i] += 1
+                    else:
+                        self.counts['%d:mudown0' % i] += 1  # only for the record
+                        if self.muminus2(g, i):
+                            self.counts['%d:mudown1' % i] += 1
+                            self.mu[i] /= self.chi_domega
+                elif self.algorithm in (0, 3):
+                    if self.muplus3(g, i):
+                        self.mu[i] *= self.chi_domega**(0.25 * (1 +
+                            self.count_mu_last_same_changes.update(i, 1).shape_exponent(i)))
+                    elif self.muminus3(g, i):
+                        self.mu[i] *= self.chi_domega**(-0.25 * (1 -
+                            self.count_mu_last_same_changes.update(i, -1).shape_exponent(i)))
+                elif self.algorithm == 4:
+                    if self.muplus4(g, i):
+                        self.mu[i] *= self.chi_domega**(0.25 * (1 +
+                            self.count_mu_last_same_changes.update(i, 1).shape_exponent(i)))
+                    elif self.muminus4(g, i):
+                        self.mu[i] *= self.chi_domega**(-0.25 * (1 -
+                            self.count_mu_last_same_changes.update(i, -1).shape_exponent(i)))
                 else:
-                    self.mu[i] /= self.chi_domega
+                    raise NotImplemented("algorithm number {} is not known".format(self.algorithm))
             self.count += 1
         assert np.all((self.lam >= 0) + self.isequality)
         self.f, self.g = f, g  # self(g) == 0 if mu=lam=0
