@@ -3970,7 +3970,20 @@ class _CMAParameters(object):
         pprint(self.__dict__)
 
 
-def fmin2(*args, **kwargs):
+def fmin2(objective_function, x0, sigma0,
+         options=None,
+         args=(),
+         gradf=None,
+         restarts=0,
+         restart_from_best='False',
+         incpopsize=2,
+         eval_initial_x=False,
+         parallel_objective=None,
+         noise_handler=None,
+         noise_change_sigma_exponent=1,
+         noise_kappa_exponent=0,  # TODO: add max kappa value as parameter
+         bipop=False,
+         callback=None):
     """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``,
 
     and with the same in input arguments as `fmin`. Hence a typical
@@ -4005,7 +4018,20 @@ def fmin2(*args, **kwargs):
         fmin2(...)[1].result.xfavorite
 
     """
-    res = fmin(*args, **kwargs)
+    res = fmin(objective_function, x0, sigma0,
+         options,
+         args,
+         gradf,
+         restarts,
+         restart_from_best,
+         incpopsize,
+         eval_initial_x,
+         parallel_objective,
+         noise_handler,
+         noise_change_sigma_exponent,
+         noise_kappa_exponent,
+         bipop,
+         callback)
     return res[0], res[-2]
 
 
