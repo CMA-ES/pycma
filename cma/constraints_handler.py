@@ -623,12 +623,15 @@ class LoggerList(list):
                                  color='r', linewidth=0.15)
 
 def _log_lam(s):
-    return np.log10(np.maximum(1e-9, np.abs(s.lam - (0 if s.lam_opt is None else s.lam_opt))))
+    """for active constraints, lam is generally positive because Dg and Df are opposed"""
+    v = np.log10(np.maximum(1e-9, np.abs(s.lam - (0 if s.lam_opt is None else s.lam_opt))))
+    return np.hstack([v, np.mean(v)])  # add mean to get same colors as _log_feas_events
 def _log_mu(s):
-    return np.log10(np.maximum(s.mu, 1e-9))
+    v = np.log10(np.maximum(s.mu, 1e-9))
+    return np.hstack([v, np.mean(v)])
 def _log_feas_events(s):
-    return [len(s.g) + np.any(np.asarray(s.g) > 0)] + [
-            i + 0.5 * (gi > 0) - 0.25 + 0.2 * np.tanh(gi) for i, gi in enumerate(s.g)]
+    return [i + 0.5 * (gi > 0) - 0.25 + 0.2 * np.tanh(gi) for i, gi in enumerate(s.g)
+            ] + [len(s.g) + np.any(np.asarray(s.g) > 0)]
 
 class AugmentedLagrangian(object):
     """Augmented Lagrangian with adaptation of the coefficients
