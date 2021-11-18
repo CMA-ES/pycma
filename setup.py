@@ -67,7 +67,7 @@ except IOError:  # file not found
 
 setup(name="cma",
       long_description=long_description,  # __doc__, # can be used in the cma.py file
-      long_description_content_type = 'text/x-rst', # 'text/markdown',
+      # long_description_content_type = 'text/x-rst', # 'text/markdown',
       version=__version__.split()[0],
       description="CMA-ES, Covariance Matrix Adaptation " +
                   "Evolution Strategy for non-linear numerical " +
@@ -75,7 +75,7 @@ setup(name="cma",
       author="Nikolaus Hansen",
       author_email="authors_firstname.lastname@inria.fr",
       maintainer="Nikolaus Hansen",
-      # maintainer_email="authors_firstname.lastname@inria.fr",
+      maintainer_email="authors_firstname.lastname@inria.fr",
       url="https://github.com/CMA-ES/pycma",
       # license="MIT",
       license="BSD",
