@@ -429,10 +429,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + str(evals) + ' '
                             + str(sigma) + ' '
                             + str(axratio) + ' '
-                            + str(besteverf) + ' '
+                            + str(float(besteverf)) + ' '  # float converts Fraction
                             + '%.16e' % bestf + ' '
-                            + str(medianf) + ' '
-                            + str(worstf) + ' '
+                            + str(float(medianf)) + ' '
+                            + str(float(worstf)) + ' '
                             # + str(es.sp.popsize) + ' '
                             # + str(10**es.noiseS) + ' '
                             # + str(es.sp.cmean) + ' '
@@ -526,7 +526,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + str(evals) + ' '
                             + str(sigma) + ' '
                             + '0 '
-                            + str(bestf) + ' '
+                            + str(float(bestf)) + ' '  # float converts Fraction
                             + ' '.join(map(str, xrecent))
                             + '\n')
         except (IOError, OSError):
