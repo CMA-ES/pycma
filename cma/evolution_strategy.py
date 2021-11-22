@@ -520,6 +520,29 @@ cma_versatile_options = tuple(sorted(k for (k, v) in cma_default_options.items()
                                      if v.find(' #v ') > 0))
 cma_allowed_options_keys = dict([s.lower(), s] for s in cma_default_options)
 
+def safe_str(s):
+    """return a string safe to `eval` or raise an exception.
+
+    Selected words and chars are considered safe such that all default
+    string-type option values from `CMAOptions()` pass. This function is
+    implemented for convenience, to keep the default option format
+    backwards compatible, and to be able to pass, for example, `3 * N`.
+    Function or class names other than those from the default values cannot
+    be passed as strings (any more) but only as the function or class
+    themselves.
+    """
+    from . import purecma
+    return purecma.safe_str(s.split('#')[0],
+                            dict([k, k] for k in
+                                 ['True', 'False', 'None',
+                                 'N', 'dim', 'popsize', 'int', 'np.Inf', 'inf',
+                                 'np.log', 'np.random.randn', 'time',
+                                 # 'cma_signals.in', 'outcmaes/',
+                                 'BoundTransform', 'is_feasible', 'np.linalg.eigh',
+                                 '{}', '/'])
+                            ).replace('N one', 'None'  # if purecma.safe_str could avoid substring substitution, this would not be necessary
+                                      ).replace('/  /', '//')
+
 class CMAOptions(dict):
     """a dictionary with the available options and their default values
     for class `CMAEvolutionStrategy`.
@@ -842,12 +865,12 @@ class CMAOptions(dict):
                 val = val.split('#')[0].strip()  # remove comments
                 if key.find('filename') < 0:
                         # and key.find('mindx') < 0:
-                    val = eval(val, globals(), loc)
+                    val = eval(safe_str(val), globals(), loc)
             # invoke default
             # TODO: val in ... fails with array type, because it is applied element wise!
             # elif val in (None,(),[],{}) and default is not None:
             elif val is None and default is not None:
-                val = eval(str(default), globals(), loc)
+                val = eval(safe_str(default), globals(), loc)
         except:
             pass  # slighly optimistic: the previous is bug-free
         return val
@@ -1471,7 +1494,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.gp = transformations.GenoPheno(self.N_pheno,
                         opts['scaling_of_variables'],
                         opts['typical_x'],
-                                            opts['fixed_variables'],
+                        opts['fixed_variables'],
                         opts['transformation'])
 
         self.boundary_handler = opts['BoundaryHandler']
@@ -4540,7 +4563,7 @@ def fmin(objective_function, x0, sigma0,
         # TODO refine output, can #args be flexible?
         # is this well usable as it is now?
     else:  # except KeyboardInterrupt:  # Exception as e:
-        if eval(str(options['verb_disp'])) > 0:
+        if eval(safe_str(options['verb_disp'])) > 0:
             print(' in/outcomment ``raise`` in last line of cma.fmin to prevent/restore KeyboardInterrupt exception')
         raise KeyboardInterrupt  # cave: swallowing this exception can silently mess up experiments, if ctrl-C is hit
 

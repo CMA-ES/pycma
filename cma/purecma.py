@@ -888,7 +888,7 @@ def safe_str(s, known_words=None):
     ' i 3.1 t ( 3.1 )'
 
     """
-    safe_chars = ' 0123456789.,+-*()[]e'
+    safe_chars = ' 0123456789.,+-*()[]e<>='
     if s != str(s):
         return str(s)
     if not known_words:

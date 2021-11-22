@@ -294,7 +294,7 @@ def num2str(val, significant_digits=2, force_rounding=False,
 
     # now the second, %e format
     s = ('%.' + str(significant_digits - 1) + 'e') % val
-    if seval(s) == val and s.find('.') > 0:
+    if ast.literal_eval(s) == val and s.find('.') > 0:  # ast.literal_eval was: seval
         while s.find('0e') > 0:
             s = s.replace('0e', 'e')
     s = s.replace('.e', 'e')
