@@ -1802,15 +1802,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.x0.resize(self.x0.shape[0])  # 1-D array, not really necessary?!
         except NotImplementedError:
             pass
-    
+
     def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
-        
+
         `sigma` overwrites the original initial `sigma`.
         `inopts` allows to overwrite any of the original options.
 
         This copy may not work as expected depending on the used sampler.
-        
+
         Copy mean and sample distribution parameters and input options. Do
         not copy evolution paths, termination status or other state variables.
 
@@ -1837,8 +1837,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except: warnings.warn("self.sm.C.copy failed")
         es.sm.update_now(-1)  # make B and D consistent with C
         es._updateBDfromSM()
-        return es    
-    
+        return es
+
     # ____________________________________________________________
     # ____________________________________________________________
     def ask(self, number=None, xmean=None, sigma_fac=1,
@@ -3670,8 +3670,8 @@ class _CMAStopDict(dict):
                           es.timer.elapsed > opts['timeout'],
                           es.timer.elapsed if self._get_value else None)
         except AttributeError:
-            if es.countiter <= 0: 
-                pass 
+            if es.countiter <= 0:
+                pass
             # else: raise
 
         if 11 < 3 and 2 * l < len(es.fit.histbest):  # TODO: this might go wrong, because the nb of written columns changes
@@ -4538,7 +4538,7 @@ def _al_set_logging(al, kwargs):
         al.logging = logging
 
 def fmin_con(objective_function, x0, sigma0,
-             g=no_constraints, h=no_constraints, **kwargs):
+             g=no_constraints, h=no_constraints, post_optimization=False, **kwargs):
     """optimize f with constraints g (inequalities) and h (equalities).
 
     Construct an Augmented Lagrangian instance ``f_aug_lag`` of the type
@@ -4562,6 +4562,12 @@ def fmin_con(objective_function, x0, sigma0,
     any feasible solution was found. This only works with inequality
     constraints (equality constraints are wrongly interpreted as inequality
     constraints).
+
+    If `post_optimization` is set to True, then the second return value will
+    contain another additional attribute ``best_feasible_post_opt`` which
+    contains the information about the best feasible solution obtained by
+    optimizing the sum of the positive constraints squared starting from
+    the point ``es.results.xfavorite``.
 
     See `cma.fmin` for further parameters ``**kwargs``.
 
@@ -4646,4 +4652,24 @@ def fmin_con(objective_function, x0, sigma0,
     es.objective_function_complements = [_al]
     es.augmented_lagrangian = _al
     es.best_feasible = best_feasible_solution
+
+    if post_optimization:
+        positive_constraints = np.where(np.array(g(es.result.xfavorite)) > 0)
+        if len(positive_constraints[0]) > 0:
+            x_post_opt, es_post_opt = fmin_con(lambda x: np.sum(np.square(np.array(g(x))[positive_constraints])),
+                                               es.result.xfavorite, sigma0, g=g, h=h, **kwargs)
+            f_x_post_opt = objective_function(es_post_opt.best_feasible.info["x"])
+
+            best_feasible_solution_post_opt = ot.BestSolution2()
+            best_feasible_solution_post_opt.update(
+                f_x_post_opt, info={
+                    'x': es_post_opt.best_feasible.info["x"],
+                    'f': f_x_post_opt,
+                    'g': es_post_opt.best_feasible.info["g"],
+                    'g_al': es_post_opt.best_feasible.info["g_al"]})
+            es.best_feasible_post_opt = best_feasible_solution_post_opt
+        else:
+            utils.print_warning('No positive constraint in ``es.results.xfavorite``, skipping post optimization',
+                                verbose=es.opts['verbose'])
+
     return es.result.xfavorite, es
