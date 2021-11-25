@@ -231,12 +231,13 @@ class EvalParallel2(object):
     ...
     >>> # use with `with` statement (context manager)
     >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, dict(verbose=-9))
-    >>> with EvalParallel2(cma.fitness_functions.elli,
+    >>> with EvalParallel2(cma.ff.elli,
     ...                    number_of_processes=12) as eval_all:
     ...     while not es.stop():
     ...         X = es.ask()
-    ...         es.tell(X, eval_all(X))  # eval_all also accepts `fitness_function`
-    ...                                  # and `args` as optional arguments
+    ...         es.tell(X, eval_all(X, args=(0,)))  # `eval_all` also accepts
+    ...                                             # `fitness_function` as
+    ...                                             # (optional) keyword argument
     >>> assert es.result[1] < 1e-13 and es.result[2] < 1500
 
     Parameters: the `EvalParallel2` constructor takes the number of
@@ -268,8 +269,9 @@ class EvalParallel2(object):
         """evaluate a list/sequence of solution-"vectors", return a list
         of corresponding f-values.
 
-        `args` is passed to `fitness_function` like
-        ``fitness_function(solutions[0], *args)``.
+        `args` must be a tuple and is passed to `fitness_function` like
+        ``fitness_function(solutions[0], *args)``. For example, a single
+        argument, say `a1`, should be passed like ``args=(a1, )``.
 
         Raises `multiprocessing.TimeoutError` if `timeout` is given and
         exceeded.
