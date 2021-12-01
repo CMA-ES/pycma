@@ -4665,7 +4665,7 @@ def fmin_con(objective_function, x0, sigma0,
         positive_constraints = np.where(np.array(g(es.result.xfavorite)) > 0)
         if len(positive_constraints[0]) > 0:
             x_post_opt, es_post_opt = fmin_con(lambda x: np.sum(np.square(np.array(g(x)))),
-                                               es.result.xfavorite, sigma0 / 100, g=g, h=h, **kwargs)
+                                               es.result.xfavorite, es.sigma, g=g, h=h, **kwargs)
             if es_post_opt.best_feasible.info is not None:
                 f_x_post_opt = objective_function(es_post_opt.best_feasible.info["x"])
 
