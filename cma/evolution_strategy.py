@@ -4597,6 +4597,18 @@ def fmin_con(objective_function, x0, sigma0,
     True
     >>> # al.logger.plot()  # plots the evolution of AL coefficients
 
+    >>> d = 2
+    >>> f = lambda x: np.sum(np.square(x))
+    >>> g = lambda x: [y+1 for y in x]
+
+    >>> x, es = fmin_con(
+    ...     f, d * [0], 1, g=g, post_optimization=True,
+    ...     options={'termination_callback': lambda es: -1e-5 < sum(g(es.mean)) < 1e-5,
+                 'seed': 1, 'verbose': -9})
+
+    >>> hasattr(es, 'best_feasible_post_opt')
+    True
+
     """
     # TODO: need to rethink equality/inequality interface?
 
