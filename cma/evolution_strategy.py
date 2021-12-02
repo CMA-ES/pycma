@@ -4575,16 +4575,23 @@ def no_constraints(x):
 
 def _al_set_logging(al, kwargs, *more_kwargs):
     """try to figure a good logging value from various verbosity options"""
+    def get(d, key):
+        v = d[key]
+        try: v = v.split('#')[0]
+        except (AttributeError, TypeError): pass
+        try: v = ast.literal_eval(v)
+        except ValueError: pass
+        return v
     def extract_logging_value(kwargs):
         if 'logging' in kwargs:
             return kwargs['logging']
-        if 'verbose' in kwargs and kwargs['verbose'] <= -3:
+        if 'verbose' in kwargs and get(kwargs, 'verbose') <= -3:
             return False
         if 'options' in kwargs:
             ko = kwargs['options']
             if 'verb_log' in ko:
-                return ko['verb_log']
-            if 'verbose' in ko and ko['verbose'] <= -3:
+                return get(ko, 'verb_log')
+            if 'verbose' in ko and get(ko, 'verbose') <= -3:
                 return False
     kwargs = dict(kwargs)
     for m in more_kwargs:
