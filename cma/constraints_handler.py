@@ -647,6 +647,7 @@ class LoggerList(list):
     """list of loggers with plot method"""
     def plot(self, moving_window_width=7):
         """versatile plot method, argument list positions may change"""
+        import matplotlib
         from matplotlib import pyplot as plt
         # _, axes = plt.gcf().subplots(2, 2)  # gcf().subplots return array of subplots, plt.subplots returns array of axes
         # axes = list(axes[0]) + list(axes[1])
@@ -656,24 +657,34 @@ class LoggerList(list):
                 _warnings.filterwarnings('ignore', message='Adding an axes using the same arguments')
                 plt.subplot(2, 2, i + 1)
             logger.plot()
-            if i < 3 and len(logger.data.shape) > 1 and logger.data.shape[1] > 1:
+            if len(logger.data.shape) > 1 and logger.data.shape[1] > 1:
                 for j, d in enumerate(logger.data.T):
-                    if i < 2:  # variable number annotation
+                    if i != 1 and j < len(logger.data.T) - 1:  # variable number annotation
                         plt.text(len(d), d[-1], str(j))
-                    elif i == 2:  # plot rolling average
+                    if i == 1:  # plot rolling average
                         plt.plot(moving_average(d, min((moving_window_width, len(d)))),
                                  color='r', linewidth=0.15)
+                if i == 0:
+                    v = np.abs(logger.data)
+                    min_val = max((1e-9, np.min(v[v>0])))
+                    if matplotlib.__version__[:3] < '3.3':
+                        # a terrible interface change that swallows the new/old parameter and breaks code
+                        plt.yscale('symlog', linthreshy=min_val)  # see matplotlib.scale.SymmetricalLogScale
+                    else:
+                        plt.yscale('symlog', linthresh=min_val)
 
-def _log_lam(s):
-    """for active constraints, lam is generally positive because Dg and Df are opposed"""
-    v = np.log10(np.maximum(1e-9, np.abs(s.lam - (0 if s.lam_opt is None else s.lam_opt))))
-    return np.hstack([v, np.mean(v)])  # add mean to get same colors as _log_feas_events
-def _log_mu(s):
-    v = np.log10(np.maximum(s.mu, 1e-9))
-    return np.hstack([v, np.mean(v)])
+def _log_g(s):
+    return s.g + [0]
 def _log_feas_events(s):
     return [i + 0.5 * (gi > 0) - 0.25 + 0.2 * np.tanh(gi) for i, gi in enumerate(s.g)
             ] + [len(s.g) + np.any(np.asarray(s.g) > 0)]
+def _log_lam(s):
+    """for active constraints, lam is generally positive because Dg and Df are opposed"""
+    v = np.log10(np.maximum(1e-9, np.abs(s.lam - (0 if s.lam_opt is None else s.lam_opt))))
+    return np.hstack([v, 0])  # add column to get same colors as _log_feas_events
+def _log_mu(s):
+    v = np.log10(np.maximum(s.mu, 1e-9))
+    return np.hstack([v, 0])  # add column to get same colors as _log_feas_events
 
 class CountLastSameChanges:
     """An array/list of successive same-sign counts.
@@ -881,15 +892,18 @@ class AugmentedLagrangian(object):
         """allow to reset the logger with a single call"""
         self.loggers = LoggerList()
         if self.logging > 0:
+            self.loggers.append(_Logger(self, callables=[_log_g],
+                            labels=['constraint values'],
+                            name='outauglagg'))
+            self.loggers.append(_Logger(self, callables=[_log_feas_events],
+                            labels=['sign(gi) / 2 + i and overall feasibility'],
+                            name='outauglagfeas'))
             self.loggers.append(_Logger(self, callables=[_log_lam],
                 labels=['lg(abs(lambda))' if self.lam_opt is None
                         else 'lg(abs(lambda-lam_opt))'],
                 name='outauglaglam'))
             self.loggers.append(_Logger(self, callables=[_log_mu],
                             labels=['lg(mu)'], name='outauglagmu'))
-            self.loggers.append(_Logger(self, callables=[_log_feas_events],
-                            labels=['sign(gi) + i and overall feasibility'],
-                            name='outauglagfeas'))
             self.logger_mu_conditions = None
             if self.algorithm in (1, 2):
                 self.logger_mu_conditions = _Logger("mu_conditions", labels=[
