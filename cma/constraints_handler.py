@@ -1212,11 +1212,11 @@ class ConstrainedFitnessAL:
     """Construct an unconstrained objective function from constraints.
 
     This class constructs an unconstrained "fitness" function (to be
-    minimized) from an inequality constraints function, which returns a
-    list of constraint values, and an objective function. An equality
-    constraint ``h(x) == 0`` must be expressed as two inequality
+    minimized) from an objective function and an inequality constraints
+    function (which returns a list of constraint values). An
+    equality constraint ``h(x) == 0`` must be expressed as two inequality
     constraints like ``[h(x) - eps, -h(x) - eps]`` with ``eps >= 0``.
-    Constraint values <= 0 are considered feasible.
+    Non-positive values <= 0 are considered feasible.
 
     The `update` method of the class instance needs to be called after each
     iteration. Depending on the setting of `which`, `update` may call
@@ -1235,27 +1235,27 @@ class ConstrainedFitnessAL:
     >>> import cma
     >>> def constraints(x):  # define the constraint
     ...     return [x[0] + 1, x[1]]  # shall be <= 0
-    >>> cfun = cma.ConstrainedFitnessAL(cma.ff.sphere, constraints, find_feasible_first=True)
+    >>> cfun = cma.ConstrainedFitnessAL(cma.ff.sphere, constraints,
+    ...                                 find_feasible_first=True)
     >>> x, es = cma.fmin2(cfun, 3 * [1.1], 0.1,
     ...                   {'tolstagnation': 0, 'verbose':-9},  # verbosity for doctest only
     ...                   callback=cfun.update)
     >>> x = es.result.xfavorite
 
     The best `x` return value of `fmin2` may not be useful, because the
-    underlying function changes over time. Therefore, we rather use
-    `es.result.xfavorite`. However, this is still not guarantied to be a
-    feasible solution. Alternatively, `cfun.best_feas.x` contains the best
-    evaluated feasible solution. However, this is not necessarily a good
-    solution, see below.
+    underlying function changes over time. Therefore, we use
+    `es.result.xfavorite`, which is still not guarantied to be a feasible
+    solution. Alternatively, `cfun.best_feas.x` contains the best evaluated
+    feasible solution. However, this is not necessarily expected to be a
+    good solution, see below.
 
     >>> assert sum((x - [-1, 0, 0])**2) < 1e-9, x
     >>> assert es.countevals < 2200, es.countevals
     >>> assert cfun.best_feas.f < 10, str(cfun.best_feas)
     >>> # print(es.countevals, cfun.best_feas.__dict__)
 
-    We can make sure to find (another) truly feasible solution close to
-    `es.result.xfavorite` by using the current `CMAEvolutionStrategy`
-    instance `es`:
+    To find a final feasible solution (close to `es.result.xfavorite`) we
+    can use the current `CMAEvolutionStrategy` instance `es`:
 
     >>> x = cfun.find_feasible(es)  # uses es.optimize to find (another) feasible solution
     >>> assert constraints(x)[0] <= 0, (x, cfun.best_feas.x)
@@ -1264,13 +1264,26 @@ class ConstrainedFitnessAL:
     Details: The fitness, to be minimized, is changing over time such that
     the overall minimal value does not indicate the best solution.
 
-    The construction is based on the `AugmentedLagrangian` class.
+    The construction is based on the `AugmentedLagrangian` class. If, as by
+    default, ``self.finding_feasible is False``, the fitness equals ``f(x)
+    + sum_i (lam_i x g_i + mu_i x g_i / 2)`` where ``g_i = max(g_i(x),
+    -lam_i / mu_i)`` and lam_i and mu_i are generally positive and
+    dynamically adapted coefficients. Only lam_i can change the position of
+    the optimum in the feasible domain (and hence must converge to the
+    right value).
 
-    `find_feasible` omits `f + sum_i lam_i g_i` in the fitness and only
-    optimizes for `sum (g_i > 0) * g_i**2`. This works well with
+    When ``self.finding_feasible is True``, the fitness equals to ``sum_i
+    (g_i > 0) x g_i^2`` and omits ``f + sum_i lam_i g_i`` altogether.
+    Whenever a feasible solution is found, the `finding_feasible` flag is
+    reset to `False`.
+    
+    `find_feasible(es)` sets ``finding_feasible = True`` and uses
+    `es.optimize` to optimize `self.__call__`. This works well with
     `CMAEvolutionStrategy` but may easily fail with solvers that do not
     consistently pass over the optimum in search space but approach the
-    optimum from one side only.
+    optimum from one side only. This is not advisable if the feasible
+    domain has zero volume, e.g. when `g` models an equality like
+    ``g = lambda x: [h(x), -h(x)]``.
 
     An equality constraint, h(x) = 0, cannot be handled like h**2 <= 0,
     because the Augmented Lagrangian requires the derivative at h == 0 to
@@ -1368,6 +1381,10 @@ class ConstrainedFitnessAL:
         self.dimension = dimension
 
     def __call__(self, x):
+        """return AL fitness, append f and g values to `self.F` and `self.G`.
+
+        If `self.finding_feasible`, `fun(x)` is not called and ``f = np.nan``.
+        """
         if not self.dimension:
             self.initialize(len(x))
         self.count_calls += 1
@@ -1381,7 +1398,7 @@ class ConstrainedFitnessAL:
         self._update_best(x, self.F[-1], self.G[-1], g_al)
         if self.finding_feasible:
             # the boundary of sum(g) can still be a sharp ridge, even when one side is a plateau
-            return sum([g**2 for g in self.G[-1] if g > 0])  # same as sum(self.al(x))
+            return sum([g**2 for g in self.G[-1] if g > 0])  # same as 2 x (g_al - lam x g) / mu if g > 0
         return self.F_plus_sum_al_G[-1]
 
     def find_feasible(self, es, termination=('maxiter', 'maxfevals')):  # es: OOOptimizer, find_feasible -> solution
