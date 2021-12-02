@@ -4665,10 +4665,6 @@ def fmin_con(objective_function, x0, sigma0,
     if post_optimization:
         positive_constraints = np.where(np.array(g(es.result.xfavorite)) > 0)
         if len(positive_constraints[0]) > 0:
-            if 'options' in kwargs:
-                kwargs['options']['ftarget'] = 0
-            else:
-                kwargs['optins'] = {'ftarget': 0}
             x_post_opt, es_post_opt = fmin_con(lambda x: sum([gi**2 if gi > 0 else 0 for gi in g(x)]),
                                                es.result.xfavorite, sigma0 / 1000, g=g, h=h, **kwargs)
             if es_post_opt.best_feasible.info is not None:
