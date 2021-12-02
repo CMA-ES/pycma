@@ -4567,7 +4567,8 @@ def fmin_con(objective_function, x0, sigma0,
     contain another additional attribute ``best_feasible_post_opt`` which
     contains the information about the best feasible solution obtained by
     optimizing the sum of the positive constraints squared starting from
-    the point ``es.results.xfavorite``.
+    the point ``es.results.xfavorite``. Additionally, the first return value will
+    be the best feasible solution obtained in post-optimization.
 
     See `cma.fmin` for further parameters ``**kwargs``.
 
@@ -4677,6 +4678,8 @@ def fmin_con(objective_function, x0, sigma0,
                         'g': es_post_opt.best_feasible.info["g"],
                         'g_al': es_post_opt.best_feasible.info["g_al"]})
                 es.best_feasible_post_opt = best_feasible_solution_post_opt
+
+                return es_post_opt.best_feasible.info["x"], es
             else:
                 utils.print_warning('Post optimization was unsuccessful',
                                     verbose=es.opts['verbose'])
