@@ -1319,14 +1319,7 @@ class ConstrainedFitnessAL:
         self.finding_feasible = find_feasible_first
         self.logging = logging
         self.omit_f_calls_when_possible = True
-        self._al = None
-        self.F = []
-        self.G = []
-        self.F_plus_sum_al_G = []
-        self.Offset = []  # not in use
-        self.best_aug  = BestSolution2()
-        self.best_feas = BestSolution2()
-        self.best_f_plus_gpos = BestSolution2()
+        self._reset()  # assign dynamic variables
         try:  # treat archives as list of constraints aggregation functions
             self.archives = [ConstrainedSolutionsArchive(fun) for fun in archives]
         except TypeError:  # treat archives as flag
@@ -1335,9 +1328,25 @@ class ConstrainedFitnessAL:
                                  ConstrainedFitnessAL.archive_aggregators]
             else:
                 self.archives = []
+    def _reset(self):
+        self._al = None
+        self.F = []
+        self.G = []
+        self.F_plus_sum_al_G = []
+        self.Offset = []  # not in use
+        self.best_aug  = BestSolution2()
+        self.best_feas = BestSolution2()
+        self.best_f_plus_gpos = BestSolution2()
         self.count_calls = 0
         self.count_updates = 0
         self._set_coefficient_counts = []
+    def reset(self):
+        """reset dynamic components"""
+        self._reset()
+        self._reset_archives()
+    def _reset_archives(self):
+        for i, a in enumerate(self.archives):
+            self.archives[i] = ConstrainedSolutionsArchive(a.aggregator)
     def _reset_arrays(self):
         self.F, self.G, self.F_plus_sum_al_G, self.Offset = [], [], [], []
 
