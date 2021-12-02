@@ -4669,16 +4669,10 @@ def fmin_con(objective_function, x0, sigma0,
                                                es.result.xfavorite, sigma0 / 1000, g=g, h=h, **kwargs)
             if es_post_opt.best_feasible.info is not None:
                 f_x_post_opt = objective_function(es_post_opt.best_feasible.info["x"])
-
-                best_feasible_solution_post_opt = ot.BestSolution2()
-                best_feasible_solution_post_opt.update(
-                    f_x_post_opt, info={
-                        'x': es_post_opt.best_feasible.info["x"],
-                        'f': f_x_post_opt,
-                        'g': es_post_opt.best_feasible.info["g"],
-                        'g_al': es_post_opt.best_feasible.info["g_al"]})
-                es.best_feasible_post_opt = best_feasible_solution_post_opt
-
+                post_opt_info = es_post_opt.best_feasible.info
+                post_opt_info['f'] = f_x_post_opt
+                es.best_feasible_post_opt = ot.BestSolution2()
+                es.best_feasible_post_opt.update(f_x_post_opt, info=post_opt_info)
                 return es_post_opt.best_feasible.info["x"], es
             else:
                 utils.print_warning('Post optimization was unsuccessful',
