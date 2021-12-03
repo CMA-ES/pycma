@@ -1402,11 +1402,16 @@ class ConstrainedFitnessAL:
             return self.find_feasible_aggregator(self.G[-1])
         return self.F_plus_sum_al_G[-1]
 
-    def find_feasible(self, es, termination=('maxiter', 'maxfevals')):  # es: OOOptimizer, find_feasible -> solution
+    def find_feasible(self, es, termination=('maxiter', 'maxfevals'), aggregator=None):  # es: OOOptimizer, find_feasible -> solution
         """find feasible solution by calling ``es.optimize(self)``.
 
         Return best ever feasible solution `self.best_feas.x`.
         See also `self.best_feas.info`.
+
+        `aggregator`, defaulting to `self.find_feasible_aggregator`, is the
+        constraints aggregation function used as objective function to be
+        minimized. `aggregator` takes as input all constraint values and
+        returns a value <= 0 if and only if the solution is feasible.
 
         Terminate when either (another) feasible solution was found or any
         of the `termination` keys is matched in `es.stop()`.
@@ -1419,9 +1424,13 @@ class ConstrainedFitnessAL:
             self._update_best(x, self.fun(x), g, self.al(g))
         else:
             self.finding_feasible = True
+            if aggregator:  # set objective
+                self.find_feasible_aggregator, aggregator_ = aggregator, self.find_feasible_aggregator
             while self.finding_feasible and not any(any(d == m for m in termination)
                                                     for d in es.stop()):
-                es.optimize(self, 1, callback=self.update)  # callback is not really needed
+                es.optimize(self, 1, callback=self.update)  # callback sets finding_feasible to False
+            if aggregator:  # reset `find_feasible_aggregator` to original value
+                self.find_feasible_aggregator = aggregator_
         # warn when no feasible solution was found
         if self.best_feas.x is None or self.finding_feasible:
             _warnings.warn("ConstrainedFitnessAL.find_feasible: "
