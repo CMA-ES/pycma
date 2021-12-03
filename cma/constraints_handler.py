@@ -1330,6 +1330,7 @@ class ConstrainedFitnessAL:
         self.get_solution = get_solution
         self.which = which
         self.finding_feasible = find_feasible_first
+        self.find_feasible_aggregator = _g_pos_squared_sum  # sum(max(0, g)^2) = 2 x (g_al - lam x g) / mu if g > 0
         self.logging = logging
         self.omit_f_calls_when_possible = True
         self._reset()  # assign dynamic variables
@@ -1398,7 +1399,7 @@ class ConstrainedFitnessAL:
         self._update_best(x, self.F[-1], self.G[-1], g_al)
         if self.finding_feasible:
             # the boundary of sum(g) can still be a sharp ridge, even when one side is a plateau
-            return sum([g**2 for g in self.G[-1] if g > 0])  # same as 2 x (g_al - lam x g) / mu if g > 0
+            return self.find_feasible_aggregator(self.G[-1])
         return self.F_plus_sum_al_G[-1]
 
     def find_feasible(self, es, termination=('maxiter', 'maxfevals')):  # es: OOOptimizer, find_feasible -> solution
