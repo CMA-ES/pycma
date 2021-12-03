@@ -4570,6 +4570,10 @@ def fmin_con(objective_function, x0, sigma0,
     the point ``es.results.xfavorite``. Additionally, the first return value will
     be the best feasible solution obtained in post-optimization.
 
+    In case when equality constraints are present and a "feasible" solution is requested,
+    then `post_optimization` must be a strictly positive float indicating the error
+    on the inequality constraints.
+
     See `cma.fmin` for further parameters ``**kwargs``.
 
     >>> import cma
@@ -4600,8 +4604,7 @@ def fmin_con(objective_function, x0, sigma0,
 
     >>> x, es = cma.evolution_strategy.fmin_con(
     ...             cma.ff.sphere, 2 * [0], 1, g=lambda x: [y+1 for y in x], post_optimization=True,
-    ...             options={'termination_callback': lambda es: -1e-5 < es.mean[0]**2 < 1e-5,
-    ...                      'seed': 1, 'verbose': -9})
+    ...             options={'seed': 1, 'verbose': -9})
 
     >>> hasattr(es, 'best_feasible_post_opt')
     True
@@ -4663,38 +4666,34 @@ def fmin_con(objective_function, x0, sigma0,
     es.best_feasible = best_feasible_solution
 
     if post_optimization:
-        positive_constraints = np.where(np.array(g(es.result.xfavorite)) > 0)
-        if len(positive_constraints[0]) > 0:
-            kwargs_post_opt = kwargs.copy()
-            if 'options' in kwargs_post_opt:
-                if 'termination_callback' in kwargs_post_opt['options']:
-                    if isinstance(kwargs_post_opt['options']['termination_callback'], list):
-                        kwargs_post_opt['options']['termination_callback'].append(
-                            lambda es: max(g(es.mean)) <= 0)
-                    else:
-                        kwargs_post_opt['options']['termination_callback'] = [
-                            kwargs_post_opt['options']['termination_callback'],
-                            lambda es: max(g(es.mean)) <= 0
-                        ]
-                else:
-                    kwargs_post_opt['options']['termination_callback'] = lambda es: max(g(es.mean)) <= 0
-            else:
-                kwargs_post_opt['options'] = {'termination_callback': lambda es: max(g(es.mean)) <= 0}
+        if h != no_constraints and (not isinstance(post_optimization, float) or post_optimization <= 0):
+            raise ValueError("In in case when equality constraints are present, "
+                             "then post_optimization must be a strictly positive "
+                             "float indicating the error on the inequality constraints")
 
-            x_post_opt, es_post_opt = fmin_con(lambda x: sum([gi**2 if gi > 0 else 0 for gi in g(x)]),
-                                               es.result.xfavorite, sigma0 / 1000, g=g, h=h, **kwargs_post_opt)
-            if es_post_opt.best_feasible.info is not None:
-                f_x_post_opt = objective_function(es_post_opt.best_feasible.info["x"])
-                post_opt_info = es_post_opt.best_feasible.info
-                post_opt_info['f'] = f_x_post_opt
-                es.best_feasible_post_opt = ot.BestSolution2()
-                es.best_feasible_post_opt.update(f_x_post_opt, info=post_opt_info)
-                return es_post_opt.best_feasible.info["x"], es
-            else:
-                utils.print_warning('Post optimization was unsuccessful',
-                                    verbose=es.opts['verbose'])
+        kwargs_post_opt = kwargs.copy()
+        if 'options' in kwargs_post_opt:
+            kwargs_post_opt['options']['ftarget'] = 0
         else:
-            utils.print_warning('No positive constraint in ``es.results.xfavorite``, skipping post optimization',
+            kwargs_post_opt['optins'] = {'ftarget': 0}
+
+        _, es_post_opt = fmin2(lambda x: sum([gi ** 2 if gi > 0 else 0 for gi in g(x)]) +
+                                         sum([hi ** 2 if hi ** 2 > post_optimization ** 2 else 0 for hi in h(x)]),
+                               es.result.xfavorite, sigma0 / 1000, **kwargs_post_opt)
+        x_post_opt = es_post_opt.result.xfavorite
+        g_x_post_opt, h_x_post_opt = g(x_post_opt), h(x_post_opt)
+        if all([gi <= 0 for gi in g_x_post_opt]) and \
+                all([hi ** 2 <= post_optimization ** 2 for hi in h_x_post_opt]):
+            f_x_post_opt = objective_function(x_post_opt)
+            es.best_feasible_post_opt = ot.BestSolution2()
+            es.best_feasible_post_opt.update(f_x_post_opt, info={
+                'x': x_post_opt,
+                'f': f_x_post_opt,
+                'g': g_x_post_opt + h_x_post_opt
+            })
+            return x_post_opt, es
+        else:
+            utils.print_warning('Post optimization was unsuccessful',
                                 verbose=es.opts['verbose'])
 
     return es.result.xfavorite, es
