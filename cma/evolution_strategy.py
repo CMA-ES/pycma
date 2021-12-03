@@ -4675,7 +4675,7 @@ def fmin_con(objective_function, x0, sigma0,
         if 'options' in kwargs_post_opt:
             kwargs_post_opt['options']['ftarget'] = 0
         else:
-            kwargs_post_opt['optins'] = {'ftarget': 0}
+            kwargs_post_opt['options'] = {'ftarget': 0}
 
         _, es_post_opt = fmin2(lambda x: sum([gi ** 2 if gi > 0 else 0 for gi in g(x)]) +
                                          sum([hi ** 2 if hi ** 2 > post_optimization ** 2 else 0 for hi in h(x)]),
