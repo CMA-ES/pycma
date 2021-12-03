@@ -1501,10 +1501,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if isinstance(self.boundary_handler, type):
             self.boundary_handler = self.boundary_handler(opts['bounds'])
         elif opts['bounds'] not in (None, False, [], [None, None]):
-            utils.print_warning("""
+            warnings.warn("""
                 Option 'bounds' ignored because a BoundaryHandler *instance* was found.
-                Consider to pass only the desired BoundaryHandler class. """,
-                                CMAEvolutionStrategy.__init__)
+                Consider to pass only the desired BoundaryHandler class. """)
         if not self.boundary_handler.has_bounds():
             self.boundary_handler = BoundNone()  # just a little faster and well defined
         elif not self.boundary_handler.is_in_bounds(self.x0):
@@ -1524,7 +1523,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         tf_geno_backup = self.gp.tf_geno
         if self.gp.tf_pheno and self.gp.tf_geno is None:
             self.gp.tf_geno = lambda x: x  # a hack to avoid an exception
-            utils.print_warning(
+            warnings.warn(
                 "computed initial point may well be wrong, because no\n"
                 "inverse for the user provided phenotype transformation "
                 "was given")
