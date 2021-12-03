@@ -500,11 +500,11 @@ class BoundPenalty(BoundaryHandlerBase):
         return self  # bound penalty values
 
 def _g_pos_max(gvals):
-    return max([gi * (gi > 0) for gi in gvals])
+    return max(gi if gi > 0 else 0 for gi in gvals)
 def _g_pos_sum(gvals):
-    return sum([gi * (gi > 0) for gi in gvals])
+    return sum(gi for gi in gvals if gi > 0)
 def _g_pos_squared_sum(gvals):
-    return sum([gi**2 * (gi > 0) for gi in gvals])
+    return sum(gi**2 for gi in gvals if gi > 0)
 class ConstrainedSolutionsArchive:
     """Biobjective Pareto archive to store some Pareto optimal solutions
     for constrained optimization.
@@ -1389,7 +1389,7 @@ class ConstrainedFitnessAL:
             self.initialize(len(x))
         self.count_calls += 1
         self.G += [self.constraints(x)]
-        if np.all([g <= 0 for g in self.G[-1]]):
+        if all(g <= 0 for g in self.G[-1]):
             self.finding_feasible = False  # found
         self.F += [np.nan if self.finding_feasible and self.omit_f_calls_when_possible
                    else self.fun(x)]
@@ -1474,10 +1474,10 @@ class ConstrainedFitnessAL:
 
     def log_in_es(self, es, f, g):
         """a hack to have something in the cma-logger divers plot"""
-        g_pos = sum([gi * (gi > 0) for gi in g])
+        g_pos = _g_pos_sum(g)
         al_pen = sum(self.al(g))  # Lagrange penalization, equals zero initially, may also be negative
         try:
-            es.more_to_write += [f, g_pos if g_pos else np.nan,
+            es.more_to_write += [f, g_pos if g_pos else np.nan,    # nan avoids zero in log plot
                                     al_pen if al_pen else np.nan]  # initial zeros mess up log plot
         except:
             pass
