@@ -4665,8 +4665,24 @@ def fmin_con(objective_function, x0, sigma0,
     if post_optimization:
         positive_constraints = np.where(np.array(g(es.result.xfavorite)) > 0)
         if len(positive_constraints[0]) > 0:
+            kwargs_post_opt = kwargs.copy()
+            if 'options' in kwargs_post_opt:
+                if 'termination_callback' in kwargs_post_opt['options']:
+                    if isinstance(kwargs_post_opt['options']['termination_callback'], list):
+                        kwargs_post_opt['options']['termination_callback'].append(
+                            lambda es: max(g(es.mean)) <= 0)
+                    else:
+                        kwargs_post_opt['options']['termination_callback'] = [
+                            kwargs_post_opt['options']['termination_callback'],
+                            lambda es: max(g(es.mean)) <= 0
+                        ]
+                else:
+                    kwargs_post_opt['options']['termination_callback'] = lambda es: max(g(es.mean)) <= 0
+            else:
+                kwargs_post_opt['options'] = {'termination_callback': lambda es: max(g(es.mean)) <= 0}
+
             x_post_opt, es_post_opt = fmin_con(lambda x: sum([gi**2 if gi > 0 else 0 for gi in g(x)]),
-                                               es.result.xfavorite, sigma0 / 1000, g=g, h=h, **kwargs)
+                                               es.result.xfavorite, sigma0 / 1000, g=g, h=h, **kwargs_post_opt)
             if es_post_opt.best_feasible.info is not None:
                 f_x_post_opt = objective_function(es_post_opt.best_feasible.info["x"])
                 post_opt_info = es_post_opt.best_feasible.info
