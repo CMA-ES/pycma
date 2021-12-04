@@ -134,10 +134,33 @@ class BoundaryHandlerBase(object):
                 continue
             for i in rglen(x):
                 idx = min([i, len(self.bounds[ib]) - 1])
-                if self.bounds[ib][idx] is not None and \
-                        (-1)**ib * x[i] < (-1)**ib * self.bounds[ib][idx]:
+                if self.bounds[ib][idx] is None:
+                    continue
+                if ((ib == 0 and x[i] < self.bounds[ib][idx]) or (
+                     ib == 1 and x[i] > self.bounds[ib][idx])):
                     return False
         return True
+
+    def idx_out_of_bounds(self, x):
+        """return index list of out-of-bound values in `x`.
+
+        ``if bounds.idx_out_of_bounds`` evaluates to `True` if and only if
+        `x` is out of bounds.
+        """
+        if self.bounds is None:
+            return []
+        idxs = []
+        for ib in [0, 1]:
+            if self.bounds[ib] is None:
+                continue
+            for i in rglen(x):
+                idx = min([i, len(self.bounds[ib]) - 1])
+                if self.bounds[ib][idx] is None:
+                    continue
+                if ((ib == 0 and x[i] < self.bounds[ib][idx]) or (
+                     ib == 1 and x[i] > self.bounds[ib][idx])):
+                   idxs += [i]
+        return sorted(idxs)
 
     def to_dim_times_two(self, bounds):
         """return boundaries in format ``[[lb0, ub0], [lb1, ub1], ...]``,
