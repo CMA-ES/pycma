@@ -1347,7 +1347,7 @@ class ConstrainedFitnessAL:
         self.F = []
         self.G = []
         self.F_plus_sum_al_G = []
-        self.Offset = []  # not in use
+        self.foffset = 0  # not in use yet
         self.best_aug  = BestSolution2()
         self.best_feas = BestSolution2()
         self.best_f_plus_gpos = BestSolution2()
@@ -1362,7 +1362,7 @@ class ConstrainedFitnessAL:
         for i, a in enumerate(self.archives):
             self.archives[i] = ConstrainedSolutionsArchive(a.aggregator)
     def _reset_arrays(self):
-        self.F, self.G, self.F_plus_sum_al_G, self.Offset = [], [], [], []
+        self.F, self.G, self.F_plus_sum_al_G = [], [], []
 
     def _is_feasible(self, gvals=None):
         """return True if last evaluated solution (or `gvals`) was feasible"""
@@ -1406,7 +1406,7 @@ class ConstrainedFitnessAL:
         if self.finding_feasible:
             # the boundary of sum(g) can still be a sharp ridge, even when one side is a plateau
             return self.find_feasible_aggregator(self.G[-1])
-        return self.F_plus_sum_al_G[-1]
+        return self.F_plus_sum_al_G[-1] - self.foffset
 
     def find_feasible(self, es, termination=('maxiter', 'maxfevals'), aggregator=None):  # es: OOOptimizer, find_feasible -> solution
         """find feasible solution by calling ``es.optimize(self)``.
@@ -1483,10 +1483,32 @@ class ConstrainedFitnessAL:
             if self.al.count_initialized > s:
                 self._set_coefficient_counts += [self.count_updates]
         f, g = self._fg_values(es)
+        self._reset_arrays()  # arrays are used only in _fg_values
         if np.isfinite(f):
             self.al.update(f, g)
         self.log_in_es(es, f, g)
-        self._reset_arrays()
+        if 11 < 3 and self.best_feas and np.isfinite(self.best_feas.f):
+            # Using the best feasible f-value as offset leads to consistently
+            # negative and increasing values that converge to zero.
+            # Using the worst infeasible that is better than the best feasible
+            # f-value leads to positive values but the graph stepps up and down
+            # looks too difficult to interpret for my taste but it does converge.
+            new_offset = self.best_feas.f
+            if self.archives:
+                # find the largest f-value that is smaller than the best feasible
+                fvals = []
+                for a in self.archives:
+                    for i in range(len(a.archive) - 1, -1, -1):
+                        if a.archive[i][1] <= 0:  # solution is feasible
+                            continue  # this is expected to be the best seen feasible solution
+                        fval = a.archive[i][0]  # fval is decreasing in the loop
+                        if fval < self.best_feas.f:  # should always be the case
+                            fvals += [fval]
+                            break
+                new_offset = max(fvals) if fvals else self.foffset
+            if new_offset != self.foffset:
+                print(self.count_updates, self.foffset)
+            self.foffset = new_offset
 
     def log_in_es(self, es, f, g):
         """a hack to have something in the cma-logger divers plot"""
