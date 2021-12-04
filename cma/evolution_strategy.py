@@ -1508,16 +1508,19 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.boundary_handler = BoundNone()  # just a little faster and well defined
         elif not self.boundary_handler.is_in_bounds(self.x0):
             if opts['verbose'] >= 0:
-                utils.print_warning("""
-            Initial solution is out of the domain boundaries:
+                idxs = self.boundary_handler.idx_out_of_bounds(self.x0)
+                warnings.warn("""
+            Initial solution is out of the domain boundaries
+            in ind%s %s:
                 x0   = %s
                 ldom = %s
                 udom = %s
             THIS MIGHT LEAD TO AN EXCEPTION RAISED LATER ON.
-            """ % (str(self.gp.pheno(self.x0)),
+            """ % ('ices' if len(idxs) > 1 else 'ex',
+                    str(idxs),
+                    str(self.gp.pheno(self.x0)),
                     str(self.boundary_handler.bounds[0]),
-                    str(self.boundary_handler.bounds[1])),
-                               '__init__', 'CMAEvolutionStrategy')
+                    str(self.boundary_handler.bounds[1])))
 
         # set self.mean to geno(x0)
         tf_geno_backup = self.gp.tf_geno
