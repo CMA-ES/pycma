@@ -1682,7 +1682,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # self.gp.pheno adds fixed variables
         relative_stds = ((self.gp.pheno(self.mean + self.sigma * self.sigma_vec * self.D)
-                          - self.gp.pheno(self.mean - self.sigma * self.sigma_vec * self.D)) / 2.0
+                          - self.gp.pheno(self.mean - self.sigma * self.sigma_vec * self.D)) / 2.001  # .001 fixes warning due to initial variation in self.D
                          / (self.boundary_handler.get_bounds('upper', self.N_pheno)
                             - self.boundary_handler.get_bounds('lower', self.N_pheno)))
         if np.any(relative_stds > 1):
