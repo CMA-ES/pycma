@@ -4563,9 +4563,8 @@ def fmin_con(objective_function, x0, sigma0,
     constraints (equality constraints are wrongly interpreted as inequality
     constraints).
 
-    If `post_optimization` is set to True, then the second return value will
-    contain another additional attribute ``best_feasible_post_opt`` which
-    contains the information about the best feasible solution obtained by
+    If `post_optimization` is set to True, then the attribute ``best_feasible``
+    of the second return value will be updated with the best feasible solution obtained by
     optimizing the sum of the positive constraints squared starting from
     the point ``es.results.xfavorite``. Additionally, the first return value will
     be the best feasible solution obtained in post-optimization.
@@ -4683,8 +4682,7 @@ def fmin_con(objective_function, x0, sigma0,
         if all([gi <= 0 for gi in g_x_post_opt]) and \
                 all([hi ** 2 <= post_optimization ** 2 for hi in h_x_post_opt]):
             f_x_post_opt = objective_function(x_post_opt)
-            es.best_feasible_post_opt = ot.BestSolution2()
-            es.best_feasible_post_opt.update(f_x_post_opt, info={
+            es.best_feasible.update(f_x_post_opt, info={
                 'x': x_post_opt,
                 'f': f_x_post_opt,
                 'g': g_x_post_opt + h_x_post_opt
