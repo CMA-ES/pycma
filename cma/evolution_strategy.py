@@ -4603,12 +4603,10 @@ def fmin_con(objective_function, x0, sigma0,
     >>> # al.logger.plot()  # plots the evolution of AL coefficients
 
     >>> x, es = cma.evolution_strategy.fmin_con(
-    ...             cma.ff.sphere, 2 * [0], 1, g=lambda x: [y+1 for y in x], post_optimization=True,
-    ...             options={'seed': 1, 'verbose': -9})
+    ...             cma.ff.sphere, 2 * [0], 1, g=lambda x: [y+1 for y in x],
+    ...             post_optimization=True)
 
-    >>> hasattr(es, 'best_feasible_post_opt')
-    True
-
+    >>> assert all(y <= -1 for y in x)  # assert feasibility of x
     """
     # TODO: need to rethink equality/inequality interface?
 
