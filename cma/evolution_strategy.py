@@ -4606,6 +4606,7 @@ def fmin_con(objective_function, x0, sigma0,
     ...             post_optimization=True)
 
     >>> assert all(y <= -1 for y in x)  # assert feasibility of x
+
     """
     # TODO: need to rethink equality/inequality interface?
 
