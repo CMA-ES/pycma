@@ -1687,14 +1687,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             - self.boundary_handler.get_bounds('lower', self.N_pheno)))
         if np.any(relative_stds > 1):
             idx = np.nonzero(relative_stds > 1)[0]
-            s = ("Initial standard deviation "
-                 "%s larger than the bounded domain size in variable %s.\n"
-                 "Consider using option 'CMA_stds', if the bounded "
-                 "domain sizes differ significantly. "
-                 % (("s (sigma0*stds) are", str(idx))
-                    if len(idx) > 1 else (" (sigma0*stds) is",
-                                          str(idx[0]))))
-            raise ValueError(s)
+            s = (
+            "ValueWarning:\n\n"
+            "  Initial standard deviation%s larger than the bounded domain size in variable%s.\n"
+            "  Consider using `cma.ScaleCoordinates` if the bounded domain sizes differ significantly. "
+            "\n" % (("s sigma0 x stds are", 's %s' % str(idx))
+                    if len(idx) > 1 else (" sigma0 x stds is",
+                                          ' %s' % str(idx[0]))))
+            warnings.warn(s)
         self._flgtelldone = True
         self.itereigenupdated = self.countiter
         self.count_eigen = 0
