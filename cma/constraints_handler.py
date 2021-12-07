@@ -1398,14 +1398,15 @@ class ConstrainedFitnessAL:
         self.G += [self.constraints(x)]
         if self._is_feasible(self.G[-1]):
             self.finding_feasible = False  # found
-        self.F += [np.nan if self.finding_feasible and self.omit_f_calls_when_possible
-                   else self.fun(x)]
+        elif self.finding_feasible:
+            # the boundary of sum(g) can still be a sharp ridge, even when one side is a plateau
+            self.F += [np.nan]  # the aggregated F can be easily re-computed from G
+            self.F_plus_sum_al_G += [np.nan]
+            return self.find_feasible_aggregator(self.G[-1])
+        self.F += [self.fun(x)]
         g_al = self.al(self.G[-1])
         self.F_plus_sum_al_G += [self.F[-1] + sum(g_al)]
         self._update_best(x, self.F[-1], self.G[-1], g_al)
-        if self.finding_feasible:
-            # the boundary of sum(g) can still be a sharp ridge, even when one side is a plateau
-            return self.find_feasible_aggregator(self.G[-1])
         return self.F_plus_sum_al_G[-1] - self.foffset
 
     def find_feasible(self, es, termination=('maxiter', 'maxfevals'), aggregator=None):  # es: OOOptimizer, find_feasible -> solution
@@ -1424,17 +1425,18 @@ class ConstrainedFitnessAL:
     """
         # we could compare self.best_feas.count with self.count_call
         # but can't really know whether count_call was done in the last iteration
-        x = es.result.xfavorite
-        g = self.constraints(x)
-        if self._is_feasible(g):
-            self._update_best(x, self.fun(x), g, self.al(g))
-        else:
-            self.finding_feasible = True
+        self.finding_feasible = True
+        self(es.result.xfavorite)  # register solution, check feasibility and update best
+        if self.finding_feasible:  # was set back to False when xfavorite was feasible
             if aggregator:  # set objective
                 self.find_feasible_aggregator, aggregator_ = aggregator, self.find_feasible_aggregator
             while self.finding_feasible and not any(any(d == m for m in termination)
                                                     for d in es.stop()):
-                es.optimize(self, 1, callback=self.update)  # callback sets finding_feasible to False
+                es.optimize(self, 1)  # we could put the below fcts as callbacks
+                self.update(es)  # calls fun if finding_feasible finished and method is not 'best'
+                if self.finding_feasible:
+                    self._reset_arrays()
+                es.logger.add()
             if aggregator:  # reset `find_feasible_aggregator` to original value
                 self.find_feasible_aggregator = aggregator_
         # warn when no feasible solution was found
@@ -1447,7 +1449,8 @@ class ConstrainedFitnessAL:
 
     @property
     def _best_fg(self):
-        i = np.argmin(self.F_plus_sum_al_G)
+        """return current best f, g, where best is determined by the Augmented Lagrangian"""
+        i = np.nanargmin(self.F_plus_sum_al_G)  # raises ValueError when all values are nan
         return self.F[i], self.G[i]
 
     def _fg_values(self, es):
@@ -1472,8 +1475,28 @@ class ConstrainedFitnessAL:
                 a.update(f, g, d)
 
     def update(self, es):
-        """update AL coefficitions, may be used as callback to `OOOptimizer.optimize`
+        """update AL coefficients, may be used as callback to `OOOptimizer.optimize`.
+
+        TODO: decide what happens when `__call__` was never called:
+              ignore (as for now) or update based on xfavorite by calling self(xfavorite),
+              assuming that update was called on purpose?
+              When method is not best, it should work without even call self(xfavorite).
         """
+        if not len(self.F) == len(self.G) == len(self.F_plus_sum_al_G):
+            _warnings.warn("len(F, G, F_plus_sum_al_G) = ({}, {}, {}) differ."
+                           "This is probably a bug!".format(
+                           len(self.F), len(self.G), len(self.F_plus_sum_al_G)))
+        if len(self.G) == 0:  # TODO: we could first self(es.result.xfavorite) and should be fine
+            # Caveat: here we rely on the fact that log_in_es aggregates [np.nan] smoothly
+            self.log_in_es(es, np.nan, [np.nan])  # TODO: we could use self.best_feas
+            return
+        elif self.finding_feasible:
+            # TODO: using the last values is a hack, using
+            #       the argmin(finding_feasible_aggregator(g) for g in self.G) may be better
+            #       or we could use self.best_feas
+            self.log_in_es(es, self.F[-1], self.G[-1])
+            # CAVEAT: we have not reset the list-arrays
+            return
         self.count_updates += 1
         if not self.dimension:
             self.initialize(len(self.solution(es)))
