@@ -4611,6 +4611,11 @@ def fmin_con(objective_function, x0, sigma0,
 
     if 'parallel_objective' in kwargs:
         raise ValueError("`parallel_objective` parameter is not supported by cma.fmin_con")
+    if post_optimization and h != no_constraints and (
+            not isinstance(post_optimization, float) or post_optimization <= 0):
+        raise ValueError("In in case when equality constraints are present, "
+                         "then post_optimization must be a strictly positive "
+                         "float indicating the error on the inequality constraints")
     # prepare callback list
     if callable(kwargs.setdefault('callback', [])):
         kwargs['callback'] = [kwargs['callback']]
@@ -4663,19 +4668,15 @@ def fmin_con(objective_function, x0, sigma0,
     es.best_feasible = best_feasible_solution
 
     if post_optimization:
-        if h != no_constraints and (not isinstance(post_optimization, float) or post_optimization <= 0):
-            raise ValueError("In in case when equality constraints are present, "
-                             "then post_optimization must be a strictly positive "
-                             "float indicating the error on the inequality constraints")
-
         kwargs_post_opt = kwargs.copy()
         if 'options' in kwargs_post_opt:
             kwargs_post_opt['options']['ftarget'] = 0
         else:
             kwargs_post_opt['options'] = {'ftarget': 0}
 
-        _, es_post_opt = fmin2(lambda x: sum([gi ** 2 if gi > 0 else 0 for gi in g(x)]) +
-                                         sum([hi ** 2 if hi ** 2 > post_optimization ** 2 else 0 for hi in h(x)]),
+        _, es_post_opt = fmin2(lambda x: sum(
+            [gi ** 2 if gi > 0 else 0 for gi in g(x)]) + sum(
+            [hi ** 2 if hi ** 2 > post_optimization ** 2 else 0 for hi in h(x)]),
                                es.result.xfavorite, sigma0 / 1000, **kwargs_post_opt)
         x_post_opt = es_post_opt.result.xfavorite
         g_x_post_opt, h_x_post_opt = g(x_post_opt), h(x_post_opt)
