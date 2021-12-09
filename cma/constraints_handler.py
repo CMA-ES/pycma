@@ -1364,6 +1364,12 @@ class ConstrainedFitnessAL:
     def _reset_arrays(self):
         self.F, self.G, self.F_plus_sum_al_G, self.Offset = [], [], [], []
 
+    def _is_feasible(self, gvals=None):
+        """return True if last evaluated solution (or `gvals`) was feasible"""
+        if gvals is None:
+            gvals = self.G[-1]
+        return all(gi <= 0 for gi in gvals)  # same as _g_pos_sum(gvals) == 0
+
     @property
     def al(self):
         """`AugmentedLagrangian` class instance"""
@@ -1390,7 +1396,7 @@ class ConstrainedFitnessAL:
             self.initialize(len(x))
         self.count_calls += 1
         self.G += [self.constraints(x)]
-        if all(g <= 0 for g in self.G[-1]):
+        if self._is_feasible(self.G[-1]):
             self.finding_feasible = False  # found
         self.F += [np.nan if self.finding_feasible and self.omit_f_calls_when_possible
                    else self.fun(x)]
@@ -1420,7 +1426,7 @@ class ConstrainedFitnessAL:
         # but can't really know whether count_call was done in the last iteration
         x = es.result.xfavorite
         g = self.constraints(x)
-        if all(gi <= 0 for gi in g):
+        if self._is_feasible(g):
             self._update_best(x, self.fun(x), g, self.al(g))
         else:
             self.finding_feasible = True
@@ -1459,7 +1465,7 @@ class ConstrainedFitnessAL:
         d = constraints_info_dict(self.count_calls, x, f, g, g_al)
         self.best_aug.update(d['f_al'], x, d)
         self.best_f_plus_gpos.update(f + sum([gi for gi in g if gi > 0]), x, d)
-        if all([gi <= 0 for gi in g]):
+        if self._is_feasible(g):
             self.best_feas.update(f, x, d)
         if np.isfinite(f):
             for a in self.archives:
