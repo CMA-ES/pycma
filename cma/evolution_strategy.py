@@ -4669,15 +4669,12 @@ def fmin_con(objective_function, x0, sigma0,
 
     if post_optimization:
         kwargs_post_opt = kwargs.copy()
-        if 'options' in kwargs_post_opt:
-            kwargs_post_opt['options']['ftarget'] = 0
-        else:
-            kwargs_post_opt['options'] = {'ftarget': 0}
+        kwargs_post_opt.setdefault('options', {})['ftarget'] = 0
 
         _, es_post_opt = fmin2(lambda x: sum(
             [gi ** 2 if gi > 0 else 0 for gi in g(x)]) + sum(
             [hi ** 2 if hi ** 2 > post_optimization ** 2 else 0 for hi in h(x)]),
-                               es.result.xfavorite, sigma0 / 1000, **kwargs_post_opt)
+                               es.result.xfavorite, es.sigma, **kwargs_post_opt)
         x_post_opt = es_post_opt.result.xfavorite
         g_x_post_opt, h_x_post_opt = g(x_post_opt), h(x_post_opt)
         if all([gi <= 0 for gi in g_x_post_opt]) and \
