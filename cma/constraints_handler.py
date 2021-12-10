@@ -1534,12 +1534,19 @@ class ConstrainedFitnessAL:
             self.foffset = new_offset
 
     def log_in_es(self, es, f, g):
-        """a hack to have something in the cma-logger divers plot"""
+        """a hack to have something in the cma-logger divers plot.
+
+        Append the sum of positive g-values and the number of infeasible
+        constraints, displayed like 10**(number/10) (mapping [0, 10] to [1,
+        10]) if number < 10, to `es.more_to_write`.
+        """
         g_pos = _g_pos_sum(g)
-        al_pen = sum(self.al(g))  # Lagrange penalization, equals zero initially, may also be negative
+        n_infeas = sum(gi > 0 for gi in g)
+        # al_pen = sum(self.al(g))  # Lagrange penalization, equals zero initially, may also be negative
         try:
-            es.more_to_write += [f, g_pos if g_pos else np.nan,    # nan avoids zero in log plot
-                                    al_pen if al_pen else np.nan]  # initial zeros mess up log plot
+            es.more_to_write += [g_pos if g_pos else np.nan,  # nan avoids zero in log plot
+                                 10**(n_infeas / 10) if n_infeas < 10 else n_infeas,  # symlog-like
+                                 ]
         except:
             pass
 
