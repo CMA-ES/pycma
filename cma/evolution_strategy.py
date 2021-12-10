@@ -4589,7 +4589,7 @@ def _al_set_logging(al, kwargs):
         al.logging = logging
 
 def fmin_con(objective_function, x0, sigma0,
-             g=no_constraints, h=no_constraints, **kwargs):
+             g=no_constraints, h=no_constraints, post_optimization=False, **kwargs):
     """optimize f with constraints g (inequalities) and h (equalities).
 
     Construct an Augmented Lagrangian instance ``f_aug_lag`` of the type
@@ -4613,6 +4613,16 @@ def fmin_con(objective_function, x0, sigma0,
     any feasible solution was found. This only works with inequality
     constraints (equality constraints are wrongly interpreted as inequality
     constraints).
+
+    If `post_optimization` is set to True, then the attribute ``best_feasible``
+    of the second return value will be updated with the best feasible solution obtained by
+    optimizing the sum of the positive constraints squared starting from
+    the point ``es.results.xfavorite``. Additionally, the first return value will
+    be the best feasible solution obtained in post-optimization.
+
+    In case when equality constraints are present and a "feasible" solution is requested,
+    then `post_optimization` must be a strictly positive float indicating the error
+    on the inequality constraints.
 
     See `cma.fmin` for further parameters ``**kwargs``.
 
@@ -4642,11 +4652,21 @@ def fmin_con(objective_function, x0, sigma0,
     True
     >>> # al.logger.plot()  # plots the evolution of AL coefficients
 
+    >>> x, es = cma.evolution_strategy.fmin_con(
+    ...             cma.ff.sphere, 2 * [0], 1, g=lambda x: [y+1 for y in x],
+    ...             post_optimization=True, options={"verbose": -9})
+    >>> assert all(y <= -1 for y in x)  # assert feasibility of x
+
     """
     # TODO: need to rethink equality/inequality interface?
 
     if 'parallel_objective' in kwargs:
         raise ValueError("`parallel_objective` parameter is not supported by cma.fmin_con")
+    if post_optimization and h != no_constraints and (
+            not isinstance(post_optimization, float) or post_optimization <= 0):
+        raise ValueError("In in case when equality constraints are present, "
+                         "then post_optimization must be a strictly positive "
+                         "float indicating the error on the inequality constraints")
     # prepare callback list
     if callable(kwargs.setdefault('callback', [])):
         kwargs['callback'] = [kwargs['callback']]
@@ -4697,4 +4717,28 @@ def fmin_con(objective_function, x0, sigma0,
     es.objective_function_complements = [_al]
     es.augmented_lagrangian = _al
     es.best_feasible = best_feasible_solution
+
+    if post_optimization:
+        kwargs_post_opt = kwargs.copy()
+        kwargs_post_opt.setdefault('options', {})['ftarget'] = 0
+
+        _, es_post_opt = fmin2(lambda x: sum(
+            [gi ** 2 if gi > 0 else 0 for gi in g(x)]) + sum(
+            [hi ** 2 if hi ** 2 > post_optimization ** 2 else 0 for hi in h(x)]),
+                               es.result.xfavorite, es.sigma, **kwargs_post_opt)
+        x_post_opt = es_post_opt.result.xfavorite
+        g_x_post_opt, h_x_post_opt = g(x_post_opt), h(x_post_opt)
+        if all([gi <= 0 for gi in g_x_post_opt]) and \
+                all([hi ** 2 <= post_optimization ** 2 for hi in h_x_post_opt]):
+            f_x_post_opt = objective_function(x_post_opt)
+            es.best_feasible.update(f_x_post_opt, info={
+                'x': x_post_opt,
+                'f': f_x_post_opt,
+                'g': g_x_post_opt + h_x_post_opt
+            })
+            return x_post_opt, es
+        else:
+            utils.print_warning('Post optimization was unsuccessful',
+                                verbose=es.opts['verbose'])
+
     return es.result.xfavorite, es
