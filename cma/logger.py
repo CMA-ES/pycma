@@ -1876,6 +1876,8 @@ class Logger(object):
         else:
             color = iter(plt.cm.get_cmap('plasma')(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
             idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
+            if len(idx_labels) > 1:
+                idx_labels[-1] = m - 1  # last label goes to the line m - 1
             labels = iter(self.labels)
             for i in range(m):
                 column = self.data[:, i]
