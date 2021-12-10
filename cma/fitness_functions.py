@@ -55,11 +55,11 @@ except ImportError:
     """
 from .fitness_transformations import rotate  #, ComposedFunction, Function
 
-def elli(x):
+def elli(x, cond=1e6):
     """unbound test function, needed to test multiprocessor, as long
     as the other test functions are defined within a class and
     only accessable via the class instance"""
-    return sum(1e6**(np.arange(len(x)) / (len(x) - 1 + 1e-9)) * np.asarray(x)**2)
+    return sum(cond**(np.arange(len(x)) / (len(x) - 1 + 1e-9)) * np.asarray(x)**2)
 def sphere(x):
     return sum(np.asarray(x)**2)
 
