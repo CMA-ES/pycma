@@ -4719,26 +4719,36 @@ def fmin_con(objective_function, x0, sigma0,
     es.best_feasible = best_feasible_solution
 
     if post_optimization:
+        def f_post(x):
+            return sum(gi ** 2 for gi in g(x) if gi > 0) + sum(
+                       hi ** 2 for hi in h(x) if hi ** 2 > post_optimization ** 2)
+            
         kwargs_post = kwargs.copy()
         kwargs_post.setdefault('options', {})['ftarget'] = 0
 
-        _, es_post = fmin2(lambda x: sum(
-            [gi ** 2 if gi > 0 else 0 for gi in g(x)]) + sum(
-            [hi ** 2 if hi ** 2 > post_optimization ** 2 else 0 for hi in h(x)]),
-                               es.result.xfavorite, es.sigma, **kwargs_post)
+        _, es_post = fmin2(f_post, es.result.xfavorite, es.sigma,
+                           **kwargs_post)
+        if es_post.best.f == 0:
+            f = objective_function(es_post.best.x)
+            es.best_feasible.update(f, x=es_post.best.x, info={
+                'x': es_post.best.x,
+                'f': f,
+                'g': None  # it's a feasible solution, so we don't really care
+            })
+            return es.best_feasible.x, es
         x_post = es_post.result.xfavorite
         g_x_post, h_x_post = g(x_post), h(x_post)
         if all([gi <= 0 for gi in g_x_post]) and \
                 all([hi ** 2 <= post_optimization ** 2 for hi in h_x_post]):
             f_x_post = objective_function(x_post)
-            es.best_feasible.update(f_x_post, info={
+            es.best_feasible.update(f_x_post, x=x_post, info={
                 'x': x_post,
                 'f': f_x_post,
-                'g': g_x_post + h_x_post
+                'g': list(g_x_post) + list(h_x_post)
             })
             return x_post, es
         else:
             utils.print_warning('Post optimization was unsuccessful',
                                 verbose=es.opts['verbose'])
 
-    return es.result.xfavorite, es
+    return es.result.xfavorite, es  # do not return es.best_feasible.x because it could be quite bad
