@@ -659,7 +659,7 @@ class LoggerList(list):
             logger.plot()
             if len(logger.data.shape) > 1 and logger.data.shape[1] > 1:
                 for j, d in enumerate(logger.data.T):
-                    if i != 1 and j < len(logger.data.T) - 1:  # variable number annotation
+                    if j < len(logger.data.T) - 1:  # variable number annotation
                         plt.text(len(d), d[-1], str(j))
                     if i == 1:  # plot rolling average
                         plt.plot(moving_average(d, min((moving_window_width, len(d)))),
@@ -896,7 +896,7 @@ class AugmentedLagrangian(object):
                             labels=['constraint values'],
                             name='outauglagg'))
             self.loggers.append(_Logger(self, callables=[_log_feas_events],
-                            labels=['sign(gi) / 2 + i and overall feasibility'],
+                            labels=['sign(gi) / 2 + i',  'overall feasibility'],
                             name='outauglagfeas'))
             self.loggers.append(_Logger(self, callables=[_log_lam],
                 labels=['lg(abs(lambda))' if self.lam_opt is None
