@@ -25,7 +25,7 @@ Useful links:
 
 * [A quick start guide with a few usage examples](https://pypi.python.org/pypi/cma)
 
-* [The above `notebooks` folder has some example code in Jupyter notebooks](https://github.com/CMA-ES/pycma/notebooks)
+* [The above `notebooks` folder has some example code in Jupyter notebooks](https://github.com/CMA-ES/pycma/tree/master/notebooks)
 
 * [The API Documentation](http://cma-es.github.io/apidocs-pycma)
 
