@@ -4684,8 +4684,8 @@ def fmin_con(objective_function, x0, sigma0,
         raise ValueError("`parallel_objective` parameter is not supported by cma.fmin_con")
     if post_optimization and h != no_constraints and (
             not isinstance(post_optimization, float) or post_optimization <= 0):
-        raise ValueError("In in case when equality constraints are present, "
-                         "then post_optimization must be a strictly positive "
+        raise ValueError("When equality constraints are given, the argument"
+                         "``post_optimization`` must be a strictly positive "
                          "float indicating the error on the inequality constraints")
     # prepare callback list
     if callable(kwargs.setdefault('callback', [])):
