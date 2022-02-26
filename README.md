@@ -73,6 +73,10 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``3.2.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.2.0)
+  provides a new interface for constrained optimization `ConstrainedFitnessAL`
+  and `fmin_con2` and many other minor fixes and improvements.
+
 * [Release ``3.1.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.1.0)
   fixes the return value of `fmin_con`, improves its usability and provides
   a `best_feasible` attribute in `CMAEvolutionStrategy`, in addition to
