@@ -89,6 +89,21 @@ def moving_average(x, w=7):
                              / sum([v**j for j in range(i + 1)])
                            for i in range(len(x))])
 
+def Hessian(f, x0, eps=1e-6):
+    """Hessian estimate for `f` at `x0`"""
+    if eps is None:
+        eps = 1e-6  # restore default
+    x0 = np.asarray(x0)
+    e = np.eye(len(x0))
+    H = 0 * e
+    for i in range(len(x0)):
+        ei = eps * e[i]
+        for j in range(i+1):
+            ej = eps * e[j]
+            H[i,j] = (f(x0 + ei + ej) - f(x0 + ei) - f(x0 + ej) + f(x0)) / eps**2
+            H[j, i] = H[i, j]
+    return H
+
 # ____________________________________________________________
 # ____________________________________________________________
 #
