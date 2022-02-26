@@ -4808,6 +4808,8 @@ def fmin_con2(objective_function, x0, sigma0,
     returned as `objective_function` attribute in the second return
     argument (type `CMAEvolutionStrategy`).
 
+    Consider using `ConstrainedFitnessAL` directly instead of `fmin_con2`.
+
     See `cma.fmin` for further parameters ``**kwargs``.
 
 """

@@ -1237,13 +1237,13 @@ class ConstrainedFitnessAL:
     ...     return [x[0] + 1, x[1]]  # shall be <= 0
     >>> cfun = cma.ConstrainedFitnessAL(cma.ff.sphere, constraints,
     ...                                 find_feasible_first=True)
-    >>> x, es = cma.fmin2(cfun, 3 * [1.1], 0.1,
-    ...                   {'tolstagnation': 0, 'verbose':-9},  # verbosity for doctest only
-    ...                   callback=cfun.update)
+    >>> es = cma.CMAEvolutionStrategy(3 * [1.1], 0.1,
+    ...                   {'tolstagnation': 0, 'verbose':-9})  # verbosity for doctest only
+    >>> es = es.optimize(cfun, callback=cfun.update)
     >>> x = es.result.xfavorite
 
-    The best `x` return value of `fmin2` may not be useful, because the
-    underlying function changes over time. Therefore, we use
+    The best `x` return value of `cma.fmin2` may not be useful, because
+    the underlying function changes over time. Therefore, we use
     `es.result.xfavorite`, which is still not guarantied to be a feasible
     solution. Alternatively, `cfun.best_feas.x` contains the best evaluated
     feasible solution. However, this is not necessarily expected to be a
@@ -1287,8 +1287,8 @@ class ConstrainedFitnessAL:
 
     An equality constraint, h(x) = 0, cannot be handled like h**2 <= 0,
     because the Augmented Lagrangian requires the derivative at h == 0 to
-    be non-zero. Using |h| <= 0 leads to divergence of coefficient mu and
-    the condition number. The best way is apparently using the two
+    be non-zero. Using abs(h) <= 0 leads to divergence of coefficient mu
+    and the condition number. The best way is apparently using the two
     inequality constraints [h <= 0, -h <= 0], which seems to work perfectly
     well. The underlying `AugmentedLagrangian` class also accepts equality
     constraints.
