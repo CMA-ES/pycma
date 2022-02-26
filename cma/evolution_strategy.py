@@ -4649,11 +4649,11 @@ def fmin_con(objective_function, x0, sigma0,
     >>> import cma
     >>> x, es = cma.evolution_strategy.fmin_con(
     ...             cma.ff.sphere, 3 * [0], 1, g=lambda x: [1 - x[0]**2, -(1 - x[0]**2) - 1e-6],
-    ...             options={'termination_callback': lambda es: -1e-5 < es.mean[0]**2 - 1 < 1e-5,
+    ...             options={'termination_callback': lambda es: -1e-5 < sum(es.mean**2) - 1 < 1e-5,
     ...                      'verbose':-9})
     >>> assert 'callback' in es.stop()
     >>> assert es.result.evaluations < 1500  # 10%-ish above 1000, 1%-ish above 1300
-    >>> assert (sum(es.mean**2) - 1)**2 < 1e-9
+    >>> assert (sum(es.mean**2) - 1)**2 < 1e-9, es.mean
 
     >>> x, es = cma.evolution_strategy.fmin_con(
     ...             cma.ff.sphere, 2 * [0], 1, g=lambda x: [1 - x[0]**2],
