@@ -5,10 +5,12 @@ All classes are supposed to follow the base class
 `StatisticalModelSamplerWithZeroMeanBaseClass` interface in module
 `interfaces`.
 """
-from __future__ import absolute_import, division, print_function  #, unicode_literals
+from __future__ import absolute_import, division, print_function
+import warnings  #, unicode_literals
 from .utilities.python3for2 import range
 import numpy as np
 from .utilities.utils import rglen, print_warning
+from .utilities.math import Hessian as _Hessian
 from .interfaces import StatisticalModelSamplerWithZeroMeanBaseClass
 del absolute_import, division, print_function  #, unicode_literals
 
@@ -18,6 +20,39 @@ class GaussSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
     def __init__(self):
         """declarative init, doesn't need to be executed"""
         self.dimension = -1  # to prevent IDE error
+    def set_H_by_f(self, f, x0, eps=None):
+        """set Hessian from f at x0.
+
+        >>> import numpy as np, cma
+        >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, {'verbose':-9})
+        >>> es.sm.set_H_by_f(cma.ff.elli, 3 * [0])  # Hessian of cma.ff.elli
+
+        Now the eigen spectrum of H^1/2 C H^1/2 where H is the Hessian of ``cma.ff.elli``
+        is given by the `spectrum` property.
+        """
+        self.set_H(_Hessian(f, x0, eps))
+    def set_H(self, H):
+        """set Hessian w.r.t. which to compute the eigen spectrum.
+        """
+        D, B = np.linalg.eigh(H)
+        if any(D < 0):
+            warnings.warn("The Hessian has {} negative eigenvalues:\n"
+                          "{}\n"
+                          "Hence, no Hessian is set as spectrum reference."
+                          "".format(sum(D < 0), D))
+        self._right = D**0.5 * B  # == B @ np.diag(D**-0.5)
+        self._left = self._right.T  # == np.diag(D**-0.5) @ B.T
+    @property
+    def eigenspectrum(self):
+        """return eigen spectrum w.r.t. H like sqrt(H) C sqrt(H)"""
+        if not hasattr(self, '_left'):
+            try:
+                return self.D**2
+            except AttributeError:
+                pass
+            return self.variances
+        return np.asarray(sorted(np.linalg.eigvalsh(np.dot(np.dot(
+            self._left, self.covariance_matrix), self._right))))
 
     @property
     def chin(self):

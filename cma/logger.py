@@ -396,7 +396,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # sigma = es.sm.sigma
         else:
             try:
-                diagD = es.sm.D
+                diagD = es.sm.eigenspectrum
             except:
                 diagD = [1]
             maxD = max(diagD)
