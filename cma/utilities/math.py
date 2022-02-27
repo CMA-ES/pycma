@@ -104,6 +104,16 @@ def Hessian(f, x0, eps=1e-6):
             H[j, i] = H[i, j]
     return H
 
+def geometric_sd(vals, **kwargs):
+    """return geometric standard deviation of `vals`.
+    
+    The gsd is invariant under linear scaling and independent
+    of the choice of the log-exp base.
+
+    ``kwargs`` are passed to `np.std`, in particular `ddof`.
+    """
+    return np.exp(np.std(np.log(vals), **kwargs))
+
 # ____________________________________________________________
 # ____________________________________________________________
 #
