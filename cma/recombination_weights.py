@@ -110,6 +110,7 @@ class RecombinationWeights(list):
 
     >>> for expo, w in [(expo, RecombinationWeights(5, exponent=expo))
     ...                 for expo in [1, 0.9, 0.8, 0.7, 0.6, 0.5]]:
+    ...    assert all([len(w(i)) == i for i in range(3, 8)])
     ...    print(7 * "%.2f " % tuple([expo, w.mueff] + w))
     1.00 1.65 0.73 0.27 0.00 -0.36 -0.64 
     0.90 1.70 0.71 0.29 0.00 -0.37 -0.63 
@@ -191,6 +192,16 @@ class RecombinationWeights(list):
                 self[i] /= -sum_neg
         self.do_asserts()
         self.finalized = False
+
+    def __call__(self, lambda_):
+        """return a cut or expanded weight list with similar mueff if possible"""
+        if lambda_ <= self.mu:
+            return self[:lambda_]
+        if lambda_ < self.lambda_:
+            return self[:self.mu] + self[self.mu - lambda_:]
+        if lambda_ > self.lambda_:
+            return self[:self.mu] + (lambda_ - self.lambda_) * [0] + self[self.mu:]
+        return self
 
     def set_attributes_from_weights(self, weights=None, do_asserts=True):
         """make the class attribute values consistent with weights, in
