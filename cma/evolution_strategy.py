@@ -2863,12 +2863,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # TODO: make sure cc is 1 / N**0.5 rather than 1 / N
             # TODO: simplify code: split the c1 and cmu update and call self.sm.update twice
             #       caveat: for this the decay factor ``c1_times_delta_hsigma - sum(weights)`` should be zero in the second update
-            sampler_weights = [c1a] + [cmu * w for w in sp.weights]
-            if len(pop_zero) > len(sp.weights):
-                sampler_weights = (
-                        sampler_weights[:1+sp.weights.mu] +
+            sampler_weights = [c1a] + [cmu * w for w in sp.weights(len(pop_zero))]
+            if len(pop_zero) > len(sp.weights):  # TODO: can be removed
+                _sampler_weights = [c1a] + [cmu * w for w in sp.weights]
+                _sampler_weights = (
+                        _sampler_weights[:1+sp.weights.mu] +
                         (len(pop_zero) - len(sp.weights)) * [0] +
-                        sampler_weights[1+sp.weights.mu:])
+                        _sampler_weights[1+sp.weights.mu:])
+                assert sampler_weights == _sampler_weights
             if 'inc_cmu_pos' in self.opts['vv']:
                 sampler_weights = np.asarray(sampler_weights)
                 sampler_weights[sampler_weights > 0] *= 1 + self.opts['vv']['inc_cmu_pos']
