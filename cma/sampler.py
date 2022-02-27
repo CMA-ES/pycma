@@ -250,6 +250,7 @@ class GaussFullSampler(GaussSampler):
         self._inverse_root_C = None  # see transform_inv...
         self._corr_condition = 1
         self._corr_condition_count_eigen = 0
+        self._beta_diagonal_acceleration = 1
         self.last_update = 0
         self.count_tell = 0
         self.count_eigen = 0
@@ -280,6 +281,11 @@ class GaussFullSampler(GaussSampler):
         self._corr_condition_count_eigen = self.count_eigen
         self._corr_condition = np.linalg.cond(self.correlation_matrix)
         return self._corr_condition
+    @property
+    def beta_diagonal_acceleration(self):
+        """beta from Algorithm 1 line 16 in https://direct.mit.edu/evco/article/28/3/405/94999/Diagonal-Acceleration-for-Covariance-Matrix"""
+        self._beta_diagonal_acceleration = max((1, self.corr_condition**0.5 - 2 + 1))
+        return self._beta_diagonal_acceleration
 
     def sample(self, number, lazy_update_gap=None, same_length=False):
         self.update_now(lazy_update_gap)
