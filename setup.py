@@ -2,21 +2,27 @@
 # -*- coding: utf-8 -*-
 """setup for cma package distribution.
 
+Final final changes to version numbers and such::
+
+    __init__.py  # edit version number
+    tools/conda.recipe/meta.yaml  # edit version number
+    README.md  # add release description
+
 To prepare the docs from a dirty code folder::
 
     conda activate py27
     backup cma --move
     git checkout -- cma
     pip install -e .
-    pydoctor --docformat=restructuredtext --make-html cma  > pydoctor-messages.txt ; less pydoctor-messages.txt
+    pydoctor --docformat=restructuredtext --make-html cma  > pydoctor-messages.txt ; less pydoctor-messages.txt  # check for errors
     backup --recover
-    # see script-make-doc for syncing to gforge
+    conda deactivate
 
-Final final changes to version numbers and such::
-
-    __init__.py  # edit version number
-    tools/conda.recipe/meta.yaml  # edit version number
-    README.md  # add release description
+    # push new docs to github
+    cp -r apidocs/* /Users/hansen/git/CMA-ES.github.io/apidocs-pycma
+    cd /Users/hansen/git/CMA-ES.github.io; git add apidocs-pycma  # there may be new files
+    git ci
+    git push
 
 To prepare a distribution from a (usual) dirty code folder::
 
