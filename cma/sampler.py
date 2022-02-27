@@ -38,8 +38,9 @@ class GaussSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         if any(D < 0):
             warnings.warn("The Hessian has {} negative eigenvalues:\n"
                           "{}\n"
-                          "Hence, no Hessian is set as spectrum reference."
+                          "Hence, no (new) Hessian is set as spectrum reference."
                           "".format(sum(D < 0), D))
+            return
         self._right = D**0.5 * B  # == B @ np.diag(D**-0.5)
         self._left = self._right.T  # == np.diag(D**-0.5) @ B.T
     @property
