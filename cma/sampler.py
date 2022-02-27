@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Collection of classes that sample from parametrized distributions and
 provide an update mechanism of the distribution parameters.
 
@@ -54,7 +55,10 @@ class GaussSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             return self.variances
         return np.asarray(sorted(np.linalg.eigvalsh(np.dot(np.dot(
             self._left, self.covariance_matrix), self._right))))
-
+    @property
+    def corr_condition(self):
+        """condition number of the correlation matrix"""
+        return 1
     @property
     def chin(self):
         """approximation of the expected length when isotropic with variance 1.
@@ -211,7 +215,7 @@ class GaussFullSampler(GaussSampler):
        - rescale y according to the inverse update of sigma_vec (as
          if y is expressed in the new sigma_vec while C in the old)
        - update C with the "new" y.
-    """
+"""
     def __init__(self, dimension,
                  lazy_update_gap=0,
                  constant_trace='',
@@ -244,6 +248,8 @@ class GaussFullSampler(GaussSampler):
         self.B = self.B[:, idx]
         "axis lengths, roots of eigenvalues, sorted"
         self._inverse_root_C = None  # see transform_inv...
+        self._corr_condition = 1
+        self._corr_condition_count_eigen = 0
         self.last_update = 0
         self.count_tell = 0
         self.count_eigen = 0
@@ -265,6 +271,15 @@ class GaussFullSampler(GaussSampler):
     @property
     def variances(self):
         return np.diag(self.C)
+    @property
+    def corr_condition(self):
+        """condition number of the correlation matrix"""
+        if self._corr_condition_count_eigen == self.count_eigen and (
+            self.count_eigen >= 1 or self.condition_number < 1.2):  # i.e. C_0 ≈ I
+            return self._corr_condition
+        self._corr_condition_count_eigen = self.count_eigen
+        self._corr_condition = np.linalg.cond(self.correlation_matrix)
+        return self._corr_condition
 
     def sample(self, number, lazy_update_gap=None, same_length=False):
         self.update_now(lazy_update_gap)
