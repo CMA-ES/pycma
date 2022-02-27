@@ -623,8 +623,9 @@ class DequeCDF(_collections.deque):
     >>> d = cma.constraints_handler.DequeCDF(maxlen=22)
     >>> for i in range(5):
     ...     d.append([i])
-    >>> d.cdf(0, 0), d.cdf(0, 2), d.cdf(0, 2.1), d.cdf(0, 22.1), d.cdf(0, 4, 2)
-    (0.1, 0.5, 0.6, 1.0, 0.75)
+    >>> ' '.join(['{:.2}'.format(x) for x in
+    ...                   [d.cdf(0, 0), d.cdf(0, 2), d.cdf(0, 2.1), d.cdf(0, 22.1), d.cdf(0, 4, 2)]])
+    '0.1 0.5 0.6 1.0 0.75'
 
     """
     def cdf(self, i, val=0, len_=None):

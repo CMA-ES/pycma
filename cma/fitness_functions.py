@@ -507,8 +507,8 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         [0, 0, 1.24, 1.24]
         [0, 0, 0, 1.24]
         [0, 0, 0, 0]
-        >>> [np.round(f(x), 3) for x in X]
-        [0.091, 0.186, 0.336, 0.456, 0.0]
+        >>> ' '.join(['{:.3}'.format(f(x)) for x in X])  # [np.round(f(x), 3) for x in X]
+        '0.091 0.186 0.336 0.456 0.0'
 
         One needs to solve a trinary deceptive function where f-value (to
         be minimized) is monotonuously decreasing with increasing distance
