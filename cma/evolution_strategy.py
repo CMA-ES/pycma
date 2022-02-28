@@ -425,7 +425,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_const_trace='False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
     CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix,'\
                                         ' True for always',  # TODO 4/ccov_separable?
-    CMA_diagonal_decoding='False  # multiplier for additional diagonal update',
+    CMA_diagonal_decoding='1  # multiplier for additional diagonal update',
     CMA_eigenmethod='np.linalg.eigh  # or cma.utilities.math.eig or pygsl.eigen.eigenvectors',
     CMA_elitist='False  #v or "initial" or True, elitism likely impairs global search performance',
     CMA_injections_threshold_keep_len='1  #v keep length if Mahalanobis length is below the given relative threshold',
@@ -1631,7 +1631,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pc2 = np.zeros(N)
         self.pc_neg = np.zeros(N)
         if 1 < 3:  # new version with class
-            self.sigma_vec0 = eval_vector(self.opts['CMA_stds'], opts, N)
+            self.sigma_vec0 = eval_vector(self.opts['CMA_stds'], opts, N)  # may be a scalar
+            if np.size(self.sigma_vec0) == 1 and self.opts['CMA_diagonal_decoding']:
+                self.sigma_vec0 *= np.ones(N)
             self.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec0)
             if np.isfinite(self.opts['CMA_dampsvec_fac']):
                 self.sigma_vec *= np.ones(N)  # make sure to get a vector
@@ -2865,7 +2867,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         cc2 = dd_params['cc']
         self.pc2 = (1 - cc2) * self.pc2 + hsig * (
                     (cc2 * (2 - cc2) * self.sp.weights.mueff)**0.5 / self.sigma
-                        / cmean) * (self.mean - mold) / self.sigma_vec.scaling
+                        / cmean) * (self.mean - mold)
 
         # covariance matrix adaptation/udpate
         pop_zero = pop - mold
@@ -2914,6 +2916,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         """ % str(self._injected_solutions_archive.pop(s)),
                         InjectionWarning)
             assert len(sampler_weights) == len(pop_zero) + 1
+            if self.opts['CMA_diagonal'] is not True:  # display diagonal decoding learning rate
+                if flg_diagonal or not hasattr(self.sm, 'beta_diagonal_acceleration'):
+                    self.more_to_write.append(1)
+                else:
+                    self.more_to_write.append(self.sm.beta_diagonal_acceleration)
             if flg_diagonal:
                 self.sigma_vec.update(
                     [self.sm.transform_inverse(self.pc)] +
@@ -2921,10 +2928,20 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                         (self.sigma * self.sigma_vec.scaling))),
                     np.log(2) * np.asarray(sampler_weights))  # log(2) is here for historical reasons
             else:
-                if self.opts['CMA_diagonal_decoding']:
-                    pass
+                pop_zero_encoded = pop_zero / (self.sigma * self.sigma_vec.scaling)
+                if self.opts['CMA_diagonal_decoding'] and hasattr(self.sm, 'beta_diagonal_acceleration'):
+                    ws = [self.opts['CMA_on'] * self.opts['CMA_diagonal_decoding'] /
+                          self.sm.beta_diagonal_acceleration * w for w in sampler_weights_dd]
+                    self.sigma_vec.update(
+                        [self.sm.transform_inverse(self.pc2 / self.sigma_vec.scaling)] +
+                            [self.sm.transform_inverse(z) for z in pop_zero_encoded],
+                        ws)
+                # TODO: recompute population after adaptation (see transformations.DD.update)?
+                if 11 < 3:  # may be better but needs to be checked
+                    pop_zero_encoded = pop_zero / (self.sigma * self.sigma_vec.scaling)
+                    # pc is already good
                 self.sm.update([(c1 / (c1a + 1e-23))**0.5 * self.pc] +  # c1a * pc**2 gets c1 * pc**2
-                              list(pop_zero / (self.sigma * self.sigma_vec.scaling)),
+                              list(pop_zero_encoded),
                               sampler_weights)
             if any(np.asarray(self.sm.variances) < 0):
                 raise RuntimeError("A sampler variance has become negative "
@@ -3239,7 +3256,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 factors = self.sm.to_correlation_matrix()
                 self.sigma_vec *= factors
                 self.pc /= factors
-                self.pc2 /= factors
+                # self.pc2 /= factors
                 self._updateBDfromSM(self.sm)
                 utils.print_message('\ncondition in coordinate system exceeded'
                                     ' %.1e, rescaled to %.1e, '
@@ -3259,6 +3276,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Argument `condition` defines the limit condition number above
         which the action is taken.
 
+        >>> import cma
+        >>> for dd in [0, 1]:
+        ...     es = cma.CMA(2 * [1], 1, {'CMA_diagonal_decoding' : dd, 'verbose':-9})
+        ...     es = es.optimize(cma.ff.elli, iterations=2)
+        ...     es.alleviate_conditioning(1.1)  # check that alleviation_conditioning "works"
+        ...     assert all(es.sigma_vec.scaling == [1, 1]), es.sigma_vec.scaling
+        ...     assert es.sm.condition_number < 1.01, es.sm.C
+
         Details: the action applies only if `self.gp.isidentity`. Then,
         the covariance matrix `C` is set (back) to identity and a
         respective linear transformation is "added" to `self.gp`.
@@ -3271,7 +3296,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             tf_inv = self.sm.to_linear_transformation_inverse()
             tf = self.sm.to_linear_transformation(reset=True)
             self.pc = np.dot(tf_inv, self.pc)
-            self.pc2 = np.dot(tf_inv, self.pc2)
+            # self.pc2 = np.dot(tf_inv, self.pc2)
             old_C_scales = self.dC**0.5
             self._updateBDfromSM(self.sm)
         except NotImplementedError:
@@ -3288,7 +3313,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # uniformly in the rows of tf
         self.gp._tf_matrix = (self.sigma_vec * tf.T).T  # sig*tf.T .*-multiplies each column of tf with sig
         self.gp._tf_matrix_inv = tf_inv / self.sigma_vec  # here was the bug
-        self.sigma_vec = transformations.DiagonalDecoding(1)
+        self.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec.scaling**0)
 
         # TODO: refactor old_scales * old_sigma_vec into sigma_vec0 to prevent tolfacupx stopping
 
