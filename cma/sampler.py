@@ -466,7 +466,7 @@ class GaussFullSampler(GaussSampler):
         ``a, b = lambda_max, lambda_min``.
 
         >>> import cma
-        >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, {'verbose':-9})
+        >>> es = cma.CMAEvolutionStrategy(3 * [1], 1, {'CMA_diagonal_decoding':False, 'verbose':-9})
         >>> _ = es.optimize(cma.ff.elli)
         >>> assert es.sm.condition_number > 1e4
         >>> es.sm.limit_condition(1e4 - 1)
@@ -603,10 +603,13 @@ class GaussFullSampler(GaussSampler):
                 self._inverse_root_C = np.dot(self.B / self.D, self.B.T)
                 self._inverse_root_C = (self._inverse_root_C + self._inverse_root_C.T) / 2
             return np.dot(self._inverse_root_C, x)
+        def inv(x):
+            return np.dot(self.B, np.dot(self.B.T, x) / self.D)
         # works only if x is a vector:
-        return np.dot(self.B, np.dot(self.B.T, x) / self.D)
-        # should work regardless:
-        # return np.dot(np.dot(self.B, (self.B / self.D).T, x))
+        return inv(x)  # use a for loop to apply to several vectors/matrix
+        # except: return [inv(xi) for xi in x]
+        # can't make it work regardless == self.B @ np.diag(self.D**-1) @ self.B.T @ x
+        # except: return np.dot(np.dot(self.B, (self.B / self.D).T), x) Doesn't work
 
     @property
     def condition_number(self):
