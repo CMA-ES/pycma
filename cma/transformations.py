@@ -648,14 +648,21 @@ class DiagonalDecoding(AdaptiveDecoding):
         # z2 = 1.96 * np.tanh(np.asarray(vectors) / 1.4)**2  # popsize x dim array
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
-        facs = np.exp(np.log(2) * (z2_average - sum(weights)))
+        facs = np.exp((z2_average - sum(weights)) / 2)
+        # remark that exp(log(2) * x) = 2**x
+        # without log(2) we have that exp(z2 - 1) = z2 iff z2 = 1
+        #     and always exp(z2 - 1) >= z2
+        # with log(2) we also have that exp(z2 - 1) = z2 if z2 = 2
+        #   (and exp(z2 - 1) <= z2 iff z2 in [1, 2]
+        #    and also exp(z2 - 1) = 1/2 if z2 = min z2 = 0)
+
         # z2=0, w=-1, d=log(2) => exp(d w (0 - 1)) = 2 = 1 + w (0 - 1)
         # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
         # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
         # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
         #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
         # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
-        # remark: for z^2 \to+ 1, eta_max |to- log z^2 / (z^2 - 1) = 1
+        # remark: for z^2 \to+ 1, eta_max \to- log z^2 / (z^2 - 1) = 1
 
         #if np.any(facs > 10):
             #print(np.sum(z2, axis=1))

@@ -2904,7 +2904,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     [self.sm.transform_inverse(self.pc)] +
                     list(self.sm.transform_inverse(pop_zero /
                                         (self.sigma * self.sigma_vec.scaling))),
-                    array(sampler_weights) / 2)  # TODO: put the 1/2 into update function!?
+                    np.log(2) * np.asarray(sampler_weights))  # log(2) is here for historical reasons
             else:
                 self.sm.update([(c1 / (c1a + 1e-23))**0.5 * self.pc] +  # c1a * pc**2 gets c1 * pc**2
                               list(pop_zero / (self.sigma * self.sigma_vec.scaling)),
