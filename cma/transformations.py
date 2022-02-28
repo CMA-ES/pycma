@@ -1,8 +1,9 @@
 """Search space transformation and encoding/decoding classes"""
-from __future__ import absolute_import, division, print_function  #, unicode_literals
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from numpy import array, isfinite, log
+import warnings as _warnings
 
 from .utilities.utils import rglen, print_warning, is_one, SolutionDict as _SolutionDict
 from .utilities.python3for2 import range
@@ -541,7 +542,7 @@ class AdaptiveDecoding(object):
         return 1  # simple but rather meaningless implementation
 
 class DiagonalDecoding(AdaptiveDecoding):
-    """Diagonal linear transformation.
+    """Diagonal linear transformation with exponential update.
 
     Supports ``self * a``, ``a * self``, ``a / self``, ``self *= a``,
     as if ``self`` is an np.array. Problem: ``np.array`` does
@@ -554,7 +555,7 @@ class DiagonalDecoding(AdaptiveDecoding):
     coordinate system invariant. In PPSN Parallel Problem Solving from
     Nature X, pp. 205-214.
 
-    """
+"""
     def __init__(self, scaling):
         if isinstance(scaling, int):
             scaling = scaling * [1.0]
@@ -563,6 +564,7 @@ class DiagonalDecoding(AdaptiveDecoding):
         self.is_identity = False
         if is_one(self.scaling):
             self.is_identity = True
+        self._parameters = {}
 
     def transform(self, x):
         return self.scaling * x
@@ -639,6 +641,77 @@ class DiagonalDecoding(AdaptiveDecoding):
     #     # TODO: this doesn't work if scaling is a scalar
     #     return self.scaling.__iter__()
 
+    def parameters(self, mueff, c1_factor=1, cmu_factor=1):
+        """learning rate parameter suggestions.
+
+        TODO: either input popsize or input something like fac = 1 + (2...5) / popsize
+              cmu has already 1/7 as popsize correction
+    """
+        N = self.dim
+        input_parameters = N, mueff, c1_factor, cmu_factor
+        try: return self._parameters[input_parameters]
+        except KeyError: pass
+
+        # conedf(df) = 1 / (df + 2. * sqrt(df) + mu / N) = c1_sep is WRONG?
+        # c1_default = min(1, sp.popsize / 6) * 2 / (
+        #         (N + 1.3)**2 + mueff))
+        # 2020 diagonal decoding/acceleration paper (Akimoto & Hansen, ECJ):
+        # c1DDacc = 1 / (2 * (df / N + 1) * (N + 1)**(3/4) + mueff/2)
+
+        c1dd_orig = 1 / (4 * (N + 1)**(3/4) + mueff/2)  # if df=N
+        c1 = 1 / (5 + 2 * N + mueff / 2)
+
+        if 11 < 3:  # side note
+            # the squared length of the mu-average vector on the linear fct is close to
+            #  N / mu * (1 + 0.6321 * mu / N) = N / mu + 0.6321
+            # (and 0.63212... = (1 - exp(-1))). Remark also that the mu-average is
+            # is multiplied by sqrt(mu), hence the squared length would be
+            # N + 0.6321 mu.
+            # Here we learn single components/projections which are roughly
+            # of size mu / 2 and 1. Code to see the values:
+            mu, N = 10000, 100
+            z = np.random.randn(mu, N)
+            z[:,0] = abs(z[:,0])  # selected vectors of the (2xmu, 4xmu)-ES on the linear function
+            z2 = np.mean(z, 0)**2
+            print(z2[0] * mu / (mu / 1.55), np.mean(z2[1:] * mu))
+            print(sum(z2) / (N / mu + 0.6321))  # are all close to one
+
+        # cmudf(df) = (0.25 + mu + 1 / mu - 2) / (df + 4 * sqrt(df) + mu / 2)
+        # cmu_default = alphacov * # a simpler nominator would be: (mu - 0.75)
+        #      (0.25 + mu + 1 / mu - 2) / (
+        #       (N + 2)**2 + alphacov * mu / 2))  # alphacov = 2
+        #              # cmu_default -> 1 for mu -> N**2 * (2 / alphacov)
+
+        cmudd_orig = min((1 - c1dd_orig,
+                          c1dd_orig * (mueff + 1/mueff - 2 + 1/7)))  # 0.5 * lam/(lam+5)))
+        cmu = (mueff + 1./mueff - 2 + 1/7) / (
+                5 + 2 * N + mueff / 2)
+        # print("c1/c1_org={}, cmu/cmu_orig={}".format(c1 / c1dd_orig, cmu / cmudd_orig))
+
+        if 11 < 3:
+            # print("original activated")
+            c1 = c1dd_orig
+            cmu = cmudd_orig
+            cc = np.sqrt(mueff * c1) / 2
+
+        cc = np.sqrt(mueff * c1) / 2  # because mueff/2 is in the denominator
+        c1 *= c1_factor  # should cc be reset?
+        cmu *= cmu_factor
+        cmu = min((cmu, 1 - c1))
+
+        self._parameters[input_parameters] = {'c1': c1, 'cmu': cmu, 'cc': cc}
+        def check_values(d, input_parameters=None):
+            """`d` is the parameters dictionary"""
+            if not (0 <= d['c1'] < 0.75 and 0 <= d['cmu'] <= 1 and 
+                    d['c1'] <= d['cc'] <= 1):
+                raise ValueError("On input {},\n"
+                    "the values {}\n"
+                    "do not satisfy\n"
+                    "  `0 <= c1 < 0.75 and 0 <= cmu <= 1 and"
+                    " c1 <= cc <= 1`".format(str(input_parameters), str(d)))
+        check_values(self._parameters[input_parameters], input_parameters)
+        return self._parameters[input_parameters]
+        
     def update(self, vectors, weights):
         if self.is_identity and np.size(self.scaling) == 1:
             self.scaling = np.ones(len(vectors[0]))
@@ -679,7 +752,7 @@ class DiagonalDecoding(AdaptiveDecoding):
         # print(idxxx, z2[idxxx])
 
         
-        if 1 < 3:  # bound increment to observed value
+        if 11 < 3:  # bound increment to observed value
             idx = weights > 0  # for negative weights w (z^2 - 1) <= w
             # Remark: z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
             eta = sum(abs(weights[idx]))
@@ -691,6 +764,7 @@ class DiagonalDecoding(AdaptiveDecoding):
                                     (z2_large_pos - 1))
                     if eta > eta_max:
                         facs **= (eta_max / eta)
+                        _warnings.warn("corrected exponential update by {} from {}".format(eta_max/eta, eta))
                 elif 1 < 3:
                     raise NotImplementedError("this was never tested")
                     correction = max(log(z2) / log(facs))
