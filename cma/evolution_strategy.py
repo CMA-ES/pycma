@@ -1628,6 +1628,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.countevals = max((0, opts['verb_append'])) \
             if not isinstance(opts['verb_append'], bool) else 0
         self.pc = np.zeros(N)
+        self.pc2 = np.zeros(N)
         self.pc_neg = np.zeros(N)
         if 1 < 3:  # new version with class
             self.sigma_vec0 = eval_vector(self.opts['CMA_stds'], opts, N)
@@ -2857,6 +2858,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pc = (1 - cc) * self.pc + hsig * (
                     (cc * (2 - cc) * self.sp.weights.mueff)**0.5 / self.sigma
                         / cmean) * (self.mean - mold) / self.sigma_vec.scaling
+        dd_params = self.sigma_vec.parameters(self.sp.weights.mueff,
+                                        c1_factor=self.opts['CMA_rankone'],
+                                        cmu_factor=self.opts['CMA_rankmu']
+                                        )
+        cc2 = dd_params['cc']
+        self.pc2 = (1 - cc2) * self.pc2 + hsig * (
+                    (cc2 * (2 - cc2) * self.sp.weights.mueff)**0.5 / self.sigma
+                        / cmean) * (self.mean - mold) / self.sigma_vec.scaling
 
         # covariance matrix adaptation/udpate
         pop_zero = pop - mold
@@ -2865,6 +2874,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # TODO: simplify code: split the c1 and cmu update and call self.sm.update twice
             #       caveat: for this the decay factor ``c1_times_delta_hsigma - sum(weights)`` should be zero in the second update
             sampler_weights = [c1a] + [cmu * w for w in sp.weights(len(pop_zero))]
+            sampler_weights_dd = [dd_params['c1']] + [
+                                  dd_params['cmu'] * w for w in sp.weights(len(pop_zero))]
+
             if len(pop_zero) > len(sp.weights):  # TODO: can be removed
                 _sampler_weights = [c1a] + [cmu * w for w in sp.weights]
                 _sampler_weights = (
@@ -2872,6 +2884,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         (len(pop_zero) - len(sp.weights)) * [0] +
                         _sampler_weights[1+sp.weights.mu:])
                 assert sampler_weights == _sampler_weights
+
             if 'inc_cmu_pos' in self.opts['vv']:
                 sampler_weights = np.asarray(sampler_weights)
                 sampler_weights[sampler_weights > 0] *= 1 + self.opts['vv']['inc_cmu_pos']
@@ -2889,6 +2902,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     # print(i + 1, '-th weight set to zero')
                     # sampler_weights[i + 1] = 0  # weight index 0 is for pc
                     sampler_weights[i + 1] *= self.opts['CMA_active_injected']  # weight index 0 is for pc
+                    sampler_weights_dd[i + 1] *= self.opts['CMA_active_injected']  # weight index 0 is for pc
             for s in list(self._injected_solutions_archive):
                 if self._injected_solutions_archive[s]['iteration'] < self.countiter - 2:
                     warnings.warn("""orphanated injected solution %s
@@ -3225,6 +3239,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 factors = self.sm.to_correlation_matrix()
                 self.sigma_vec *= factors
                 self.pc /= factors
+                self.pc2 /= factors
                 self._updateBDfromSM(self.sm)
                 utils.print_message('\ncondition in coordinate system exceeded'
                                     ' %.1e, rescaled to %.1e, '
@@ -3256,6 +3271,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             tf_inv = self.sm.to_linear_transformation_inverse()
             tf = self.sm.to_linear_transformation(reset=True)
             self.pc = np.dot(tf_inv, self.pc)
+            self.pc2 = np.dot(tf_inv, self.pc2)
             old_C_scales = self.dC**0.5
             self._updateBDfromSM(self.sm)
         except NotImplementedError:
@@ -3911,7 +3927,7 @@ class _CMAParameters(object):
             if 'sweep_ccov1' in opts['vv']:
                 sp.cc = 1.0 * (4 + mueff / N)**0.5 / ((N + 4)**0.5 +
                                                     (2 * mueff / N)**0.5)
-            if 'sweep_cc' in opts['vv']:
+            if 'sweep_cc' in opts['vv']:  # caveat: cc2 and cc_sep
                 sp.cc = opts['vv']['sweep_cc']
                 sp.cc_sep = sp.cc
                 print('cc is %f' % sp.cc)
@@ -3922,7 +3938,9 @@ class _CMAParameters(object):
                  2 / ((N + 1.3)** 2.0 + mueff))
                  # 2 / ((N + 1.3)** 1.5 + mueff))  # TODO
                  # 2 / ((N + 1.3)** 1.75 + mueff))  # TODO
-        # 1/0
+        # caveat: sp.c1 is NOT used in the update but for computing cmu
+        # c1 given by interfaces.StatisticalModelSampler...parameters() equals to
+        #    min((1, lam / 6)) * 2 / ((N + 1.3)**2 + mueff)
         sp.c1_sep = opts['CMA_rankone'] * ccovfac * conedf(N, mueff, N)
         if 11 < 3:
             sp.c1 = 0.
@@ -3938,7 +3956,8 @@ class _CMAParameters(object):
                 rankmu_offset = opts['vv']['sweep_rankmu_offset']
                 print("rankmu_offset = %.2f" % rankmu_offset)
             mu = mueff
-            sp.cmu = min(1 - sp.c1,
+            sp.cmu = min(1 - sp.c1,  # TODO: this is a bug if sp.c1 is smaller than
+                                     # interface...parameters()['c1']
                          opts['CMA_rankmu'] * ccovfac * alphacov *
                          # simpler nominator would be: (mu - 0.75)
                          (rankmu_offset + mu + 1 / mu - 2) /
