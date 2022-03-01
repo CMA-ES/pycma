@@ -1315,7 +1315,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     if len(dat.f.T[0]) > 1 and dat.f[-1][0] > dat.f[-i][0] else 'NA')
                 + ')')
         self._finalize_plotting()
-    def downsampling(self, factor=10, first=3, switch=True, verbose=True):
+    def downsampling(self, factor=10, first=3, switch=True, verbose=False):
         """
         rude downsampling of a `CMADataLogger` data file by `factor`,
         keeping also the first `first` entries. This function is a
