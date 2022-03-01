@@ -305,8 +305,9 @@ class BoundPenalty(BoundaryHandlerBase):
     >>> if res[1] >= 13.76: print(res)  # should never happen
 
     Reference: Hansen et al 2009, A Method for Handling Uncertainty...
-    IEEE TEC, with addendum, see
-    http://www.lri.fr/~hansen/TEC2009online.pdf
+    IEEE TEC, with addendum, see 
+    https://ieeexplore.ieee.org/abstract/document/4634579
+    https://hal.inria.fr/inria-00276216/file/TEC2008.pdf
 
     **todo**: implement a more generic interface, where this becomes a
     fitness wrapper which adds the desired penalty and the `update`
