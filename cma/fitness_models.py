@@ -112,17 +112,18 @@ class SurrogatePopulation(object):
     >>> for fitfun in [FFun(cma.ff.elli), FFun(cma.ff.sectorsphere)]:
     ...     es = cma.CMAEvolutionStrategy(5 * [1], 2.2,
     ...                    {'CMA_injections_threshold_keep_len': 1,
-    ...                     'ftarget':1e-9, 'verbose': -9, 'seed':3})
+    ...                     'ftarget':1e-9, 'verbose': -9, 'seed':4})
     ...     surrogate = fm.SurrogatePopulation(fitfun)
     ...     while not es.stop():
     ...         X = es.ask()
     ...         es.tell(X, surrogate(X))  # surrogate evaluation
     ...         es.inject([surrogate.model.xopt])
     ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55, 18 68
+    ...     print(fitfun.evaluations)
+    ...     # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55, 18 68, 19 80, 19 60
     ...     assert 'ftarget' in es.stop()
-    18
-    68
+    19
+    60
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
