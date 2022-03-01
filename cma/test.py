@@ -240,6 +240,7 @@ def various_doctests():
         ...                                   'tolconditioncov':False,
         ...                                   'seed': 8,
         ...                                   'CMA_mirrors': 0,
+        ...                                   'CMA_diagonal_decoding': False,
         ...                                   'ftarget': 1e-9,
         ...                                })  # doctest:+ELLIPSIS
         (4_w...
