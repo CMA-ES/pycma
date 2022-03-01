@@ -713,10 +713,18 @@ class DiagonalDecoding(AdaptiveDecoding):
         return self._parameters[input_parameters]
         
     def update(self, vectors, weights):
+        """exponential update of the scaling factors.
+
+        `vectors` have shape posize x dimension and are assumed to be
+        standard normal before selection.
+
+        `weights` may be negative and include the learning rate(s).
+        """
         if self.is_identity and np.size(self.scaling) == 1:
             self.scaling = np.ones(len(vectors[0]))
         self.is_identity = False
         weights = np.asarray(weights)
+        # weights[weights < 0] = 0  # only positive weights
         if sum(abs(weights)) > 3:
             raise ValueError("sum of weights %f + %f is too large"
                              % (sum(weights[weights>0]),
@@ -728,54 +736,49 @@ class DiagonalDecoding(AdaptiveDecoding):
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
         facs = np.exp((z2_average - sum(weights)) / 2)
-        # remark that exp(log(2) * x) = 2**x
-        # without log(2) we have that exp(z2 - 1) = z2 iff z2 = 1
-        #     and always exp(z2 - 1) >= z2
-        # with log(2) we also have that exp(z2 - 1) = z2 if z2 = 2
-        #   (and exp(z2 - 1) <= z2 iff z2 in [1, 2]
-        #    and also exp(z2 - 1) = 1/2 if z2 = min z2 = 0)
+            # remark that exp(log(2) * x) = 2**x
+            # without log(2) we have that exp(z2 - 1) = z2 iff z2 = 1
+            #     and always exp(z2 - 1) >= z2
+            # with log(2) we also have that exp(z2 - 1) = z2 if z2 = 2
+            #   (and exp(z2 - 1) <= z2 iff z2 in [1, 2]
+            #    and also exp(z2 - 1) = 1/2 if z2 = min z2 = 0)
 
         # z2=0, w=-1, d=log(2) => exp(d w (0 - 1)) = 2 = 1 + w (0 - 1)
         # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
-        # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
-        # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
-        #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
-        # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
-        # remark: for z^2 \to+ 1, eta_max \to- log z^2 / (z^2 - 1) = 1
-
-        #if np.any(facs > 10):
-            #print(np.sum(z2, axis=1))
-            #print(weights)
-            #rint(facs)
-        # idxx = np.argmax(z2.flatten())
-        # idxxx = (idxx // z2.shape[1], idxx - (idxx // z2.shape[1]) * z2.shape[1])
-        # print(idxxx, z2[idxxx])
-
         
-        if 11 < 3:  # bound increment to observed value
-            idx = weights > 0  # for negative weights w (z^2 - 1) <= w
-            # Remark: z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
-            eta = sum(abs(weights[idx]))
-            z2_pos_average = np.dot(weights[idx], z2[idx]) / eta
-            z2_large_pos = z2_pos_average[z2_pos_average > 1]
-            if np.size(z2_large_pos):
-                if 1 < 3:
-                    eta_max = max(np.log(z2_large_pos) /  # TODO: review/approve this
-                                    (z2_large_pos - 1))
-                    if eta > eta_max:
-                        facs **= (eta_max / eta)
-                        _warnings.warn("corrected exponential update by {} from {}".format(eta_max/eta, eta))
-                elif 1 < 3:
-                    raise NotImplementedError("this was never tested")
-                    correction = max(log(z2) / log(facs))
-                    if correction < 1:
-                        facs **= correction  # could rather be applied only on positive update?
-                else:
-                    # facs = (scaling_tt / scaling_t)**2
-                    # assure facs <= z**2
-                    idx = facs > z2_pos_average
-                    if any(idx):
-                        facs[idx] = z2_pos_average[idx]
+        if 1 < 3:  # bound increment to observed value
+            if 11 < 3:
+                pass
+            else:  # previous attempts
+                # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
+                # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
+                #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
+                # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
+                # remark: for z^2 \to+ 1, eta_max \to- log z^2 / (z^2 - 1) = 1
+
+                idx = weights > 0  # for negative weights w (z^2 - 1) <= w
+                # Remark: z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
+                eta = sum(abs(weights[idx]))
+                z2_pos_average = np.dot(weights[idx], z2[idx]) / eta
+                z2_large_pos = z2_pos_average[z2_pos_average > 1]
+                if np.size(z2_large_pos):
+                    if 1 < 3:
+                        eta_max = max(np.log(z2_large_pos) /  # DONEish: review/approve this
+                                        (z2_large_pos - 1))
+                        if eta > eta_max:
+                            facs **= (eta_max / eta)
+                            _warnings.warn("corrected exponential update by {} from {}".format(eta_max/eta, eta))
+                    elif 1 < 3:
+                        raise NotImplementedError("this was never tested")
+                        correction = max(log(z2) / log(facs))
+                        if correction < 1:
+                            facs **= correction  # could rather be applied only on positive update?
+                    else:
+                        # facs = (scaling_tt / scaling_t)**2
+                        # assure facs <= z**2
+                        idx = facs > z2_pos_average
+                        if any(idx):
+                            facs[idx] = z2_pos_average[idx]
         self.scaling *= facs
         # print(facs)
 
