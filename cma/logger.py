@@ -699,6 +699,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.fighandle.clear()
 
         subplot(2, 2 + addcols, 1)
+        if (self.fighandle.get_size_inches()[0] / self.fighandle.get_size_inches()[1]
+            < 1.4 + 0.5 * addcols):
+            self.fighandle.set_figwidth((1 + 0.45 * addcols) * self.fighandle.get_figwidth())
+
         self.plot_divers(iabscissa, foffset)
         pyplot.xlabel('')
 
@@ -712,8 +716,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # pyplot.gcf().clear()  # == clf(), replaces hold(False)
             subplot(2, 2 + addcols, 3)
             self.plot_correlations(iabscissa)
+            pyplot.xlabel('')
             subplot(2, 2 + addcols, 6)
-            self.plot_correlations(iabscissa, name='precspec')
+            # self.plot_correlations(iabscissa, name='precspec')
+            self.plot_sigvec(iabscissa)
 
         subplot(2, 2 + addcols, 2)
         if plot_mean:
