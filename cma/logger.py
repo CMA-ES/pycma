@@ -878,7 +878,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, i],
                             '-', color=next(color))
         # pyplot.hold(True)
-        pyplot.grid(True)
+        smartlogygrid()
         ax = array(pyplot.axis())
         # ax[1] = max(minxend, ax[1])
         pyplot.axis(ax)
@@ -945,7 +945,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         else:
             pyplot.semilogy(dat.std[:, iabscissa], dat.std[:, 5:], '-')
         # pyplot.hold(True)
-        pyplot.grid(True)
+        smartlogygrid()
         pyplot.title(r'Standard Deviations $\times$ $\sigma^{-1}$ in All Coordinates')
         # pyplot.xticks(xticklocs)
         self._xlabel(iabscissa)
@@ -981,7 +981,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         y = getattr(self, name)[:, 6:]  # principal axes
         ys = getattr(self, name)[:, :6]  # "special" values
 
-        from matplotlib.pyplot import semilogy, text, grid, axis, title
+        from matplotlib.pyplot import semilogy, text, axis, title
         self._enter_plotting()
         if 11 < 3:  # to be removed
             semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
@@ -1011,7 +1011,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                                     y.shape[1])))
         for i in range(y.shape[1]):
             semilogy(x, y[:, i], '-', color=next(color), zorder=1)
-        grid(True)
+        smartlogygrid()
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
         axis(ax)
@@ -1030,7 +1030,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         """
         from matplotlib import pyplot
-        from matplotlib.pyplot import semilogy, grid, \
+        from matplotlib.pyplot import semilogy, \
             axis, title, text
         fontsize = pyplot.rcParams['font.size']
 
@@ -1066,8 +1066,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         idx = _where(dat.f[:, 5] > 1e-98)[0]  # positive values
         semilogy(dat.f[idx, iabscissa], dat.f[idx, 5] + foffset, '.b')
         # hold(True)
-        grid(True)
-
+        smartlogygrid()
 
         semilogy(dat.f[:, iabscissa], abs(dat.f[:, 5]) + foffset, '-b')
         text(dat.f[-1, iabscissa], abs(dat.f[-1, 5]) + foffset,
@@ -1230,7 +1229,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if annotations is None:
             annotations = self.persistent_communication_dict.get('variable_annotations')
         import matplotlib
-        from matplotlib.pyplot import plot, semilogy, yscale, text, grid, axis, title
+        from matplotlib.pyplot import plot, yscale, text, grid, axis, title
         dat = self  # for convenience and historical reasons
         if not np.any(x_opt):
             dat_x = dat.x
@@ -1277,6 +1276,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     yscale('symlog', linthreshy=np.min(_d_pos))  # see matplotlib.scale.SymmetricalLogScale
                 else:
                     yscale('symlog', linthresh=np.min(_d_pos))
+            smartlogygrid(linthresh=np.min(_d_pos))
         if dat_x.shape[1] < 100:  # annotations
             ax = array(axis())
             axis(ax)
@@ -1296,7 +1296,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     + utils.num2str(dat_x[-2, 5 + i],
                                     significant_digits=2,
                                     desired_length=4))
-        grid(True)
+        smartlogygrid()
         i = 2  # find smallest i where iteration count differs (in case the same row appears twice)
         while i < len(dat.f) and dat.f[-i][0] == dat.f[-1][0]:
             i += 1
@@ -1893,3 +1893,22 @@ class Logger(object):
         plt.gcf().canvas.draw()  # allows online use
         return self
 
+def smartlogygrid(**kwargs):
+    """turn on grid and also minor grid depending on y-limits"""
+    try:
+        from matplotlib import pyplot as plt
+    except ImportError: return
+    plt.grid(True)
+    lims = plt.ylim()
+    scale = plt.gca().get_yscale()
+    if scale.startswith('lin'):
+        return  # minor grid has no effect
+    if scale.startswith('symlog'):
+        try: s = max(np.abs(lims)) / kwargs['linthresh']
+        except KeyError: pass
+        else:
+            if s < 1e3:
+                plt.grid(True, which='minor')  # minor grid isn't yet supported in symlog
+        return
+    if lims[1] / lims[0] < 1e5:
+        plt.grid(True, which='minor')
