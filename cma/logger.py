@@ -100,12 +100,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
         if name_prefix is not None and name_prefix.endswith((os.sep, '/')):
             self.name_prefix = self.name_prefix + os.sep
-        self.file_names = ('axlen', 'axlencorr', 'axlenprec', 'fit', 'stddev', 'xmean',
-                'xrecentbest')
+        self.file_names = ('axlen', 'axlencorr', 'axlenprec', 'fit', 'stddev', 'sigvec',
+                           'xmean', 'xrecentbest')
         """used in load, however hard-coded in add, because data must agree with name"""
-        self.key_names = ('D', 'corrspec', 'precspec', 'f', 'std', 'xmean', 'xrecent')
+        self.key_names = ('D', 'corrspec', 'precspec', 'f', 'std', 'sigvec', 'xmean', 'xrecent')
         """used in load, however hard-coded in plot"""
-        self._key_names_with_annotation = ('std', 'xmean', 'xrecent')
+        self._key_names_with_annotation = ('std', 'sigvec', 'xmean', 'xrecent')
         """used in load to add one data row to be modified in plot"""
         self.modulo = modulo
         """how often to record data, allows calling `add` without args"""
@@ -220,7 +220,18 @@ class CMADataLogger(interfaces.BaseDataLogger):
         try:
             with open(fn, 'w') as f:
                 f.write('% # columns="iteration, evaluation, sigma, void, void, ' +
-                        ' stds==sigma*sqrt(diag(C))", ' +
+                        ' stds==sigma*sigma_vec.scaling*sqrt(diag(C))", ' +
+                        strseedtime +
+                        ', ' + self.persistent_communication_dict.as_python_tag +
+                        '\n')
+        except (IOError, OSError):
+            print('could not open file ' + fn)
+        # sigvec scaling factors from diagonal decoding
+        fn = self.name_prefix + 'sigvec.dat'
+        try:
+            with open(fn, 'w') as f:
+                f.write('% # columns="iteration, evaluation, sigma, void, void, ' +
+                        ' sigvec==sigma_vec.scaling factors from diagonal decoding", ' +
                         strseedtime +
                         ', ' + self.persistent_communication_dict.as_python_tag +
                         '\n')
@@ -280,6 +291,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             try:
                 # list of rows to append another row latter
                 with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=UserWarning)
                     if self.file_names[i] in ['axlencorr', 'axlenprec']:
                         warnings.simplefilter("ignore")
                     try:
@@ -304,8 +316,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 self.__dict__[self.key_names[i]] = \
                     np.asarray(self.__dict__[self.key_names[i]])
             except:
-                utils.print_warning('no data for %s' % fn, 'load',
-                               'CMADataLogger')
+                if self.file_names[i] != 'sigvec':
+                    utils.print_warning('no data for %s' % fn, 'load',
+                                'CMADataLogger')
         # convert single line to matrix of shape (1, len)
         for key in self.key_names:
             try:
@@ -314,7 +327,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 utils.print_warning("attribute %s missing" % key, 'load',
                                     'CMADataLogger')
                 continue
-            if len(d.shape) == 1:  # one line has shape (8, )
+            if len(d) and len(d.shape) == 1:  # one line has shape (8, )
                 setattr(self, key, d.reshape((1, len(d))))
 
         return self
@@ -401,6 +414,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 diagD = [1]
             maxD = max(diagD)
             minD = min(diagD)
+        diagonal_scaling = es.sigma_vec.scaling
         correlation_matrix = None
         if not hasattr(self, 'last_precision_matrix'):
             self.last_precision_matrix = None
@@ -506,6 +520,16 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         + '0 0 '
                         + ' '.join(map(str, diagC))
                         + '\n')
+            # sigvec scaling factors from diagonal decoding
+            if np.size(diagonal_scaling) > 1:
+                fn = self.name_prefix + 'sigvec.dat'
+                with open(fn, 'a') as f:
+                    f.write(str(iteration) + ' '
+                            + str(evals) + ' '
+                            + str(sigma) + ' '
+                            + '0 0 '
+                            + ' '.join(map(str, diagonal_scaling))
+                            + '\n')
             # xmean
             fn = self.name_prefix + 'xmean.dat'
             with open(fn, 'a') as f:
