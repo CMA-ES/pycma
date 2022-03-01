@@ -747,8 +747,24 @@ class DiagonalDecoding(AdaptiveDecoding):
         # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
         
         if 1 < 3:  # bound increment to observed value
-            if 11 < 3:
-                pass
+            if 1 < 3:
+                idx = facs > 1
+                if any(idx):
+                    # TODO: generally, a percentile instead of the max seems preferable
+                    max_z2 = np.max(np.abs(z2[:,idx] - 1), axis=0) / 2 + 1  # dim-dimensional vector
+                    if 11 < 3 and any(max_z2 < 1):
+                        print()
+                        print(max_z2)
+                        print(z2[:,idx])
+                        print(z2)
+                        print()
+                        1/0
+                    idx2 = facs[idx] > max_z2
+                    if any(idx2):
+                        _warnings.warn("clipped exponential update in indices {}\n"
+                                    "from {} to max(|z^2-1| + 1)={}".format(
+                                        np.where(idx)[0][idx2], facs[idx][idx2], max_z2[idx2]))
+                        facs[idx][idx2] = max_z2[idx2]
             else:  # previous attempts
                 # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
                 # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
