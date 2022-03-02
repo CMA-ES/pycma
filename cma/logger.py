@@ -199,7 +199,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             with open(fn, 'w') as f:
                 f.write('% # columns="iteration, evaluation, sigma, ' +
                         'max axis length, ' +
-                        ' min axis length, all principle axes lengths ' +
+                        ' min axis length, all principal axes lengths ' +
                         ' (sorted square roots of eigenvalues of C)", ' +
                         strseedtime +
                         '\n')
@@ -210,7 +210,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             try:
                 with open(fn, 'w') as f:
                     f.write('% # columns="iteration, evaluation, min max(neg(.)) min(pos(.))' +
-                            ' max correlation, correlation matrix principle axes lengths ' +
+                            ' max correlation, correlation matrix principal axes lengths ' +
                             ' (sorted square roots of eigenvalues of correlation matrix)", ' +
                             strseedtime +
                             '\n')
@@ -882,7 +882,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ax = array(pyplot.axis())
         # ax[1] = max(minxend, ax[1])
         pyplot.axis(ax)
-        pyplot.title('Principle Axes Lengths')
+        pyplot.title('Principal Axes Lengths')
         # pyplot.xticks(xticklocs)
         self._xlabel(iabscissa)
         self._finalize_plotting()
@@ -978,7 +978,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             return self
         from matplotlib import pyplot
         x = getattr(self, name)[:, iabscissa]
-        y = getattr(self, name)[:, 6:]  # principle axes
+        y = getattr(self, name)[:, 6:]  # principal axes
         ys = getattr(self, name)[:, :6]  # "special" values
 
         from matplotlib.pyplot import semilogy, text, grid, axis, title
