@@ -1004,7 +1004,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 minmaxcorrs = ys[:, 2:6]  # 0, 25, 75, and 100 percentile correlation
                 semilogy(x, (1 + minmaxcorrs) / (1 - minmaxcorrs), 'c',
                          linewidth=0.5)
-                labels += ['(1 + c) / (1 - c)']
+                labels += ['(1 + c) / (1 - c) of (0,25,75,100)-prctile']
         pyplot.legend(labels, framealpha=0.3)
         # semilogy(x, y, '-c')
         color = iter(pyplot.cm.get_cmap('plasma_r')(np.linspace(0.35, 1,
