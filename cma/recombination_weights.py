@@ -1,5 +1,7 @@
-"""Define a list of recombination weights for the CMA-ES. The most
-delicate part is the correct setting of negative weights depending
+# -*- coding: utf-8 -*-
+"""`RecombinationWeights` is a list of recombination weights for the CMA-ES.
+
+The most delicate part is the correct setting of negative weights depending
 on learning rates to prevent negative definite matrices when using the
 weights in the covariance matrix update.
 
