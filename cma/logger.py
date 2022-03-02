@@ -415,6 +415,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
             maxD = max(diagD)
             minD = min(diagD)
         diagonal_scaling = es.sigma_vec.scaling
+        try: diagonal_scaling_beta = es.sm._beta_diagonal_acceleration  # is for free
+        except: diagonal_scaling_beta = 1
         correlation_matrix = None
         if not hasattr(self, 'last_precision_matrix'):
             self.last_precision_matrix = None
@@ -527,7 +529,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     f.write(str(iteration) + ' '
                             + str(evals) + ' '
                             + str(sigma) + ' '
-                            + '0 0 '
+                            + str(diagonal_scaling_beta) + ' '
+                            + '0 '
                             + ' '.join(map(str, diagonal_scaling))
                             + '\n')
             # xmean
@@ -980,6 +983,72 @@ class CMADataLogger(interfaces.BaseDataLogger):
         smartlogygrid()
         pyplot.title(r'Standard Deviations $\times$ $\sigma^{-1}$ in All Coordinates')
         # pyplot.xticks(xticklocs)
+        self._xlabel(iabscissa)
+        self._finalize_plotting()
+        return self
+    def plot_sigvec(self, iabscissa=1, idx=None):
+        """plot (outer) scaling from diagonal decoding.
+        
+        ``iabscissa=0`` plots vs iterations
+
+        `idx` picks variables to plot if len(idx) < N, otherwise it picks
+        iteration indices (in case, after downsampling).
+        """
+        from matplotlib import pyplot as plt
+        if not hasattr(self, 'sigvec'):
+            self.load()
+        if not np.size(self.sigvec):  # nothing to plot
+            plt.text(0, 0, 'nothing to plot')
+            return self
+        dat = np.array(self.sigvec, copy=True)  # we change the data in the process
+        self._enter_plotting()
+        if idx is not None:
+            try: idx = list(idx)
+            except TypeError: pass  # idx has no len
+            else:
+                if len(np.shape(idx)) > 1:
+                    idx = idx[0]  # take only first row
+                if len(idx) < dat.shape[1] - 5:  # idx reduces the displayed variables
+                    dat = dat[:, list(range(5)) + [5 + i for i in idx]]
+                else:
+                    dat = dat[idx, :]
+        # remove sigma from stds (graphs become much better readible)
+        # dat[:, 5:] = np.transpose(dat[:, 5:].T / dat[:, 2].T)
+        if 1 < 2 and dat.shape[1] < 100:
+            # use fake last entry in x and std for line extension-annotation
+            minxend = int(1.06 * dat[-2, iabscissa])
+            # minxend = int(1.06 * dat.x[-2, iabscissa])
+            dat[-1, iabscissa] = minxend  # TODO: should be ax[1]
+            idx = np.argsort(dat[-2, 5:])
+            # idx2 = np.argsort(idx)
+            dat[-1, 5 + idx] = np.logspace(np.log10(np.min(dat[:, 5:])),
+                            np.log10(np.max(dat[:, 5:])), dat.shape[1] - 5)
+
+            dat[-1, iabscissa] = minxend  # TODO: should be ax[1]
+            plt.semilogy(dat[:, iabscissa], dat[:, 5:], '-')
+            # plt.hold(True)
+            ax = array(plt.axis())
+
+            # vertical separator
+            idx = np.argsort(dat[-1, 5:])
+            plt.plot(np.dot(dat[-2, iabscissa], [1, 1]),
+                        array([ax[2] * (1 + 1e-6), ax[3] / (1 + 1e-6)]),
+                        # array([np.min(dat[:, 5:]), np.max(dat[:, 5:])]),
+                        'k-')
+            annotations = self.persistent_communication_dict.get('variable_annotations')
+            if annotations is None:
+                annotations = range(len(idx))
+            for i, s in enumerate(annotations):
+                # text(ax[1], yy[i], ' '+str(idx[i]))
+                plt.text(dat[-1, iabscissa], dat[-1, 5 + i],
+                            ' ' + str(s))
+        else:
+            plt.semilogy(dat[:, iabscissa], dat[:, 5:], '-')
+        plt.plot(dat[:-1, iabscissa], 1 / dat[:-1, 3], 'k', label='$\\beta=\\sqrt{cond(CORR)} - 1$')
+        plt.text(dat[-2, iabscissa], 1 / dat[-2, 3], '$1/\\beta$')
+        plt.legend(framealpha=0.3)
+        smartlogygrid()
+        plt.title(r'Diagonal Decoding Scaling Factors')
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
