@@ -74,7 +74,7 @@ either of these with ``sudo``.
 ## Version History
 
 * [Release ``3.2.1``](https://github.com/CMA-ES/pycma/releases/tag/r3.2.1)
-  fixes plot of principle axes which were shown squared by mistake in version 3.2.0.
+  fixes plot of principal axes which were shown squared by mistake in version 3.2.0.
 
 * [Release ``3.2.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.2.0)
   provides a new interface for constrained optimization `ConstrainedFitnessAL`
