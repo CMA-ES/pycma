@@ -572,6 +572,12 @@ class DiagonalDecoding(AdaptiveDecoding):
         return x / self.scaling
         return x if self.is_identity else x / self.scaling
 
+    def transform_covariance_matrix(self, C):
+        """return the covariance matrix D * C * D"""
+        if self.is_identity:
+            return C
+        return (self.scaling * C).T * self.scaling
+
     def __array__(self):
         """``sigma * self`` tries to call ``self.__array__()`` if
         ``isinstance(sigma, np.float64)``.
