@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """CMA-ES (evolution strategy), the main sub-module of `cma` providing
-in particular `CMAOptions`, `CMAEvolutionStrategy`, and `fmin`
+in particular `CMAOptions`, `CMAEvolutionStrategy`, and `fmin2`
 """
 
 # TODO (mainly done): remove separable CMA within the code (keep as sampler only)
@@ -504,7 +504,7 @@ def cma_default_options_(  # to get keyword completion back
                   ' time critical on fast to evaluate functions',
     verb_log_expensive='N * (N <= 50)  # allow to execute eigendecomposition for logging every verb_log_expensive iteration,'\
                                        ' 0 or False for never',
-    verb_plot='0  #v in fmin(): plot() is called every verb_plot iteration',
+    verb_plot='0  #v in fmin2(): plot() is called every verb_plot iteration',
     verb_time='True  #v output timings on console',
     vv='{}  #? versatile set or dictionary for hacking purposes, value found in self.opts["vv"]'
     ):
@@ -558,7 +558,7 @@ class CMAOptions(dict):
     ``CMAOptions(opts)`` returns the subset of recognized options in
     ``dict(opts)``.
 
-    Option values can be "written" in a string and, when passed to `fmin`
+    Option values can be "written" in a string and, when passed to `fmin2`
     or `CMAEvolutionStrategy`, are evaluated using "N" and "popsize" as
     known values for dimension and population size (sample size, number
     of new solutions per iteration). All default option values are given
@@ -593,7 +593,7 @@ class CMAOptions(dict):
     todo: this class is overly complex and should be re-written, possibly
     with reduced functionality.
 
-    :See also: `fmin` (), `CMAEvolutionStrategy`, `_CMAParameters`
+    :See also: `fmin2` (), `CMAEvolutionStrategy`, `_CMAParameters`
 
     """
 
@@ -4078,6 +4078,8 @@ def fmin(objective_function, x0, sigma0,
          callback=None):
     """functional interface to the stochastic optimizer CMA-ES
     for non-convex function minimization.
+
+    `fmin2` provides the cleaner return values.
 
     Calling Sequences
     =================

@@ -22,7 +22,7 @@ CMA-ES algorithm in the classes `cma.CMAEvolutionStrategy` and
 
 In each implementation two interfaces are provided:
 
-- functions `fmin` and `purecma.fmin`:
+- functions `fmin2` and `purecma.fmin`:
     run a complete minimization of the passed objective function with
     CMA-ES. `fmin` also provides optional restarts and noise handling.
 
