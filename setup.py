@@ -10,13 +10,11 @@ Final final changes to version numbers and such::
 
 To prepare the docs from a dirty code folder::
 
-    conda activate py27
     backup cma --move
     git checkout -- cma
     pip install -e .
-    pydoctor --docformat=restructuredtext --make-html cma  > pydoctor-messages.txt ; less pydoctor-messages.txt  # check for errors
+    pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt ; less pydoctor-messages.txt  # check for errors
     backup --recover
-    conda deactivate
 
     # push new docs to github
     cp -r apidocs/* /Users/hansen/git/CMA-ES.github.io/apidocs-pycma
@@ -35,7 +33,7 @@ To prepare a distribution from a (usual) dirty code folder::
 
 Check distribution and project description:
 
-    tree build  # check that the build folders are clean
+    tree build | less # check that the build folders are clean
     twine check dist/*
     # python setup.py --long-description | rst2html.py > long-description.html ; open long-description.html
 
@@ -46,7 +44,7 @@ Finally upload the distribution::
 Anaconda::
 
     code tools/conda.recipe/meta.yaml  # edit version number
-    conda-build -q tools/conda.recipe
+    conda-build -q tools/conda.recipe  # takes quite a few minutes
 
 """
 # from distutils.core import setup
