@@ -4708,10 +4708,9 @@ def fmin_con(objective_function, x0, sigma0,
 
     >>> x, es = cma.evolution_strategy.fmin_con(
     ...             cma.ff.sphere, 2 * [0], 1, g=lambda x: [1 - x[0]**2],
-    ...             options={'termination_callback': lambda es: -1e-5 < sum(es.mean**2) - 1 < 1e-5,
+    ...             options={'termination_callback': lambda es: -1e-8 < sum(es.mean**2) - 1 < 1e-8,
     ...                      'seed':1, 'verbose':-9})
-    >>> es.best_feasible.f < 1 + 1e-5
-    True
+    >>> assert es.best_feasible.f < 1 + 1e-5, es.best_feasible.f
     >>> ".info attribute dictionary keys: {}".format(sorted(es.best_feasible.info))
     ".info attribute dictionary keys: ['f', 'g', 'g_al', 'x']"
 
