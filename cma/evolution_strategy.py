@@ -2916,11 +2916,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         """ % str(self._injected_solutions_archive.pop(s)),
                         InjectionWarning)
             assert len(sampler_weights) == len(pop_zero) + 1
-            if self.opts['CMA_diagonal'] is not True:  # display diagonal decoding learning rate
-                if flg_diagonal or not hasattr(self.sm, 'beta_diagonal_acceleration'):
-                    self.more_to_write.append(1)
-                else:
-                    self.more_to_write.append(self.sm.beta_diagonal_acceleration)
             if flg_diagonal:
                 self.sigma_vec.update(
                     [self.sm.transform_inverse(self.pc)] +

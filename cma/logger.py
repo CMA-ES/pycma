@@ -432,6 +432,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         warnings.warn("CMADataLogger failed to compute precision matrix")
             except (AttributeError, NotImplementedError):
                 pass
+            # TODO: write also np.linalg.eigvalsh(sigma_vec.transform_covariance_matrix(es.C))
         more_to_write = es.more_to_write
         es.more_to_write = utils.MoreToWrite()
         # --- end interface ---
@@ -1279,6 +1280,24 @@ class CMADataLogger(interfaces.BaseDataLogger):
         text(ax[0] + 0.01, ax[2],  # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
              '.min($f$)=' + repr(minfit))
              #'.f_recent=' + repr(dat.f[-1, 5]))
+
+        # AR and damping of diagonal decoding
+        if np.size(dat.sigvec) > 1:  # try to figure out whether we have data
+            semilogy(dat.sigvec[:, iabscissa], 1 / dat.sigvec[:, 3], 'k', label='$\\beta=\\sqrt{cond(CORR)} - 1$')
+            text(dat.sigvec[-1, iabscissa], 1 / dat.sigvec[-1, 3], 'dd-damp$\\approx1/\\sqrt{cond(CORR)}$')
+            semilogy(dat.sigvec[:, iabscissa], np.max(dat.sigvec[:, 5:], axis=1) / np.min(dat.sigvec[:, 5:], axis=1),
+                    'darkred', label='axis ratio of diagonal decoding')
+            text(dat.sigvec[-1, iabscissa], np.max(dat.sigvec[-1, 5:]) / np.min(dat.sigvec[-1, 5:]), 'dd-AR')
+        if np.size(dat.corrspec) > 1:
+            def c_odds(c):
+                cc = (c + 1) / (c - 1)
+                cc[cc < 0] = -1 / cc[cc < 0]
+                return cc
+            semilogy(dat.corrspec[:, iabscissa], c_odds(dat.corrspec[:, 2]), 'c', label='$min (c + 1) / (c - 1)$')
+            semilogy(dat.corrspec[:, iabscissa], c_odds(dat.corrspec[:, 5]), 'c', label='$max (c + 1) / (c - 1)$')
+            text(dat.corrspec[-1, iabscissa], c_odds(np.asarray([dat.corrspec[-1, 2]])), '$\\max (c + 1) / (c - 1)$')
+            text(dat.corrspec[-1, iabscissa], c_odds(np.asarray([dat.corrspec[-1, 5]])), '$-{\\min}^{-1} (c + 1)\dots$')
+        
 
         # title('abs(f) (blue), f-min(f) (cyan), Sigma (green), Axis Ratio (red)')
         # title(r'blue:$\mathrm{abs}(f)$, cyan:$f - \min(f)$, green:$\sigma$, red:axis ratio',
