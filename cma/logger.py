@@ -626,7 +626,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              downsample_to=1e7,
              xsemilog=False,
              xnormalize=False,
-             addcols=0,
+             addcols=1,
              load=True):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
@@ -1576,7 +1576,7 @@ last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
-         xsemilog=None, xnormalize=None, addcols=0, **kwargs):
+         xsemilog=None, xnormalize=None, addcols=1, **kwargs):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for
