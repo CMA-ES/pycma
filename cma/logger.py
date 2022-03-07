@@ -717,9 +717,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
             subplot(2, 2 + addcols, 3)
             self.plot_correlations(iabscissa)
             pyplot.xlabel('')
-            subplot(2, 2 + addcols, 6)
-            # self.plot_correlations(iabscissa, name='precspec')
+            subplot(2, 2 + addcols, 2 + addcols + 3)  # 3rd column in second row
             self.plot_sigvec(iabscissa)
+            if addcols > 1:
+                subplot(2, 2 + addcols, 4)
+                self.plot_correlations(iabscissa, name='precspec')
 
         subplot(2, 2 + addcols, 2)
         if plot_mean:
