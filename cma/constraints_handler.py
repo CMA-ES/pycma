@@ -1262,6 +1262,8 @@ class ConstrainedFitnessAL:
     >>> x = cfun.find_feasible(es)  # uses es.optimize to find (another) feasible solution
     >>> assert constraints(x)[0] <= 0, (x, cfun.best_feas.x)
     >>> assert cfun.best_feas.f < 1 + 2e-6, str(cfun.best_feas)
+    >>> assert len(cfun.archives) == 3
+    >>> assert cma.ConstrainedFitnessAL(cma.ff.sphere, constraints, archives=False).archives == []
 
     Details: The fitness, to be minimized, is changing over time such that
     the overall minimal value does not indicate the best solution.
@@ -1339,7 +1341,7 @@ class ConstrainedFitnessAL:
         try:  # treat archives as list of constraints aggregation functions
             self.archives = [ConstrainedSolutionsArchive(fun) for fun in archives]
         except TypeError:  # treat archives as flag
-            if self.archives:
+            if archives:
                 self.archives = [ConstrainedSolutionsArchive(fun) for fun in
                                  ConstrainedFitnessAL.archive_aggregators]
             else:
