@@ -551,6 +551,29 @@ class MathHelperFunctions(object):
         u = np.asarray(upper) - lower
         return (z > 0) * ((z <= u) * (z ** 2 / 2) + (z > u) * u * (z - u / 2))
 
+    _chiN_dict = {1: 0.7978845608028654, 2: 1.2533141373156,
+                  3: 1.59576912160573,   4: 1.87997120597325,
+                  5: 2.1276921621409746, 6: 2.3499640074665633}
+    @staticmethod
+    def chiN(dimension):
+        """approximation of the expectation of norm(randn(dimension)).
+
+        The exact value can be computed by::
+
+            from scipy.special import gamma
+            return 2**0.5 * gamma((self.dimension+1) / 2) / gamma(self.dimension / 2)
+
+        The approximation obeys ``chin < chin_hat < (1 + 5e-5) * chin``.
+        """
+        try:
+            return MathHelperFunctions._chiN_dict[dimension]
+        except KeyError:
+            assert dimension > 6, dimension
+            N = dimension
+            # for dim > 4 we have chin < chin_hat < (1 + 5e-5) * chin
+            MathHelperFunctions._chiN_dict[dimension] = \
+                N**0.5 * (1 - 1. / (4 * N) + 1. / (26 * N**2)) # 26 was 21
+        return MathHelperFunctions._chiN_dict[dimension]
     @staticmethod
     def prctile(data, p_vals=[0, 25, 50, 75, 100], sorted_=False):
         """``prctile(data, 50)`` returns the median, but p_vals can
