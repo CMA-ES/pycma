@@ -28,7 +28,7 @@ To prepare a distribution from a (usual) dirty code folder::
     git checkout -- cma
     python setup.py check
     python setup.py sdist bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt  # bdist_wininst
-    # twdiff cma build/lib/cma/  # just checking
+    # bbdiff cma build/lib/cma/  # just checking
     backup --recover  # recover above moved folder (and backup current, just in case)
 
 Check distribution and project description:
@@ -71,7 +71,7 @@ except IOError:  # file not found
 
 setup(name="cma",
       long_description=long_description,  # __doc__, # can be used in the cma.py file
-      # long_description_content_type = 'text/x-rst', # 'text/markdown',
+      long_description_content_type = 'text/x-rst', # 'text/markdown',
       version=__version__.split()[0],
       description="CMA-ES, Covariance Matrix Adaptation " +
                   "Evolution Strategy for non-linear numerical " +

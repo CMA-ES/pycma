@@ -73,6 +73,11 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``3.2.2``](https://github.com/CMA-ES/pycma/releases/tag/r3.2.2)
+  fixes some smallish interface and logging bugs in `ConstrainedFitnessAL`
+  and a bug when printing a warning. Polishing mainly in the plotting
+  functions. Added a notebook for how to use constraints.
+
 * [Release ``3.2.1``](https://github.com/CMA-ES/pycma/releases/tag/r3.2.1)
   fixes plot of principal axes which were shown squared by mistake in version 3.2.0.
 
