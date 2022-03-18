@@ -1436,11 +1436,12 @@ class ConstrainedFitnessAL:
                 self.find_feasible_aggregator, aggregator_ = aggregator, self.find_feasible_aggregator
             while self.finding_feasible and not any(any(d == m for m in termination)
                                                     for d in es.stop()):
-                es.optimize(self, 1)  # we could put the below fcts as callbacks
+                X = es.ask()
+                es.tell(X, [self(x) for x in X])
                 self.update(es)  # calls fun if finding_feasible finished and method is not 'best'
+                es.logger.add()  # relies on calling log_in_es during update
                 if self.finding_feasible:
                     self._reset_arrays()
-                es.logger.add()
             if aggregator:  # reset `find_feasible_aggregator` to original value
                 self.find_feasible_aggregator = aggregator_
         # warn when no feasible solution was found
