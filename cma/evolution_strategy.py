@@ -3516,7 +3516,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except AttributeError:
             utils.print_warning('plotting failed, no logger attribute found')
         except:
-            utils.print_warning(('plotting failed with:', sys.exc_info()[0]),
+            utils.print_warning('plotting failed with: {}'.format(sys.exc_info()),
                            'plot', 'CMAEvolutionStrategy')
         return self
 
