@@ -4810,11 +4810,16 @@ def fmin_con2(objective_function, x0, sigma0,
     returned as `objective_function` attribute in the second return
     argument (type `CMAEvolutionStrategy`).
 
+    Other and further keyword arguments are passed (in ``**kwargs_fmin``)
+    to `cma.fmin2`.
+
     Consider using `ConstrainedFitnessAL` directly instead of `fmin_con2`.
 
-    See `cma.fmin` for further parameters ``**kwargs``.
-
 """
+    if isinstance(find_feasible_first, dict) or isinstance(find_feasible_last, dict):
+        raise ValueError("Found an unexected `dict` as argument. Recheck the calling signature."
+                         "\nUse the keyword `options={...}` to pass an options argument for `fmin2`."
+                         "\nUse the keyword syntax also for any further arguments passed to `fmin2`.")
     if kwargs_confit is None:
         kwargs_confit = {}  # does not change default parameter value
     kwargs_fmin.setdefault('options', {}).setdefault('tolstagnation', 0)
