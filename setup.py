@@ -2,11 +2,24 @@
 # -*- coding: utf-8 -*-
 """setup for cma package distribution.
 
-Final final changes to version numbers and such::
+Switch to master branch.
 
-    __init__.py  # edit version number
-    tools/conda.recipe/meta.yaml  # edit version number
-    README.md  # add release description
+Run local tests
+
+    ./script-test-all.py
+
+Push to origin/development to trigger test:
+
+    git push origin HEAD:development
+
+Edit version numbers into (new) commit vX.X.X::
+
+    code cma/__init__.py  # edit version number
+    code tools/conda.recipe/meta.yaml  # edit version number
+
+Add a release note (based on git ls, same commit) in::
+
+    ./README.md  # add release description
 
 To prepare the docs from a dirty code folder::
 
@@ -26,8 +39,9 @@ To prepare a distribution from a (usual) dirty code folder::
 
     backup cma --move    # backup is a homebrew minitool
     git checkout -- cma
-    python setup.py check
-    python setup.py sdist bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt  # bdist_wininst
+    python setup.py check  # obsolete but why not
+      # python build was: python setup.py sdist bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt  # bdist_wininst
+    python -m build ; less dist_call_output.txt  # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
     # bbdiff cma build/lib/cma/  # just checking
     backup --recover  # recover above moved folder (and backup current, just in case)
 
@@ -37,14 +51,17 @@ Check distribution and project description:
     twine check dist/*
     # python setup.py --long-description | rst2html.py > long-description.html ; open long-description.html
 
+Push branch to master::
+
+    git push
+
 Finally upload the distribution::
 
     twine upload dist/*3.x.x*  # to not upload outdated stuff
 
 Anaconda::
 
-    code tools/conda.recipe/meta.yaml  # edit version number
-    conda-build -q tools/conda.recipe  # takes quite a few minutes
+    conda-build -q tools/conda.recipe  # takes about 1/2 hour
 
 """
 # from distutils.core import setup
