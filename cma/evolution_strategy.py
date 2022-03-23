@@ -3273,8 +3273,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         >>> import cma
         >>> for dd in [0, 1]:
-        ...     es = cma.CMA(2 * [1], 1, {'CMA_diagonal_decoding' : dd, 'verbose':-9})
-        ...     es = es.optimize(cma.ff.elli, iterations=2)
+        ...     es = cma.CMA(2 * [1], 0.1, {'CMA_diagonal_decoding' : dd, 'verbose':-9})
+        ...     es = es.optimize(cma.ff.elli, iterations=4)
         ...     es.alleviate_conditioning(1.1)  # check that alleviation_conditioning "works"
         ...     assert all(es.sigma_vec.scaling == [1, 1]), es.sigma_vec.scaling
         ...     assert es.sm.condition_number < 1.01, es.sm.C
