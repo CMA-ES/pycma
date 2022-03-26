@@ -2901,10 +2901,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 except KeyError:
                     pass  # print(i)
                 else:
-                    # print(i + 1, '-th weight set to zero')
-                    # sampler_weights[i + 1] = 0  # weight index 0 is for pc
-                    sampler_weights[i + 1] *= self.opts['CMA_active_injected']  # weight index 0 is for pc
-                    sampler_weights_dd[i + 1] *= self.opts['CMA_active_injected']  # weight index 0 is for pc
+                    # apply active_injected multiplier to non-TPA injections
+                    if i > 1 or not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA):
+                        if sampler_weights[i + 1] < 0:  # weight index 0 is for pc
+                            sampler_weights[i + 1] *= self.opts['CMA_active_injected']
+                        if sampler_weights_dd[i + 1] < 0:
+                            sampler_weights_dd[i + 1] *= self.opts['CMA_active_injected']
             for s in list(self._injected_solutions_archive):
                 if self._injected_solutions_archive[s]['iteration'] < self.countiter - 2:
                     warnings.warn("""orphanated injected solution %s
