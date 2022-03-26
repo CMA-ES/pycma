@@ -114,6 +114,22 @@ def geometric_sd(vals, **kwargs):
     """
     return np.exp(np.std(np.log(vals), **kwargs))
 
+class UpdatingAverage(object):
+    """use instead of a `list` when too many values must be averaged"""
+    def __init__(self):
+        self.count = 0
+        self.sum = 0
+    def append(self, val):
+        self(val)
+    def __call__(self, val):
+        """add a value to compute the average"""
+        self.sum += val
+        self.count += 1
+    @property
+    def value(self):
+        """current average value"""
+        return self.sum / self.count
+
 # ____________________________________________________________
 # ____________________________________________________________
 #
