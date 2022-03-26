@@ -536,6 +536,8 @@ class SolutionDict(DerivedDictBase):
             except TypeError: 
                 # Data type must be immutable, transform into tuple first
                 return hash(tuple(x))
+    def __contains__(self, key):
+        return super(SolutionDict, self).__contains__(self.key(key))
     def __setitem__(self, key, value):
         """define ``self[key] = value``"""
         key = self.key(key)
