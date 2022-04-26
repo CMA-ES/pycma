@@ -1077,17 +1077,7 @@ class GenoPheno(object):
 
         # kick out fixed_values
         if self.fixed_values is not None:
-            # keeping the transformed values does not help much
-            # therefore it is omitted
-            if 1 < 3:
-                keys = sorted(self.fixed_values.keys())
-                x = array([x[i] for i in range(len(x)) if i not in keys],
-                          copy=False)
-            else:  # TODO: is this more efficient?
-                x = list(x)
-                for key in sorted(list(self.fixed_values.keys()), reverse=True):
-                    x.remove(key)
-                x = array(x, copy=False)
+            x = np.asarray([x[i] for i in range(len(x)) if i not in self.fixed_values])
 
         # repair injected solutions
         x = repair_and_flag_change(self, repair, x, copy)
