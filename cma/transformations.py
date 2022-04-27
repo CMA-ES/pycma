@@ -712,13 +712,15 @@ class DiagonalDecoding(AdaptiveDecoding):
         check_values(self._parameters[input_parameters], input_parameters)
         return self._parameters[input_parameters]
         
-    def update(self, vectors, weights):
+    def update(self, vectors, weights, ignore_indices=None):
         """exponential update of the scaling factors.
 
-        `vectors` have shape posize x dimension and are assumed to be
+        `vectors` have shape popsize x dimension and are assumed to be
         standard normal before selection.
 
         `weights` may be negative and include the learning rate(s).
+
+        Variables listed in `ignore_indices` are not updated.
         """
         if self.is_identity and np.size(self.scaling) == 1:
             self.scaling = np.ones(len(vectors[0]))
@@ -795,7 +797,12 @@ class DiagonalDecoding(AdaptiveDecoding):
                         idx = facs > z2_pos_average
                         if any(idx):
                             facs[idx] = z2_pos_average[idx]
-        self.scaling *= facs
+        if ignore_indices is None or len(ignore_indices) == 0:
+            self.scaling *= facs
+        else:  # do not update all variables
+            for i in range(len(self.scaling)):
+                if i not in ignore_indices:
+                    self.scaling[i] *= facs[i]
         # print(facs)
 
     @property
