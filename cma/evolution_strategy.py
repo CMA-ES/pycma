@@ -3396,7 +3396,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             raise ValueError('number of solutions ' + str(len(X)) +
                     ' must be a multiple of popsize (lambda) ' +
                     str(popsize))
-        for i in rglen((X) / popsize):
+        for i in range(len(X) // popsize):
             # feed in chunks of size popsize
             self.ask()  # a fake ask, mainly for a conditioned calling of
                         # updateBD and secondary to get possibly the same
