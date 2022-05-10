@@ -4244,18 +4244,21 @@ def fmin(objective_function, x0, sigma0,
         instead of applying reevaluations, the "number of evaluations"
         is (ab)used as scaling factor kappa (experimental).
     ``bipop=False``
-        if `True`, run as BIPOP-CMA-ES; BIPOP is a special restart
-        strategy switching between two population sizings - small
-        (like the default CMA, but with more focused search) and
-        large (progressively increased as in IPOP). This makes the
-        algorithm perform well both on functions with many regularly
-        or irregularly arranged local optima (the latter by frequently
-        restarting with small populations).  For the `bipop` parameter
-        to actually take effect, also select non-zero number of
-        (IPOP) restarts; the recommended setting is ``restarts<=9``
-        and `x0` passed as a string using `numpy.rand` to generate
-        initial solutions. Note that small-population restarts
-        do not count into the total restart count.
+        if ``bool(bipop) is True``, run as BIPOP-CMA-ES; BIPOP is a special
+        restart strategy switching between two population sizings - small
+        (relative to the large population size and with varying initial
+        sigma, the first run is accounted on the "small" budget) and large
+        (progressively increased as in IPOP). This makes the algorithm
+        potentially solve both, functions with many regularly or
+        irregularly arranged local optima (the latter by frequently
+        restarting with small populations). Small populations are
+        (re-)started as long as the cumulated budget_small is smaller than
+        `bipop` x max(1, budget_large). For the `bipop` parameter to
+        actually conduct restarts also with the larger population size,
+        select a non-zero number of (IPOP) restarts; the recommended
+        setting is ``restarts<=9`` and `x0` passed as a string using
+        `numpy.rand` to generate initial solutions. Small-population
+        restarts do not count into this total restart count.
     ``callback=None``
         `callable` or list of callables called at the end of each
         iteration with the current `CMAEvolutionStrategy` instance
@@ -4431,7 +4434,7 @@ def fmin(objective_function, x0, sigma0,
                 # population.
                 poptype = 'small'
 
-            elif sum(small_i) < sum(large_i):
+            elif sum(small_i) < bipop * max((1, sum(large_i))):
                 # An interweaved run with small population size
                 poptype = 'small'
                 if 11 < 3:  # not needed when compared to irun - runs_with_small
