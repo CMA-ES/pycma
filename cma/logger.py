@@ -230,7 +230,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         fn = self.name_prefix + 'sigvec.dat'
         try:
             with open(fn, 'w') as f:
-                f.write('% # columns="iteration, evaluation, sigma, void, void, ' +
+                f.write('% # columns="iteration, evaluation, sigma, beta, void, ' +
                         ' sigvec==sigma_vec.scaling factors from diagonal decoding", ' +
                         strseedtime +
                         ', ' + self.persistent_communication_dict.as_python_tag +
@@ -277,10 +277,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         `plot` and `disp`.
 
         Argument `filenameprefix` is the filename prefix of data to be
-        loaded (six files), by default ``'outcma/cma'``.
+        loaded (5-8 files), by default ``'outcmaes/'`` (where / stands
+        for the OS-specific path seperator).
 
         Return self with (added) attributes `xrecent`, `xmean`,
-        `f`, `D`, `std`, 'corrspec'
+        `f`, `D`, `std`, `corrspec`, `sigvec`.
 
         """
         if not filenameprefix:
@@ -1045,7 +1046,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             ' ' + str(s))
         else:
             plt.semilogy(dat[:, iabscissa], dat[:, 5:], '-')
-        plt.plot(dat[:-1, iabscissa], 1 / dat[:-1, 3], 'k', label='$\\beta=\\sqrt{cond(CORR)} - 1$')
+        plt.plot(dat[:-1, iabscissa], 1 / dat[:-1, 3], 'k',
+                 label=r'$\beta=\max(2, \sqrt{cond(CORR)}) - 1$')
         plt.text(dat[-2, iabscissa], 1 / dat[-2, 3], '$1/\\beta$')
         plt.legend(framealpha=0.3)
         smartlogygrid()
