@@ -444,7 +444,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_dampsvec_fac='np.Inf  # tentative and subject to changes, 0.5 would be a "default" damping for sigma vector update',
     CMA_dampsvec_fade='0.1  # tentative fading out parameter for sigma vector update',
     CMA_teststds='None  # factors for non-isotropic initial distr. of C, mainly for test purpose, see CMA_stds for production',
-    CMA_stds='None  # multipliers for sigma0 in each coordinate, not represented in C, better use `cma.ScaleCoordinates` instead',
+    CMA_stds='None  # multipliers for sigma0 in each coordinate (not represented in C), or use `cma.ScaleCoordinates` instead',
     # CMA_AII='False  # not yet tested',
     CSA_dampfac='1  #v positive multiplier for step-size damping, 0.3 is close to optimal on the sphere',
     CSA_damp_mueff_exponent='0.5  # zero would mean no dependency of damping on mueff, useful with CSA_disregard_length option',
@@ -471,7 +471,7 @@ def cma_default_options_(  # to get keyword completion back
     popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
     popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
     randn='np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
-    scaling_of_variables='None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or possibly CMA_stds). Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`',
+    scaling_of_variables='None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or CMA_stds). Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`',
     seed='time  # random number seed for `numpy.random`; `None` and `0` equate to `time`,'\
                 ' `np.nan` means "do nothing", see also option "randn"',
     signals_filename='cma_signals.in  # read versatile options from this file (use `None` or `""` for no file)'\
@@ -1465,7 +1465,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             raise ValueError("sigma0 must be a scalar, a string is no longer permitted")
             # self.sigma0 = eval(sigma0)  # like '1./N' or 'np.random.rand(1)[0]+1e-2'
         if np.size(self.sigma0) != 1 or np.shape(self.sigma0):
-            raise ValueError('input argument sigma0 must be (or evaluate to) a scalar')
+            raise ValueError('input argument sigma0 must be (or evaluate to) a scalar,'
+                             ' use `cma.ScaleCoordinates` or option `"CMA_stds"` when'
+                             ' different sigmas in each coordinate are in order.')
         self.sigma = self.sigma0  # goes to inialize
 
         # extract/expand options
