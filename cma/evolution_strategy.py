@@ -500,6 +500,7 @@ def cma_default_options_(  # to get keyword completion back
     verbose='3  #v verbosity e.g. of initial/final message, -1 is very quiet, -9 maximally quiet, may not be fully implemented',
     verb_append='0  # initial evaluation counter, if append, do not overwrite output files',
     verb_disp='100  #v verbosity: display console output every verb_disp iteration',
+    verb_disp_overwrite='inf  #v start overwriting after given iteration',
     verb_filenameprefix=CMADataLogger.default_prefix + '  # output path (folder) and filenames prefix',
     verb_log='1  #v verbosity: write data to files every verb_log iteration, writing can be'\
                   ' time critical on fast to evaluate functions',
@@ -3528,20 +3529,28 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         print('Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]')
         sys.stdout.flush()
 
-    def disp(self, modulo=None):
+    def disp(self, modulo=None, overwrite=None):
         """print current state variables in a single-line.
 
         Prints only if ``iteration_counter % modulo == 0``.
+        Overwrites the line after iteration `overwrite`.
 
         :See also: `disp_annotation`.
         """
         if modulo is None:
             modulo = self.opts['verb_disp']
 
+        def do_overwrite():
+            if overwrite is None:
+                iters = self.opts.get('verb_disp_overwrite', float('inf'))
+            else:
+                iters = overwrite
+            return not self.stop() and iters > 0 and self.countiter > iters
+
         # console display
 
         if modulo:
-            if (self.countiter - 1) % (10 * modulo) < 1:
+            if (self.countiter - 1) % (10 * modulo) < 1 and not do_overwrite():
                 self.disp_annotation()
             if not hasattr(self, 'times_displayed'):
                 self.time_last_displayed = 0
@@ -3566,7 +3575,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                 '%6.2e' % self.sigma,
                                 '%6.0e' % (self.sigma * min(self.sigma_vec * self.dC**0.5)),
                                 '%6.0e' % (self.sigma * max(self.sigma_vec * self.dC**0.5)),
-                                stime)))
+                                stime)),
+                      end='\r' if do_overwrite() else '\n')
                 # if self.countiter < 4:
                 sys.stdout.flush()
         return self
