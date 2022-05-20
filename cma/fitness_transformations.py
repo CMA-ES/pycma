@@ -351,7 +351,8 @@ class ScaleCoordinates(ComposedFunction):
 
     def scale_and_offset(self, x):
         x = np.asarray(x)
-        r = lambda vec: utils.recycled(vec, as_=x)
+        def r(vec):
+            return utils.recycled(vec, as_=x)
         if self.zero is not None and self.multiplier is not None:
             x = r(self.multiplier) * (x - r(self.zero))
         elif self.zero is not None:
@@ -365,7 +366,8 @@ class ScaleCoordinates(ComposedFunction):
         ``y / multipliers + zero``
         """
         x = np.asarray(x)
-        r = lambda vec: utils.recycled(vec, as_=x)
+        def r(vec):
+            return utils.recycled(vec, as_=x)
         if self.zero is not None and self.multiplier is not None:
             x = x / r(self.multiplier) + r(self.zero)
         elif self.zero is not None:
