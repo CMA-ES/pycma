@@ -412,6 +412,13 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         f += (w[-1] - 1)**2 * (1 + np.sin(2 * np.pi * w[-1])**2)
         w = w[1:-1]
         return f + sum((w - 1)**2 * (1 + 10 * np.sin(np.pi * w + 1)**2))
+    def absplussin(self, x):
+        """multimodal function with the global optimum at x_i = -1.152740846"""
+        x = np.asarray(x)
+        s = sum(np.abs(x)**0.8 + 5 * np.sin(x**3))
+        #                      1234567890123456789012345
+        return s + len(x) * (3.8757622790462818881784197)
+
     def rastrigin(self, x):
         """Rastrigin test objective function"""
         if not isscalar(x[0]):
