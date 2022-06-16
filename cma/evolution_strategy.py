@@ -425,7 +425,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_const_trace='False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
     CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix,'\
                                         ' True for always',  # TODO 4/ccov_separable?
-    CMA_diagonal_decoding='1  # multiplier for additional diagonal update',
+    CMA_diagonal_decoding='0  # multiplier for additional diagonal update',
     CMA_eigenmethod='np.linalg.eigh  # or cma.utilities.math.eig or pygsl.eigen.eigenvectors',
     CMA_elitist='False  #v or "initial" or True, elitism likely impairs global search performance',
     CMA_injections_threshold_keep_len='1  #v keep length if Mahalanobis length is below the given relative threshold',
