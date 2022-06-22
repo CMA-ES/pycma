@@ -3001,7 +3001,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     copy_if_changed=False), copy=False)
         if _new_injections:
             self.pop_injection_directions = self._prepare_injection_directions()
-            if self.opts['verbose'] > 4 and self.countiter < 3 and type(self.adapt_sigma) is not CMAAdaptSigmaTPA and len(self.pop_injection_directions):
+            if (self.opts['verbose'] > 4 and self.countiter < 3 and 
+                not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) and 
+                len(self.pop_injection_directions)):
                 utils.print_message('   %d directions prepared for injection %s' %
                                     (len(self.pop_injection_directions),
                                      "(no more messages will be shown)" if
