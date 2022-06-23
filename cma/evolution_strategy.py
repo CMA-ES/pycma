@@ -1483,9 +1483,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if np.isinf(opts['CMA_diagonal']):
             opts['CMA_diagonal'] = True
         self.opts = opts
-        self.randn = opts['randn']
         if not utils.is_nan(opts['seed']):
-            if self.randn is np.random.randn:
+            if self.opts['randn'] is np.random.randn:
                 if not opts['seed'] or opts['seed'] is time:
                     np.random.seed()
                     six_decimals = (time.time() - 1e6 * (time.time() // 1e6))
@@ -2247,7 +2246,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """change `x` like for injection, all on genotypic level"""
         x = x - self.mean  # -= fails if dtypes don't agree
         if any(x):  # let's not divide by zero
-            x *= sum(self.randn(1, len(x))[0]**2)**0.5 / self.mahalanobis_norm(x)
+            x *= sum(self.opts['randn'](1, len(x))[0]**2)**0.5 / self.mahalanobis_norm(x)
         x += self.mean
         return x
     def _random_rescaling_factor_to_mahalanobis_size(self, y):
@@ -2261,7 +2260,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                            "_random_rescaling_factor_to_mahalanobis_size",
                                 iteration=self.countiter)
             return 1.0
-        return np.sum(self.randn(1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
+        return np.sum(self.opts['randn'](1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
 
 
     def get_mirror(self, x, preserve_length=False):
@@ -2297,7 +2296,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                               copy=True) - self.mean
 
         if not preserve_length:
-            # dx *= sum(self.randn(1, self.N)[0]**2)**0.5 / self.mahalanobis_norm(dx)
+            # dx *= sum(self.opts['randn'](1, self.N)[0]**2)**0.5 / self.mahalanobis_norm(dx)
             dx *= self._random_rescaling_factor_to_mahalanobis_size(dx)
         x = self.mean - dx
         y = self.gp.pheno(x, into_bounds=self.boundary_handler.repair)
