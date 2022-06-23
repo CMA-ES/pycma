@@ -200,6 +200,7 @@ from . import optimization_tools as ot
 from . import sampler
 from .utilities import utils as _utils
 from . import constraints_handler as _constraints_handler
+from cma import fitness_models as _fitness_models
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
 from .recombination_weights import RecombinationWeights
 from .logger import CMADataLogger  # , disp, plot
@@ -4166,6 +4167,79 @@ class _CMAParameters(object):
     def disp(self):
         pprint(self.__dict__)
 
+def fmin_lq_surr(objective_function, x0, sigma0, options=None, **kwargs):
+    """minimize `objective_function` with lq-CMA-ES.
+
+    See ``help(cma.fmin)`` for the input parameter descriptions where
+    `parallel_objective` is not available and noise-related options may
+    fail.
+
+    Returns the tuple ``xbest, es`` similar to `fmin2`, however `xbest`
+    takes into account only some of the recent history and not all
+    evaluations. `es.result` is partly based on surrogate f-values and may
+    hence be confusing. In particular, `es.best` contains the solution with
+    the best _surrogate_ value (which is usually of little interest). See
+    `fmin_lq_surr2` for a fix.
+
+    As in general, `es.result.xfavorite` is considered the best available
+    estimate of the optimal solution.
+
+    Example code
+    ------------
+
+    >>> import cma
+    >>> x, es = cma.fmin_lq_surr(cma.ff.rosen, 2 * [0], 0.1,
+    ...                          {'verbose':-9,  # verbosity for doctesting
+    ...                           'ftarget':1e-2})
+    >>> assert 'ftarget' in es.stop(), (es.stop(), es.result_pretty())
+    >>> assert es.result.evaluations < 130, es.result.evaluations
+
+    Details
+    -------
+    lq-CMA-ES builds a linear or quadratic (global) model as a surrogate to
+    try to circumvent evaluations of the objective function, see link below.
+
+    This function calls `fmin2` with a surrogate as ``parallel_objective``
+    argument. The model is kept the same for each restart. Use
+    `fmin_lq_surr2` if this is not desirable.
+
+    ``kwargs['callback']`` is modified by appending a callable that injects
+    ``model.xopt``. This can be prevented by passing `callback=False` or
+    adding `False` as an element of the callback list (see also `cma.fmin`).
+
+    ``parallel_objective`` is assigned to a surrogate model instance of
+    ``cma.fitness_models.SurrogatePopulation``.
+
+    `es.countevals` is updated from the `evaluations` attribute of the
+    constructed surrogate to count only "true" evaluations.
+
+    See https://cma-es.github.io/lq-cma for references and details about
+    the algorithm.
+    """
+    surrogate = _fitness_models.SurrogatePopulation(objective_function)
+    def inject_xopt(es):
+        es.inject([surrogate.model.xopt])  # not strictly necessary
+    def callback_in_kwargs(kwargs):
+        """handle kwargs['callback']"""
+        if 'callback' in kwargs:
+            cb = kwargs['callback']
+            if cb is None:
+                cb = []
+            if not isinstance(cb, (list, tuple)):
+                cb = [cb]  # cb could be [False] now
+            try: cb.remove(False)
+            except ValueError:
+                if inject_xopt not in cb:
+                    cb.append(inject_xopt)
+                    kwargs['callback'] = cb
+            else: kwargs['callback'] = cb  # False was removed
+        else:  # by default set inject_xopt as callback
+            kwargs['callback'] = [inject_xopt]
+        return kwargs
+
+    _, es = fmin2(None, x0, sigma0, options=options, parallel_objective=surrogate,
+                  **callback_in_kwargs(kwargs))
+    return surrogate.model.X[np.argmin(surrogate.model.F)], es
 
 def fmin2(objective_function, x0, sigma0,
          options=None,
