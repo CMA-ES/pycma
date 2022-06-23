@@ -3451,6 +3451,23 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     # ____________________________________________________________
     # ____________________________________________________________
     # ____________________________________________________________
+    def _try_update_sm_now(self):
+        """call sm.update_now like sm.sample would do.
+
+        This avoids a bias when using
+        `_random_rescaling_factor_to_mahalanobis_size` which was visible
+        with TPA line samples.
+        """
+        try:  # make model reasonably uptodate
+            self.sm.update_now()  # Why not just call sample?
+        except AttributeError:
+            self.sm.sample(1)
+        try:
+            if self.sm.last_update == self.sm.count_tell:
+                self._updateBDfromSM(self.sm)  # should be cheap
+        except AttributeError:
+            self._updateBDfromSM(self.sm)  # should be cheap
+
     def mahalanobis_norm(self, dx):
         """return Mahalanobis norm based on the current sample
         distribution.
@@ -3478,6 +3495,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         `d` is the Euclidean distance, because C = I and sigma = 1.
 
         """
+        self._try_update_sm_now()
         return self.sm.norm(np.asarray(dx) / self.sigma_vec.scaling) / self.sigma
 
     @property
