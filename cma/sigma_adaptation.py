@@ -67,9 +67,18 @@ class CMAAdaptSigmaBase(object):
 
         """
         self._update_ps(es)
-        if self.ps is None:
+        try: pc_for_ps = 'pc for ps' in es.opts['vv']  # just in case
+        except: pc_for_ps = False  # 'vv' has an incompatible format or does't exist
+        if pc_for_ps:
+            # was: es.D**-1 * np.dot(es.B.T, es.pc)
+            ps = es.sm.transform_inverse(es.pc)
+            cs = es.sp.cc
+        elif self.ps is None:
             return True
-        squared_sum = np.sum(self.ps**2) / (1 - (1 - self.cs)**(2 * es.countiter))
+        else:
+            ps = self.ps
+            cs = self.cs
+        squared_sum = np.sum(ps**2) / (1 - (1 - cs)**(2 * es.countiter))
         # correction with self.countiter seems not necessary,
         # as pc also starts with zero
         return squared_sum / es.N - 1 < 1 + 4. / (es.N + 1)
@@ -223,7 +232,9 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         """
         self._update_ps(es)  # caveat: if es.B or es.D are already updated and ps is not, this goes wrong!
         p = self.ps
-        if 'pc for ps' in es.opts['vv']:
+        try: pc_for_ps = 'pc for ps' in es.opts['vv']  # just in case
+        except: pc_for_ps = False  # 'vv' has an incompatible format or does't exist
+        if pc_for_ps:
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
             p = es.sm.transform_inverse(es.pc)
         try:                                 # to filter coordinates or a
