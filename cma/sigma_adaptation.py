@@ -10,6 +10,8 @@ from .utilities.math import Mh
 def _norm(x): return np.sqrt(np.sum(np.square(x)))
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
+_warnings.filterwarnings('once', message="Missing ``path_for_sigma_update.*")
+
 class CMAAdaptSigmaBase(object):
     """step-size adaptation base class, implement `hsig` (for stalling
     distribution update) functionality via an isotropic evolution path.
@@ -240,12 +242,14 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         try:                                 # to filter coordinates or a
             p = es.path_for_sigma_update(p)  # subspace depending on the state
         except AttributeError:
-            m = ("Missing ``path_for_sigma_update`` attribute in {}."
-                 "\n This is usually not a problem unless integer mutations are used."
-                 "".format(type(es)))
-            _warnings.filterwarnings('once', message=m)
-            _warnings.warn(m)
+            if 11 < 3 and len(es.opts['integer_variables']):
+                m = ("Missing ``path_for_sigma_update`` attribute in {}."
+                    "\n This is usually not a problem unless integer mutations are used."
+                    "".format(type(es)))
+                _warnings.warn(m)
         N = len(p)
+        if N == 0:  # all variables are masked, do nothing
+            return 1
         if es.opts['CSA_squared']:
             s = (sum(_square(p)) / N - 1) / 2
             # sum(self.ps**2) / es.N has mean 1 and std sqrt(2/N) and is skewed
