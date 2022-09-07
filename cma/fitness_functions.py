@@ -262,8 +262,8 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         N2 = len(X[0]) // 2
         f = [1e6 * sum(x[0:N2]**2) + sum(x[N2:]**2) for x in X]
         return f if len(f) > 1 else f[0]
-    def ellirot(self, x):
-        return ff.elli(array(x), 1)
+    def ellirot(self, x, cond=1e6):
+        return ff.elli(np.asarray(x), 1, cond=cond)
     def hyperelli(self, x):
         N = len(x)
         return sum((np.arange(1, N + 1) * x)**2)
