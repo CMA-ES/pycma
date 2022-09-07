@@ -612,13 +612,15 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except AttributeError:
             pass
         try:
-            dat.corrspec = dat.x[_where([x in iteridx for x in
-                                           dat.corrspec[:, 0]])[0], :]
+            if len(dat.corrspec):
+                dat.corrspec = dat.x[_where([x in iteridx for x in
+                                             dat.corrspec[:, 0]])[0], :]
         except AttributeError:
             pass
         try:
-            dat.precspec = dat.x[_where([x in iteridx for x in
-                                           dat.precspec[:, 0]])[0], :]
+            if len(dat.precspec):
+                dat.precspec = dat.x[_where([x in iteridx for x in
+                                             dat.precspec[:, 0]])[0], :]
         except AttributeError:
             pass
     def plot(self, fig=None, iabscissa=1, iteridx=None,
