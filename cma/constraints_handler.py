@@ -15,6 +15,8 @@ from .optimization_tools import BestSolution2
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
+_warnings.filterwarnings('once', message="``import moarchiving`` failed.*")
+
 class BoundaryHandlerBase(object):
     """quick hack versatile base class"""
     def __init__(self, bounds):
@@ -163,6 +165,19 @@ class BoundaryHandlerBase(object):
                      ib == 1 and x[i] > self.bounds[ib][idx])):
                    idxs += [i]
         return sorted(idxs)
+
+    def get_bound(self, index):
+        """return lower and upper bound of variable with index `index`"""
+        if self.bounds is None:
+            return [-np.inf, np.inf]
+        res = []
+        for ib in [0, 1]:
+            if self.bounds[ib] is None or len(self.bounds[ib]) == 0:
+                b = None
+            else:
+                b = self.bounds[ib][min((index, len(self.bounds[ib]) - 1))]
+            res.append([-np.inf, np.inf][ib] if b is None else b)
+        return res
 
     def to_dim_times_two(self, bounds):
         """return boundaries in format ``[[lb0, ub0], [lb1, ub1], ...]``,
@@ -526,7 +541,6 @@ class ConstrainedSolutionsArchive:
         except ImportError:
             m = ("``import moarchiving`` failed, hence convergence tracking "
                  "is disabled. \n  'pip install moarchiving' should fix this.")
-            _warnings.filterwarnings('once', message=m)
             _warnings.warn(m)
             return
         self.archive = moarchiving.BiobjectiveNondominatedSortedList()
