@@ -297,7 +297,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         warnings.simplefilter("ignore")
                     try:
                         self.__dict__[self.key_names[i]] = list(
-                                np.loadtxt(fn, comments=['%', '#']))
+                                np.loadtxt(fn, comments=['%', '#'], ndmin=2))
                     except:
                         self.__dict__[self.key_names[i]] = list(
                                 np.loadtxt(fn, comments='%'))
