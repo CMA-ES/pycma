@@ -1607,9 +1607,25 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # iiinteger handling, currently very basic:
         # CAVEAT: integer indices may give unexpected results if fixed_variables is used
         if len(opts['integer_variables']) and opts['fixed_variables']:
-            utils.print_warning(
-                "CAVEAT: fixed_variables change the meaning of "
-                "integer_variables indices")
+            # transform integer indices to genotype
+            popped = []  # just for the record
+            for i in reversed(range(self.N)):
+                if i in opts['fixed_variables']:
+                    opts['integer_variables'].remove(i)
+                    if 1 < 3:  # just for catching errors
+                        popped.append(i)
+                        if i in opts['integer_variables']:
+                            raise ValueError("index {} appeared more than once in `'integer_variables'` option".format(i))
+                    # reduce integer variable indices > i by one
+                    for j, idx in enumerate(opts['integer_variables']):
+                        if idx > i:
+                            opts['integer_variables'][j] -= 1
+            if opts['verbose'] >= 0:
+                warnings.warn("Handling integer variables when some variables are fixed."
+                            "\n  This code is poorly tested."
+                            "\n  Variables {} are fixed integer variables and discarded"
+                            " for integer handling."
+                            .format(popped))
         # 1) prepare minstd to be a vector
         if (len(opts['integer_variables']) and
                 np.isscalar(opts['minstd'])):
