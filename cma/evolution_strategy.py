@@ -2771,7 +2771,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.repair_genotype(pop[k])
 
         # sort pop for practicability, now pop != self.pop, which is unsorted
-        pop = np.asarray(pop)[fit.idx]
+        pop = np.asarray(pop)[fit.idx]  # array is used for weighted recombination
 
         # prepend best-ever solution to population, in case
         # note that pop and fit.fit do not agree anymore in this case
