@@ -460,16 +460,19 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
     def check_consistency(self, es):
         assert isinstance(es.adapt_sigma, CMAAdaptSigmaTPA)
         if es.countiter > 3:
-            dm = es.mean[0] - es.mean_old[0]
-            dx0 = es.pop[0][0] - es.mean_old[0]
-            dx1 = es.pop[1][0] - es.mean_old[0]
-            for i in np.random.randint(1, es.N, 1):
-                if dx0 * dx1 * (es.pop[0][i] - es.mean_old[i]) * (
-                    es.pop[1][i] - es.mean_old[i]):
-                    dmi_div_dx0i = (es.mean[i] - es.mean_old[i]) \
-                                    / (es.pop[0][i] - es.mean_old[i])
-                    dmi_div_dx1i = (es.mean[i] - es.mean_old[i]) \
-                                        / (es.pop[1][i] - es.mean_old[i])
+            j = np.random.randint(0, es.N)
+            dm = es.mean_after_tell[j] - es.mean_old[j]
+            dx0 = es.pop[0][j] - es.mean[j]
+            dx1 = es.pop[1][j] - es.mean[j]
+            for i in np.random.randint(0, es.N, 1):
+                if i == j:
+                    i -= 1 if i > 0 else -1
+                if dx0 * dx1 * (es.pop[0][i] - es.mean[i]) * (
+                    es.pop[1][i] - es.mean[i]):
+                    dmi_div_dx0i = (es.mean_after_tell[i] - es.mean_old[i]) \
+                                    / (es.pop[0][i] - es.mean[i])
+                    dmi_div_dx1i = (es.mean_after_tell[i] - es.mean_old[i]) \
+                                        / (es.pop[1][i] - es.mean[i])
                     if not Mh.equals_approximately(
                             dmi_div_dx0i, dm / dx0, 1e-4) or \
                             not Mh.equals_approximately(
