@@ -171,6 +171,7 @@ in particular `CMAOptions`, `CMAEvolutionStrategy`, and `fmin2`
 
 from __future__ import (absolute_import, division, print_function,
                         )  # unicode_literals, with_statement)
+import collections  # deque since Python 2.4, defaultdict since 2.5, namedtuple() since 2.6
 # from builtins import ...
 from .utilities.python3for2 import range  # redefine range in Python 2
 
@@ -179,10 +180,6 @@ import os
 import time  # not really essential
 import warnings  # catch numpy warnings
 import ast  # for literal_eval
-try:
-    import collections  # not available in Python 2.5
-except ImportError:
-    pass
 import math
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
@@ -1768,8 +1765,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit = _BlancClass()
         self.fit.fit = []  # not really necessary
         self.fit.hist = []  # short history of best
-        self.fit.histbest = []  # long history of best
-        self.fit.histmedian = []  # long history of median
+        self.fit.histbest = list()  # long history of best
+        self.fit.histmedian = list()  # long history of median
         self.fit.median = None
         self.fit.median0 = None
         self.fit.median_min = np.inf
