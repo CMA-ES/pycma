@@ -1539,6 +1539,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.mean = self.gp.geno(np.array(self.x0, copy=True),
                             from_bounds=self.boundary_handler.inverse,
                             copy=False)
+        self.mean_after_tell = np.array(self.mean, copy=True)  # to separate any after-iteration change
         self.mean0 = array(self.mean, copy=True)  # relevant for initial injection
         self.gp.tf_geno = tf_geno_backup
         # without copy_always interface:
@@ -3073,6 +3074,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.number_of_injections_delivered = 0
         self.pop = []  # remove this in case pop is still needed
         # self.pop_sorted = []
+        self.mean_after_tell[:] = self.mean
         self._flgtelldone = True
         try:  # shouldn't fail, but let's be nice to code abuse
             self.timer.pause()
