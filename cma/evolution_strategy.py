@@ -3772,6 +3772,7 @@ class _CMAStopDict(dict):
                 l = int(l)  # doesn't work for infinite l which can never happen anyways
                 self._addstop('tolstagnation',  # leads sometimes early stop on ftablet, fcigtab, N>=50?
                         1 < 3 and opts['tolstagnation'] and es.countiter > N * (5 + 100 / es.popsize) and
+                        (es.countevals - es.best.evals) / es.popsize > es.opts['tolstagnation'] / 2 and  # recorded best is in the first half of stagnation period
                         len(es.fit.histbest) > 100 and 2 * l < len(es.fit.histbest) and
                         np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]) and
                         np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l]))
