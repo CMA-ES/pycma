@@ -3139,8 +3139,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             print('termination on %s=%s%s' % (k, str(v), s +
                   (' (%s)' % time_str if time_str else '')))
 
-        print('final/bestever f-value = %e %e' % (self.best.last.f,
-                                                  fbestever))
+        print('final/bestever f-value = %e %e after %d/%d evaluations' % (
+            self.best.last.f, fbestever, self.countevals, self.best.evals))
         if self.N < 9:
             print('incumbent solution: ' + str(list(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair))))
             print('std deviation: ' + str(list(self.sigma * self.sigma_vec.scaling * np.sqrt(self.dC) * self.gp.scales)))
