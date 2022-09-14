@@ -2971,7 +2971,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         elif any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 >
                        np.asarray(self.opts['maxstd'])):
             self.sigma = min(np.asarray(self.opts['maxstd']) /
-                             self.sigma_vec * self.dC**0.5)
+                             (self.sigma_vec * self.dC**0.5))
         # g = self.countiter
         # N = self.N
         # mindx = eval(self.opts['mindx'])
