@@ -2995,10 +2995,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.sigma > 1e9 * self.sigma0:
             alpha = self.sigma / max(self.sm.variances)**0.5
             if alpha > 1:
-                self.sigma /= alpha**0.5  # adjust only half
-                self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
-                self.sm *= alpha
-                self._updateBDfromSM()
+                try:
+                    self.sm *= alpha
+                except:
+                    pass
+                else:
+                    self.sigma /= alpha**0.5  # adjust only half
+                    self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
+                    self._updateBDfromSM()
 
         # TODO increase sigma in case of a plateau?
 
