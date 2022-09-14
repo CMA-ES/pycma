@@ -1846,7 +1846,30 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.x0.resize(self.x0.shape[0])  # 1-D array, not really necessary?!
         except NotImplementedError:
             pass
-    
+
+    def _stds_into_limits(self):
+        """set ``self.sigma_vec.scaling`` to respect ``opts['max/minstd']``
+        """
+        is_min = np.any(self.opts['minstd'] > 0)  # accepts also a scalar
+        is_max = np.any(np.isfinite(self.opts['maxstd']))
+        if not is_min and not is_max:
+            return
+        def get_i(bnds, i):
+            if np.isscalar(bnds):
+                return bnds
+            return bnds[i]
+        for i, s in enumerate(self.stds):
+            found = False
+            if is_min:
+                sb = get_i(self.opts['minstd'], i)
+                found = s < sb
+            if is_max and not found:
+                sb = get_i(self.opts['maxstd'], i)
+                found = s > sb
+            if found:
+                self.sigma_vec._init_(self.N)
+                self.sigma_vec.set_i(i, self.sigma_vec.scaling[i] * sb / s)
+
     def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
         
@@ -2974,16 +2997,19 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 print(self.opts['vv'])  # N=10,lam=10: 0.8 is optimal
             self.sigma = self.opts['vv'] * self.sp.weights.mueff * sum(self.mean**2)**0.5 / N
 
-        if any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 <
-                       np.asarray(self.opts['minstd'])):
-            self.sigma = max(np.asarray(self.opts['minstd']) /
+        self._stds_into_limits()
+
+        if 11 < 3:  # old min/maxstd code
+            if any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 <
+                        np.asarray(self.opts['minstd'])):
+                self.sigma = max(np.asarray(self.opts['minstd']) /
+                                    (self.sigma_vec * self.dC**0.5))
+                assert all(self.sigma * self.sigma_vec * self.dC**0.5 >=
+                        (1-1e-9) * np.asarray(self.opts['minstd']))
+            elif any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 >
+                        np.asarray(self.opts['maxstd'])):
+                self.sigma = min(np.asarray(self.opts['maxstd']) /
                                 (self.sigma_vec * self.dC**0.5))
-            assert all(self.sigma * self.sigma_vec * self.dC**0.5 >=
-                       (1-1e-9) * np.asarray(self.opts['minstd']))
-        elif any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 >
-                       np.asarray(self.opts['maxstd'])):
-            self.sigma = min(np.asarray(self.opts['maxstd']) /
-                             (self.sigma_vec * self.dC**0.5))
         # g = self.countiter
         # N = self.N
         # mindx = eval(self.opts['mindx'])
