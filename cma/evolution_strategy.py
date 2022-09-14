@@ -1063,8 +1063,7 @@ class _CMAEvolutionStrategyResult(tuple):
             self.countevals,
             self.countiter,
             self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
-            self.gp.scales * self.sigma * self.sigma_vec.scaling *
-                self.dC**0.5))
+            self.stds))  # 
 
 class CMAEvolutionStrategy(interfaces.OOOptimizer):
     """CMA-ES stochastic optimizer class with ask-and-tell interface.
@@ -3100,6 +3099,26 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.pop_injection_directions.append(solution - self.mean)
 
     @property
+    def stds(self):
+        """return array of coordinate-wise standard deviations (phenotypic).
+
+        Takes into account geno-phenotype transformation, step-size,
+        diagonal decoding, and the covariance matrix. Only the latter three
+        apply to `self.mean`.
+        """
+        return ((self.sigma * self.gp.scales) *
+                (self.sigma_vec.scaling * np.sqrt(self.sm.variances)))
+    @property
+    def _stds_geno(self):
+        """return array of coordinate-wise standard deviations (genotypic).
+
+        Takes into account step-size, diagonal decoding, and the covariance
+        matrix but not the geno-phenotype transformation. Only the former
+        three apply to `self.mean`.
+        """
+        return self.sigma * (self.sigma_vec.scaling * np.sqrt(self.sm.variances))
+
+    @property
     def result(self):
         """return a `CMAEvolutionStrategyResult` `namedtuple`.
 
@@ -3119,8 +3138,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.countevals,
             self.countiter,
             self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
-            self.gp.scales * self.sigma * self.sigma_vec.scaling *
-                self.dC**0.5,
+            self.stds,
             self.stop()
         )
 
@@ -3143,10 +3161,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.best.last.f, fbestever, self.countevals, self.best.evals))
         if self.N < 9:
             print('incumbent solution: ' + str(list(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair))))
-            print('std deviation: ' + str(list(self.sigma * self.sigma_vec.scaling * np.sqrt(self.dC) * self.gp.scales)))
+            print('std deviation: ' + str(list(self.stds)))
         else:
             print('incumbent solution: %s ...]' % (str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
-            print('std deviations: %s ...]' % (str((self.sigma * self.sigma_vec.scaling * np.sqrt(self.dC) * self.gp.scales)[:8])[:-1]))
+            print('std deviations: %s ...]' % (str(self.stds[:8])[:-1]))
         return self.result
 
     def pickle_dumps(self):
