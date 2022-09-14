@@ -1625,7 +1625,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # 1) prepare minstd to be a vector
         if (len(opts['integer_variables']) and
                 np.isscalar(opts['minstd'])):
-            opts['minstd'] = N * [opts['minstd']]
+            opts['minstd'] = opts['minstd'] * np.ones(N)
         # 2) set minstd to 1 / (2 Nint + 1),
         #    the setting 2 / (2 Nint + 1) already prevents convergence
         for i in opts['integer_variables']:
