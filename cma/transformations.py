@@ -712,6 +712,30 @@ class DiagonalDecoding(AdaptiveDecoding):
         check_values(self._parameters[input_parameters], input_parameters)
         return self._parameters[input_parameters]
         
+    def _init_(self, int_or_vector):
+        """init scaling (only) when not yet done"""
+        if not self.is_identity or not np.size(self.scaling) == 1:
+            return self
+        try: int_ = len(int_or_vector)
+        except TypeError: int_ = int_or_vector
+        self.scaling = np.ones(int_)
+        return self
+
+    def set_i(self, index, value):
+        """set ``scaling[index] = value``.
+
+        To guaranty initialization to non-identity, the use pattern::
+
+            de = cma.transformations.DiagonalDecoding()
+            de._init_(dimension).set_i(3, 4.4)
+
+        is available.
+        """
+        if np.size(self.scaling) == 1:
+            raise ValueError("not yet initialized (dimension needed)")
+        self.is_identity = False
+        self.scaling[index] = value
+
     def update(self, vectors, weights, ignore_indices=None):
         """exponential update of the scaling factors.
 
@@ -722,8 +746,7 @@ class DiagonalDecoding(AdaptiveDecoding):
 
         Variables listed in `ignore_indices` are not updated.
         """
-        if self.is_identity and np.size(self.scaling) == 1:
-            self.scaling = np.ones(len(vectors[0]))
+        self._init_(vectors[0])
         self.is_identity = False
         weights = np.asarray(weights)
         # weights[weights < 0] = 0  # only positive weights
