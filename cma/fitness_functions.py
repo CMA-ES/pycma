@@ -533,6 +533,19 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         if termination_friendly and val < 1:
             val **= 1. / len(x)
         return val
+    @staticmethod
+    def leadingones(x, foffset=1e-2 - 1e-5):
+        """return len(x) - nb of leading-ones-in-x, where only
+
+        values in [1, 2) are considered to be "equal to" 1.
+        """
+        s = len(x)  # worst value
+        for xi in x:
+            if 1 <= xi < 2:
+                s -= 1
+            else:
+                break
+        return s + (s == 0) * foffset
 
     def _fetch_bbob_fcts(self):
         """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
