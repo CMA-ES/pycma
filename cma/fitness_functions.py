@@ -546,7 +546,12 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
             else:
                 break
         return s + (s == 0) * foffset
-
+    @staticmethod
+    def binval(x, foffset=1e-2 - 1e-5):
+        """return sum_i(0 if (1 <= x[i] < 2) else 2**i)**(1/n)"""
+        s = sum([0 if 1 <= val < 2 else 2**i for i, val in enumerate(x)])
+        return s**(1/len(x)) + (s == 0) * foffset
+    
     def _fetch_bbob_fcts(self):
         """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
 
