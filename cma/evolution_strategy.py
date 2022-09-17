@@ -180,7 +180,6 @@ import os
 import time  # not really essential
 import warnings  # catch numpy warnings
 import ast  # for literal_eval
-import math
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
 # sort, argsort, random, ones,...
@@ -1506,21 +1505,28 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 Consider to pass only the desired BoundaryHandler class. """)
         if not self.boundary_handler.has_bounds():
             self.boundary_handler = BoundNone()  # just a little faster and well defined
-        elif not self.boundary_handler.is_in_bounds(self.x0):
-            if opts['verbose'] >= 0:
-                idxs = self.boundary_handler.idx_out_of_bounds(self.x0)
-                warnings.warn("""
-            Initial solution is out of the domain boundaries
-            in ind%s %s:
-                x0   = %s
-                ldom = %s
-                udom = %s
-            THIS MIGHT LEAD TO AN EXCEPTION RAISED LATER ON.
-            """ % ('ices' if len(idxs) > 1 else 'ex',
-                    str(idxs),
-                    str(self.gp.pheno(self.x0)),
-                    str(self.boundary_handler.bounds[0]),
-                    str(self.boundary_handler.bounds[1])))
+        else:
+            # check that x0 is in bounds
+            if not self.boundary_handler.is_in_bounds(self.x0):
+                if opts['verbose'] >= 0:
+                    idxs = self.boundary_handler.idx_out_of_bounds(self.x0)
+                    warnings.warn("""
+                Initial solution is out of the domain boundaries
+                in ind%s %s:
+                    x0   = %s
+                    ldom = %s
+                    udom = %s
+                THIS MIGHT LEAD TO AN EXCEPTION RAISED LATER ON.
+                """ % ('ices' if len(idxs) > 1 else 'ex',
+                        str(idxs),
+                        str(self.gp.pheno(self.x0)),
+                        str(self.boundary_handler.bounds[0]),
+                        str(self.boundary_handler.bounds[1])))
+            # set maxstd "in bounds" unless given explicitly
+            if any(opts['maxstd'] is val for val in (None, inf)):
+                # set maxstd according to boundary range
+                opts['maxstd'] = (self.boundary_handler.get_bounds('upper', self.N_pheno) -
+                                  self.boundary_handler.get_bounds('lower', self.N_pheno)) / 3
 
         # set self.mean to geno(x0)
         tf_geno_backup = self.gp.tf_geno
@@ -1717,6 +1723,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
                     str(type(self.sm))))
             self._updateBDfromSM(self.sm)
+        self._stds_into_limits()  # put stds into [minstd, maxstd]
         self.dC = self.sm.variances
         self.D = self.dC**0.5  # we assume that the initial C is diagonal
         self.pop_injection_solutions = []
