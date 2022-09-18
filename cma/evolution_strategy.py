@@ -1594,8 +1594,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     res = array(in_, dtype=float)
                 if np.size(res) not in (1, N):
                     raise ValueError(
-                        "CMA_stds option must have dimension %d "
-                        "instead of %d" % (N, np.size(res)))
+                        "vector (like CMA_stds or minstd) must have "
+                        "dimension %d instead of %d" % (N, np.size(res)))
             return res
 
         opts['minstd'] = eval_vector(opts['minstd'], opts, N, 0)
