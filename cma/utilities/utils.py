@@ -332,7 +332,7 @@ def num2str(val, significant_digits=2, force_rounding=False,
 
 # todo: this should rather be a class instance
 def print_warning(msg, method_name=None, class_name=None, iteration=None,
-                   verbose=None, maxwarns=None):
+                   verbose=None, maxwarns=None, **kwargs_for_warn):
     """Poor man's maxwarns: warn only if ``iteration<=maxwarns``"""
     if verbose is None:
         verbose = global_verbosity
@@ -344,7 +344,7 @@ def print_warning(msg, method_name=None, class_name=None, iteration=None,
               ('class=%s ' % str(class_name) if class_name else '') +
               ('method=%s ' % str(method_name) if method_name else '') +
               ('iteration=%s' % str(iteration) if iteration else '') +
-              ')')
+              ')', **kwargs_for_warn)
 def print_message(msg, method_name=None, class_name=None, iteration=None,
                    verbose=None):
     if verbose is None:
@@ -355,6 +355,19 @@ def print_message(msg, method_name=None, class_name=None, iteration=None,
               (', method=' + str(method_name) if method_name else '') +
               (', iteration=' + str(iteration) if iteration is not None else '') +
               '): ', msg)
+def format_message(msg, es=None, spaces=6):
+    """put line breaks and trailing white spaces"""
+    if es:
+        msg = msg + ' [iteration={}]'.format(es.countiter)
+    j = 0
+    s = "\n\n" + spaces * " "
+    for i, c in enumerate(msg):
+        s = s + c
+        if c == '\n' or i > j + 70 and c in [' ']:
+            s = s + '\n' + spaces * ' '
+            j = i
+    s = s + '\n'
+    return s
 
 def set_attributes_from_dict(self, dict_, initial_params_dict_name=None):
     """assign, for example, all arguments given to an ``__init__``
