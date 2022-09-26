@@ -1609,6 +1609,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         opts['minstd'] = eval_vector(opts['minstd'], opts, N, 0)
         opts['maxstd'] = eval_vector(opts['maxstd'], opts, N, np.inf)
 
+        if 1 < 3 and len(opts['integer_variables']):
+            try:
+                from . import integer
+                s = utils.format_message(
+                    "Option 'integer_variables' is discouraged. "
+                    "Use class `cma.integer.CMAIntMixed` or function "
+                    "`cma.integer.fmin_int` instead.")
+                warnings.warn(s, category=DeprecationWarning)  # TODO: doesn't show up
+            except ImportError: pass
+
         # iiinteger handling, currently very basic:
         # CAVEAT: integer indices may give unexpected results if fixed_variables is used
         if len(opts['integer_variables']) and opts['fixed_variables']:

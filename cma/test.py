@@ -249,7 +249,7 @@ def various_doctests():
         ...    es.tell(X, [cma.ff.elli(x, cond=1e22) for x in X])  # doctest:+ELLIPSIS
         NOTE ...iteration=82...
         >>> with warnings.catch_warnings():
-        ...     warnings.filterwarnings('ignore', lineno=347)
+        ...     warnings.filterwarnings('ignore', lineno=343)
         ...     while not es.stop():
         ...         X = es.ask()
         ...         es.tell(X, [ftabletrot(x) for x in X])  # doctest:+ELLIPSIS
@@ -268,8 +268,7 @@ def various_doctests():
     ...                   integer_variables=idx
     ...                ))  # doctest:+ELLIPSIS
     (4_w,8)-...
-    >>> warns[0].message  # doctest:+ELLIPSIS
-    UserWarning('integer index 5 not in range of dimension 4 ()'...
+    >>> assert isinstance(warns[-1].message, UserWarning)  # depending
     >>> es.optimize(f)  # doctest:+ELLIPSIS
     Iterat #Fevals   function value ...
     >>> assert 'ftarget' in es.stop() and es.result[3] < 1800
