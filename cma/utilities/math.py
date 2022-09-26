@@ -566,6 +566,28 @@ class MathHelperFunctions(object):
         del x  # assert that x is not used anymore accidentally
         u = np.asarray(upper) - lower
         return (z > 0) * ((z <= u) * (z ** 2 / 2) + (z > u) * u * (z - u / 2))
+    @staticmethod
+    def huber2(x, delta, eps=0):
+        """y-shifted Huber function, return huber(x, delta) + delta/2 + eps.
+
+        `huber2` maps `x` to ``abs(x) + eps`` if ``abs(x) >= delta`` and
+        otherwise to a quadratic law of `x` mapping 0 to ``delta/2 + eps``
+        which makes the first derivative of `huber2` continuous.
+
+        Details: `x` may be scalar or a `numpy` array. Setting eps =
+        -delta/2 recovers the Huber loss.
+
+        >>> import numpy as np
+        >>> import cma
+        >>> hus = cma.utilities.math.Mh.huber2(np.asarray([
+        ...     -1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8, 2]), 0.5)
+        >>> ' '.join(['{:.2}'.format(n) for n in hus])
+        '1.0 0.8 0.6 0.41 0.29 0.25 0.29 0.41 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0'
+
+    """
+        x2 = np.square(x)
+        return ((x2 < delta**2) * (delta / 2 + x2 / (2 * delta)) +
+                (x2 >= delta**2) * np.abs(x) + eps)
 
     _chiN_dict = {1: 0.7978845608028654, 2: 1.2533141373156,
                   3: 1.59576912160573,   4: 1.87997120597325,
