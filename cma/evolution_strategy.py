@@ -1580,27 +1580,30 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             """return `default_value` as scalar or `in_` after removing
             fixed variables if ``len(in_) == N``
             """
-            res = default_value
-            if in_ is not None:
-                if np.size(in_) == 1:  # return scalar value
-                    try:
-                        res = float(in_[0])
-                    except TypeError:
-                        res = float(in_)
-                elif opts['fixed_variables'] and np.size(in_) > N:
-                    res = array([in_[i] for i in range(len(in_))
-                                      if i not in opts['fixed_variables']],
-                                dtype=float)
-                    if len(res) != N:
-                        utils.print_warning(
-                            "resulting len %d != N = %d" % (len(res), N),
-                            'eval_vector', iteration=self.countiter)
-                else:
-                    res = array(in_, dtype=float)
-                if np.size(res) not in (1, N):
-                    raise ValueError(
-                        "vector (like CMA_stds or minstd) must have "
-                        "dimension %d instead of %d" % (N, np.size(res)))
+            if in_ is None:
+                return default_value
+            if np.size(in_) == 1:  # return scalar value
+                try:
+                    res = float(in_[0])
+                except TypeError:
+                    res = float(in_)
+            elif opts['fixed_variables'] and np.size(in_) > N:
+                res = array([in_[i] for i in range(len(in_))
+                                    if i not in opts['fixed_variables']],
+                            dtype=float)
+                if len(res) != N:
+                    utils.print_warning(
+                        "resulting len %d != N = %d" % (len(res), N),
+                        'eval_vector', iteration=self.countiter)
+            elif N and len(in_) < N:  # recycle last entry
+                res = np.concatenate((in_, (N - len(in_)) * [in_[-1]]),
+                                     dtype=float)
+            else:
+                res = array(in_, dtype=float)
+            if np.size(res) not in (1, N):
+                raise ValueError(
+                    "vector (like CMA_stds or minstd) must have "
+                    "dimension %d instead of %d" % (N, np.size(res)))
             return res
 
         opts['minstd'] = eval_vector(opts['minstd'], opts, N, 0)
