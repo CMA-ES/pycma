@@ -462,7 +462,7 @@ def cma_default_options_(  # to get keyword completion back
     mean_shift_line_samples='False #v sample two new solutions colinear to previous mean shift',
     mindx='0  #v minimal std in any arbitrary direction, cave interference with tol*',
     minstd='0  #v minimal std (scalar or vector) in any coordinate direction, cave interference with tol*',
-    maxstd='inf  #v maximal std in any coordinate direction',
+    maxstd='None  #v maximal std in any coordinate direction',
     pc_line_samples='False #v one line sample along the evolution path pc',
     popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
     popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
@@ -1523,7 +1523,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         str(self.boundary_handler.bounds[0]),
                         str(self.boundary_handler.bounds[1])))
             # set maxstd "in bounds" unless given explicitly
-            if any(opts['maxstd'] is val for val in (None, inf)):
+            if opts['maxstd'] is None:
                 # set maxstd according to boundary range
                 opts['maxstd'] = (self.boundary_handler.get_bounds('upper', self.N_pheno) -
                                   self.boundary_handler.get_bounds('lower', self.N_pheno)) / 3
