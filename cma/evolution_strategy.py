@@ -4957,7 +4957,7 @@ def fmin_con2(objective_function, x0, sigma0,
     Consider using `ConstrainedFitnessAL` directly instead of `fmin_con2`.
 
 """
-    if isinstance(find_feasible_first, dict) or isinstance(find_feasible_last, dict):
+    if isinstance(find_feasible_first, dict) or isinstance(find_feasible_final, dict):
         raise ValueError("Found an unexected `dict` as argument. Recheck the calling signature."
                          "\nUse the keyword `options={...}` to pass an options argument for `fmin2`."
                          "\nUse the keyword syntax also for any further arguments passed to `fmin2`.")
