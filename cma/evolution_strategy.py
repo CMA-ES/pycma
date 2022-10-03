@@ -4539,7 +4539,12 @@ def fmin(objective_function, x0, sigma0,
                     es.sigma = sigma0
                 # debatable whether this makes sense:
                 sigma0 = es.inputargs['sigma0']  # for the next restarts
-                if options is not None:
+                if options is not cma_default_options:
+                    if all(str(v) == v for v in options):
+                        warnings.warn(
+                            'Options must have explicit ("process") values in this \n'
+                            'usecase. The passed options are likely to lead to an error \n'
+                            'later. Passed options={}'.format(options))
                     es.opts.set(options)
                 # ignore further input args and keep original options
             else:  # default case
