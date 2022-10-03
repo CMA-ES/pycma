@@ -1087,7 +1087,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         y = getattr(self, name)[:, 6:]  # principal axes
         ys = getattr(self, name)[:, :6]  # "special" values
 
-        from matplotlib.pyplot import semilogy, text, axis, title
+        from matplotlib.pyplot import semilogy, text, axis, title, gca
         self._enter_plotting()
         if 11 < 3:  # to be removed
             semilogy(x[:], np.max(y, 1) / np.min(y, 1), '-r')
@@ -1121,6 +1121,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
         axis(ax)
+        gca().yaxis.set_label_position("right")
+        gca().yaxis.tick_right()
         title('Spectrum (roots) of %s matrix' % ('white precision' if name.startswith('prec') else 'correlation'))
         # pyplot.xticks(xticklocs)
         self._xlabel(iabscissa)
