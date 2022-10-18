@@ -296,6 +296,16 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         else:
             # return felli  # possibly noisy value
             return ftrue  # + np.random.randn()
+    def ellihalfrot(self, x, frac=0.5, cond1=1e6, cond2=1e6):
+        """return ellirot(x[:N2]) + elli(x[N2:]) where ``N2`` is roughly ``frac*len(x)``"""
+        N2 = max((2, int(frac * len(x))))
+        if len(x) <= N2:
+            s = 0
+        elif len(x) - N2 == 1:
+            s = x[-1]**2
+        else:
+            s = self.elli(x[N2:], cond=cond2)
+        return s + self.elli(x[0:N2], rot=1, cond=cond1)
     def grad_elli(self, x, *args):
         cond = 1e6
         N = len(x)
