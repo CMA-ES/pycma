@@ -241,10 +241,11 @@ def various_doctests():
     ...                                   'tolconditioncov':False,
     ...                                   'seed': 8,
     ...                                   'CMA_mirrors': 0,
-    ...                                   'ftarget': 1e-9,
+    ...                                   'CMA_diagonal_decoding': 0,
+    ...                                   'ftarget': 1e-10,
     ...                                })  # doctest:+ELLIPSIS
     (4_w...
-    >>> while not es.stop() and es.countiter < 82:
+    >>> while not es.stop() and es.countiter < 90:
     ...     X = es.ask()
     ...     es.tell(X, [cma.ff.elli(x, cond=1e22) for x in X])  # doctest:+ELLIPSIS
     NOTE ...iteration=...
@@ -253,7 +254,7 @@ def various_doctests():
     ...         X = es.ask()
     ...         es.tell(X, [ftabletrot(x) for x in X])  # doctest:+ELLIPSIS
     >>> assert isinstance(warns[0].message, UserWarning)
-    >>> assert es.countiter <= 344 and 'ftarget' in es.stop(), (
+    >>> assert es.countiter <= 355 and 'ftarget' in es.stop(), (
     ...             "transformation bug in alleviate_condition?",
     ...             es.countiter, es.stop())
 
