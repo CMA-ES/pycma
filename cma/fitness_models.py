@@ -109,20 +109,27 @@ class SurrogatePopulation(object):
 
     Example using the ask-and-tell interface:
 
-    >>> for fitfun in [FFun(cma.ff.elli), FFun(cma.ff.sectorsphere)]:
-    ...     es = cma.CMAEvolutionStrategy(5 * [1], 2.2,
-    ...                    {'CMA_injections_threshold_keep_len': 1,
-    ...                     'ftarget':1e-9, 'verbose': -9, 'seed':3})
-    ...     surrogate = fm.SurrogatePopulation(fitfun)
-    ...     while not es.stop():
-    ...         X = es.ask()
-    ...         es.tell(X, surrogate(X))  # surrogate evaluation
-    ...         es.inject([surrogate.model.xopt])
-    ...         # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...     print(fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55, 18 68
-    ...     assert 'ftarget' in es.stop()
-    18
-    68
+    >>> for ifun, fun in enumerate([cma.ff.elli, cma.ff.sectorsphere]):
+    ...     for irun in range(7):
+    ...         assert irun < 4  # measure best of four
+    ...         es = cma.CMAEvolutionStrategy(5 * [1], 2.2,
+    ...                     {'CMA_injections_threshold_keep_len': 1,
+    ...                         'ftarget':1e-9, 'verbose': -9, 'seed':3 + irun})
+    ...         fitfun = FFun(fun)
+    ...         surrogate = fm.SurrogatePopulation(fitfun)
+    ...         while not es.stop():
+    ...             X = es.ask()
+    ...             es.tell(X, surrogate(X))  # surrogate evaluation
+    ...             es.inject([surrogate.model.xopt])
+    ...             # es.disp(); es.logger.add()  # ineffective with verbose=-9
+    ...         # print(irun, fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55, 18 68
+    ...         assert 'ftarget' in es.stop()
+    ...         if ifun == 0:
+    ...             if fitfun.evaluations < 20:
+    ...                 break
+    ...         if ifun == 1:
+    ...             if fitfun.evaluations < 90:
+    ...                 break
 
     Example using the ``parallel_objective`` interface to `cma.fmin`:
 
