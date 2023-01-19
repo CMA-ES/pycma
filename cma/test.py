@@ -232,8 +232,9 @@ def various_doctests():
         >>> assert res_rot[3] < 2 * res_elli[3]
 
     Both condition alleviation transformations are applied during this
-    test, first in iteration 62, second in iteration 257:
+    test, first in iteration 62ish, second in iteration 257ish:
 
+        >>> import warnings
         >>> import cma
         >>> ftabletrot = cma.fitness_transformations.Rotated(cma.ff.tablet, seed=10)
         >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, {
@@ -246,10 +247,12 @@ def various_doctests():
         >>> while not es.stop() and es.countiter < 82:
         ...    X = es.ask()
         ...    es.tell(X, [cma.ff.elli(x, cond=1e22) for x in X])  # doctest:+ELLIPSIS
-        NOTE ...iteration=81...
-        >>> while not es.stop():
-        ...    X = es.ask()
-        ...    es.tell(X, [ftabletrot(x) for x in X])  # doctest:+ELLIPSIS
+        NOTE ...iteration=...
+        >>> with warnings.catch_warnings(record=True) as warns:
+        ...     while not es.stop():
+        ...         X = es.ask()
+        ...         es.tell(X, [ftabletrot(x) for x in X])  # doctest:+ELLIPSIS
+        >>> assert isinstance(warns[0].message, UserWarning)
         >>> assert es.countiter <= 344 and 'ftarget' in es.stop(), (
         ...             "transformation bug in alleviate_condition?",
         ...             es.countiter, es.stop())
