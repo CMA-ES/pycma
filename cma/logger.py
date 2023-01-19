@@ -629,7 +629,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              downsample_to=1e7,
              xsemilog=False,
              xnormalize=False,
-             addcols=1,
+             addcols=None,
              load=True):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
@@ -695,6 +695,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
             iabscissa = 1
 
         load and self.load()  # load only conditionally
+        if addcols is None:
+            addcols = 1 if np.size(self.sigvec) else 0
         if self.f.shape[0] > downsample_to:
             self.downsampling(1 + self.f.shape[0] // downsample_to)
             self.load()
@@ -1582,7 +1584,7 @@ last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
-         xsemilog=None, xnormalize=None, addcols=1, **kwargs):
+         xsemilog=None, xnormalize=None, addcols=None, **kwargs):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for
