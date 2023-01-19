@@ -273,6 +273,11 @@ def various_doctests():
     >>> es.optimize(f)  # doctest:+ELLIPSIS
     Iterat #Fevals   function value ...
     >>> assert 'ftarget' in es.stop() and es.result[3] < 1800
+    >>> # mixing integer and fixed variables
+    >>> es = cma.CMA(5 * [1], 1, {'verbose':-9, 'integer_variables':[1,2,4],
+    ...                           'fixed_variables':{1:0}})
+    >>> assert es.opts['integer_variables'] == [1, 3]
+    >>> # TODO: do more testing here or in the class
 
     Parallel objective:
 

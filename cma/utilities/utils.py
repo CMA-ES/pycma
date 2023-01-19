@@ -6,7 +6,7 @@ import os, sys, time
 import warnings
 import ast  # ast.literal_eval is safe eval
 import numpy as np
-from collections import defaultdict  # since Python 2.5
+import collections  # defaultdict since Python 2.5, OrderedDict since Python 3.1
 from .python3for2 import abc, range
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
@@ -467,8 +467,8 @@ class DerivedDictBase(abc.MutableMapping):
         # abc.MutableMapping.__init__(self)
         super(DerivedDictBase, self).__init__()
         # super(SolutionDict, self).__init__()  # the same
-        self.data = dict()
-        self.data.update(dict(*args, **kwargs))
+        self.data = collections.OrderedDict()
+        self.data.update(collections.OrderedDict(*args, **kwargs))
     def __len__(self):
         return len(self.data)
     def __contains__(self, key):
@@ -491,18 +491,18 @@ class SolutionDict(DerivedDictBase):
     previously inserted same solutions is provided. Each entry is meant
     to store additional information related to the solution.
 
-        >>> import cma.utilities.utils as utils, numpy as np
-        >>> d = utils.SolutionDict()
-        >>> x = np.array([1,2,4])
-        >>> d[x] = {'f': sum(x**2), 'iteration': 1}
-        >>> assert d[x]['iteration'] == 1
-        >>> assert d.get(x) == (d[x] if d.key(x) in d.keys() else None)
-        >>> y = [1,2,4]
-        >>> d[y] = {'f': sum([n ** 2 for n in y]), 'iteration': 1}
-        >>> assert d[y]['iteration'] == 1
-        >>> assert d.get(y) == (d[y] if d.key(y) in d.keys() else None)
-        >>> d[2] = 3
-        >>> assert d[2] == 3
+    >>> import cma.utilities.utils as utils, numpy as np
+    >>> d = utils.SolutionDict()
+    >>> x = np.array([1,2,4])
+    >>> d[x] = {'f': sum(x**2), 'iteration': 1}
+    >>> assert d[x]['iteration'] == 1
+    >>> assert d.get(x) == (d[x] if d.key(x) in d.keys() else None)
+    >>> y = [1,2,4]
+    >>> d[y] = {'f': sum([n ** 2 for n in y]), 'iteration': 1}
+    >>> assert d[y]['iteration'] == 1
+    >>> assert d.get(y) == (d[y] if d.key(y) in d.keys() else None)
+    >>> d[2] = 3
+    >>> assert d[2] == 3
 
     TODO: data_with_same_key behaves like a stack (see setitem and
     delitem), but rather should behave like a queue?! A queue is less
@@ -536,6 +536,8 @@ class SolutionDict(DerivedDictBase):
             except TypeError: 
                 # Data type must be immutable, transform into tuple first
                 return hash(tuple(x))
+    def __contains__(self, key):
+        return super(SolutionDict, self).__contains__(self.key(key))
     def __setitem__(self, key, value):
         """define ``self[key] = value``"""
         key = self.key(key)
@@ -557,19 +559,31 @@ class SolutionDict(DerivedDictBase):
                 self.data[key] = self.data_with_same_key[key].pop(-1)
         elif key in self.data:
             del self.data[key]
-    def truncate(self, max_len, min_iter):
-        """delete old entries to prevent bloat"""
-        if len(self) > max_len:
+    def truncate(self, max_len, min_iter=None):
+        """truncate to ``max_len/2`` when ``len(self) > max_len``.
+
+        Only truncate entries with ``'iteration'`` key smaller than
+        `min_iter` if given.
+        """
+        if len(self) <= max_len:
+            return
+        if min_iter is None:  # new with OrderedDict
+            l = max((0, max_len / 2))
+            while len(self) > l:
+                self.data.popitem(last=False)
+        else:  # previous code
             for k in list(self.keys()):
                 if self[k]['iteration'] < min_iter:
                     del self[k]
                     # deletes one item with k as key, better delete all?
+                if len(self) < max_len / 2:  # new code
+                    break
 
-class DataDict(defaultdict):
+class DataDict(collections.defaultdict):
     """a dictionary of lists (of data)"""
     def __init__(self, filename='_data.py'):
         self.filename = filename
-        defaultdict.__init__(self, list)
+        collections.defaultdict.__init__(self, list)
         self.load()
 
     def load(self):

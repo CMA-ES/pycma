@@ -1,8 +1,9 @@
 """Search space transformation and encoding/decoding classes"""
-from __future__ import absolute_import, division, print_function  #, unicode_literals
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 from numpy import array, isfinite, log
+import warnings as _warnings
 
 from .utilities.utils import rglen, print_warning, is_one, SolutionDict as _SolutionDict
 from .utilities.python3for2 import range
@@ -541,7 +542,7 @@ class AdaptiveDecoding(object):
         return 1  # simple but rather meaningless implementation
 
 class DiagonalDecoding(AdaptiveDecoding):
-    """Diagonal linear transformation.
+    """Diagonal linear transformation with exponential update.
 
     Supports ``self * a``, ``a * self``, ``a / self``, ``self *= a``,
     as if ``self`` is an np.array. Problem: ``np.array`` does
@@ -554,7 +555,7 @@ class DiagonalDecoding(AdaptiveDecoding):
     coordinate system invariant. In PPSN Parallel Problem Solving from
     Nature X, pp. 205-214.
 
-    """
+"""
     def __init__(self, scaling):
         if isinstance(scaling, int):
             scaling = scaling * [1.0]
@@ -563,6 +564,7 @@ class DiagonalDecoding(AdaptiveDecoding):
         self.is_identity = False
         if is_one(self.scaling):
             self.is_identity = True
+        self._parameters = {}
 
     def transform(self, x):
         return self.scaling * x
@@ -571,6 +573,12 @@ class DiagonalDecoding(AdaptiveDecoding):
     def transform_inverse(self, x):
         return x / self.scaling
         return x if self.is_identity else x / self.scaling
+
+    def transform_covariance_matrix(self, C):
+        """return the covariance matrix D * C * D"""
+        if self.is_identity:
+            return C
+        return (self.scaling * C).T * self.scaling
 
     def __array__(self):
         """``sigma * self`` tries to call ``self.__array__()`` if
@@ -633,11 +641,115 @@ class DiagonalDecoding(AdaptiveDecoding):
     #     # TODO: this doesn't work if scaling is a scalar
     #     return self.scaling.__iter__()
 
-    def update(self, vectors, weights):
-        if self.is_identity and np.size(self.scaling) == 1:
-            self.scaling = np.ones(len(vectors[0]))
+    def parameters(self, mueff, c1_factor=1, cmu_factor=1):
+        """learning rate parameter suggestions.
+
+        TODO: either input popsize or input something like fac = 1 + (2...5) / popsize
+              cmu has already 1/7 as popsize correction
+    """
+        N = self.dim
+        input_parameters = N, mueff, c1_factor, cmu_factor
+        try: return self._parameters[input_parameters]
+        except KeyError: pass
+
+        # conedf(df) = 1 / (df + 2. * sqrt(df) + mu / N) = c1_sep is WRONG?
+        # c1_default = min(1, sp.popsize / 6) * 2 / (
+        #         (N + 1.3)**2 + mueff))
+        # 2020 diagonal decoding/acceleration paper (Akimoto & Hansen, ECJ):
+        # c1DDacc = 1 / (2 * (df / N + 1) * (N + 1)**(3/4) + mueff/2)
+
+        c1dd_orig = 1 / (4 * (N + 1)**(3/4) + mueff/2)  # if df=N
+        c1 = 1 / (5 + 2 * N + mueff / 2)
+
+        if 11 < 3:  # side note
+            # the squared length of the mu-average vector on the linear fct is close to
+            #  N / mu * (1 + 0.6321 * mu / N) = N / mu + 0.6321
+            # (and 0.63212... = (1 - exp(-1))). Remark also that the mu-average is
+            # is multiplied by sqrt(mu), hence the squared length would be
+            # N + 0.6321 mu.
+            # Here we learn single components/projections which are roughly
+            # of size mu / 2 and 1. Code to see the values:
+            mu, N = 10000, 100
+            z = np.random.randn(mu, N)
+            z[:,0] = abs(z[:,0])  # selected vectors of the (2xmu, 4xmu)-ES on the linear function
+            z2 = np.mean(z, 0)**2
+            print(z2[0] * mu / (mu / 1.55), np.mean(z2[1:] * mu))
+            print(sum(z2) / (N / mu + 0.6321))  # are all close to one
+
+        # cmudf(df) = (0.25 + mu + 1 / mu - 2) / (df + 4 * sqrt(df) + mu / 2)
+        # cmu_default = alphacov * # a simpler nominator would be: (mu - 0.75)
+        #      (0.25 + mu + 1 / mu - 2) / (
+        #       (N + 2)**2 + alphacov * mu / 2))  # alphacov = 2
+        #              # cmu_default -> 1 for mu -> N**2 * (2 / alphacov)
+
+        cmudd_orig = min((1 - c1dd_orig,
+                          c1dd_orig * (mueff + 1/mueff - 2 + 1/7)))  # 0.5 * lam/(lam+5)))
+        cmu = (mueff + 1./mueff - 2 + 1/7) / (
+                5 + 2 * N + mueff / 2)
+        # print("c1/c1_org={}, cmu/cmu_orig={}".format(c1 / c1dd_orig, cmu / cmudd_orig))
+
+        if 11 < 3:
+            # print("original activated")
+            c1 = c1dd_orig
+            cmu = cmudd_orig
+            cc = np.sqrt(mueff * c1) / 2
+
+        cc = np.sqrt(mueff * c1) / 2  # because mueff/2 is in the denominator
+        c1 *= c1_factor  # should cc be reset?
+        cmu *= cmu_factor
+        cmu = min((cmu, 1 - c1))
+
+        self._parameters[input_parameters] = {'c1': c1, 'cmu': cmu, 'cc': cc}
+        def check_values(d, input_parameters=None):
+            """`d` is the parameters dictionary"""
+            if not (0 <= d['c1'] < 0.75 and 0 <= d['cmu'] <= 1 and 
+                    d['c1'] <= d['cc'] <= 1):
+                raise ValueError("On input {},\n"
+                    "the values {}\n"
+                    "do not satisfy\n"
+                    "  `0 <= c1 < 0.75 and 0 <= cmu <= 1 and"
+                    " c1 <= cc <= 1`".format(str(input_parameters), str(d)))
+        check_values(self._parameters[input_parameters], input_parameters)
+        return self._parameters[input_parameters]
+        
+    def _init_(self, int_or_vector):
+        """init scaling (only) when not yet done"""
+        if not self.is_identity or not np.size(self.scaling) == 1:
+            return self
+        try: int_ = len(int_or_vector)
+        except TypeError: int_ = int_or_vector
+        self.scaling = np.ones(int_)
+        return self
+
+    def set_i(self, index, value):
+        """set ``scaling[index] = value``.
+
+        To guaranty initialization to non-identity, the use pattern::
+
+            de = cma.transformations.DiagonalDecoding()
+            de._init_(dimension).set_i(3, 4.4)
+
+        is available.
+        """
+        if np.size(self.scaling) == 1:
+            raise ValueError("not yet initialized (dimension needed)")
+        self.is_identity = False
+        self.scaling[index] = value
+
+    def update(self, vectors, weights, ignore_indices=None):
+        """exponential update of the scaling factors.
+
+        `vectors` have shape popsize x dimension and are assumed to be
+        standard normal before selection.
+
+        `weights` may be negative and include the learning rate(s).
+
+        Variables listed in `ignore_indices` are not updated.
+        """
+        self._init_(vectors[0])
         self.is_identity = False
         weights = np.asarray(weights)
+        # weights[weights < 0] = 0  # only positive weights
         if sum(abs(weights)) > 3:
             raise ValueError("sum of weights %f + %f is too large"
                              % (sum(weights[weights>0]),
@@ -648,48 +760,72 @@ class DiagonalDecoding(AdaptiveDecoding):
         # z2 = 1.96 * np.tanh(np.asarray(vectors) / 1.4)**2  # popsize x dim array
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
-        facs = np.exp(np.log(2) * (z2_average - sum(weights)))
+        facs = np.exp((z2_average - sum(weights)) / 2)
+            # remark that exp(log(2) * x) = 2**x
+            # without log(2) we have that exp(z2 - 1) = z2 iff z2 = 1
+            #     and always exp(z2 - 1) >= z2
+            # with log(2) we also have that exp(z2 - 1) = z2 if z2 = 2
+            #   (and exp(z2 - 1) <= z2 iff z2 in [1, 2]
+            #    and also exp(z2 - 1) = 1/2 if z2 = min z2 = 0)
+
         # z2=0, w=-1, d=log(2) => exp(d w (0 - 1)) = 2 = 1 + w (0 - 1)
         # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
-        # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
-        # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
-        #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
-        # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
-        # remark: for z^2 \to+ 1, eta_max |to- log z^2 / (z^2 - 1) = 1
-
-        #if np.any(facs > 10):
-            #print(np.sum(z2, axis=1))
-            #print(weights)
-            #rint(facs)
-        # idxx = np.argmax(z2.flatten())
-        # idxxx = (idxx // z2.shape[1], idxx - (idxx // z2.shape[1]) * z2.shape[1])
-        # print(idxxx, z2[idxxx])
-
         
         if 1 < 3:  # bound increment to observed value
-            idx = weights > 0  # for negative weights w (z^2 - 1) <= w
-            # Remark: z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
-            eta = sum(abs(weights[idx]))
-            z2_pos_average = np.dot(weights[idx], z2[idx]) / eta
-            z2_large_pos = z2_pos_average[z2_pos_average > 1]
-            if np.size(z2_large_pos):
-                if 1 < 3:
-                    eta_max = max(np.log(z2_large_pos) /  # TODO: review/approve this
-                                    (z2_large_pos - 1))
-                    if eta > eta_max:
-                        facs **= (eta_max / eta)
-                elif 1 < 3:
-                    raise NotImplementedError("this was never tested")
-                    correction = max(log(z2) / log(facs))
-                    if correction < 1:
-                        facs **= correction  # could rather be applied only on positive update?
-                else:
-                    # facs = (scaling_tt / scaling_t)**2
-                    # assure facs <= z**2
-                    idx = facs > z2_pos_average
-                    if any(idx):
-                        facs[idx] = z2_pos_average[idx]
-        self.scaling *= facs
+            if 1 < 3:
+                idx = facs > 1
+                if any(idx):
+                    # TODO: generally, a percentile instead of the max seems preferable
+                    max_z2 = np.max(np.abs(z2[:,idx] - 1), axis=0) / 2 + 1  # dim-dimensional vector
+                    if 11 < 3 and any(max_z2 < 1):
+                        print()
+                        print(max_z2)
+                        print(z2[:,idx])
+                        print(z2)
+                        print()
+                        1/0
+                    idx2 = facs[idx] > max_z2
+                    if any(idx2):
+                        _warnings.warn("clipped exponential update in indices {}\n"
+                                    "from {} to max(|z^2-1| + 1)={}".format(
+                                        np.where(idx)[0][idx2], facs[idx][idx2], max_z2[idx2]))
+                        facs[idx][idx2] = max_z2[idx2]
+            else:  # previous attempts
+                # because 1 + eta (z^2 - 1) < max(z^2, 1) if eta < 1
+                # we want for exp(eta (z^2 - 1)) ~ 1 + eta (z^2 - 1):
+                #   exp(eta (z^2 - 1)) < z^2  <=>  eta < log z^2 / (z^2 - 1)
+                # where eta := sum w^+, z^2 := sum w^+ zi^2 / eta
+                # remark: for z^2 \to+ 1, eta_max \to- log z^2 / (z^2 - 1) = 1
+
+                idx = weights > 0  # for negative weights w (z^2 - 1) <= w
+                # Remark: z2 - 1 can never be < -1, i.e. eta_max >= log(2) ~ 0.7
+                eta = sum(abs(weights[idx]))
+                z2_pos_average = np.dot(weights[idx], z2[idx]) / eta
+                z2_large_pos = z2_pos_average[z2_pos_average > 1]
+                if np.size(z2_large_pos):
+                    if 1 < 3:
+                        eta_max = max(np.log(z2_large_pos) /  # DONEish: review/approve this
+                                        (z2_large_pos - 1))
+                        if eta > eta_max:
+                            facs **= (eta_max / eta)
+                            _warnings.warn("corrected exponential update by {} from {}".format(eta_max/eta, eta))
+                    elif 1 < 3:
+                        raise NotImplementedError("this was never tested")
+                        correction = max(log(z2) / log(facs))
+                        if correction < 1:
+                            facs **= correction  # could rather be applied only on positive update?
+                    else:
+                        # facs = (scaling_tt / scaling_t)**2
+                        # assure facs <= z**2
+                        idx = facs > z2_pos_average
+                        if any(idx):
+                            facs[idx] = z2_pos_average[idx]
+        if ignore_indices is None or len(ignore_indices) == 0:
+            self.scaling *= facs
+        else:  # do not update all variables
+            for i in range(len(self.scaling)):
+                if i not in ignore_indices:
+                    self.scaling[i] *= facs[i]
         # print(facs)
 
     @property
@@ -964,17 +1100,7 @@ class GenoPheno(object):
 
         # kick out fixed_values
         if self.fixed_values is not None:
-            # keeping the transformed values does not help much
-            # therefore it is omitted
-            if 1 < 3:
-                keys = sorted(self.fixed_values.keys())
-                x = array([x[i] for i in range(len(x)) if i not in keys],
-                          copy=False)
-            else:  # TODO: is this more efficient?
-                x = list(x)
-                for key in sorted(list(self.fixed_values.keys()), reverse=True):
-                    x.remove(key)
-                x = array(x, copy=False)
+            x = np.asarray([x[i] for i in range(len(x)) if i not in self.fixed_values])
 
         # repair injected solutions
         x = repair_and_flag_change(self, repair, x, copy)

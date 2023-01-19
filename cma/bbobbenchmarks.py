@@ -1153,6 +1153,7 @@ class F9(BBOBNfreeFunction):
         if self.dim != dim:
             if self.zerox:
                 self.xopt = zeros(dim)
+                warnings.warn("F9 does not feature setting xopt to zero")
             else:
                 self.xopt = compute_xopt(self.rseed, dim)
             scale = max(1, dim ** .5 / 8.) # nota: different from scales in F8
@@ -1720,10 +1721,8 @@ class _F8F2(BBOBFunction):
         if self.dim != dim:
             scale = max(1, dim ** .5 / 8.)
             self.linearTF = scale * compute_rotation(self.rseed, dim)
-            # if self.zerox:
-            #    self.xopt = zeros(dim) # does not work here
-            # else:
-            # TODO: clean this line
+            if self.zerox:
+                warnings.warn("F19,F125,F126,F127 do not feature setting xopt to zero")
             self.xopt = np.hstack(dot(self.linearTF, 0.5 * np.ones((dim, 1)) / scale ** 2))
 
         # DIM- and POPSI-dependent initialisations of DIM*POPSI matrices
@@ -1796,6 +1795,7 @@ class F20(BBOBNfreeFunction):
         if self.dim != dim:
             if self.zerox:
                 self.xopt = zeros(dim)
+                warnings.warn("F20 does not feature setting xopt to zero correctly")
             else:
                 self.xopt = 0.5 * sign(unif(dim, self.rseed) - 0.5) * 4.2096874633
             self.scales = (self.condition ** .5) ** np.linspace(0, 1, dim)
@@ -2043,6 +2043,7 @@ class F24(BBOBNfreeFunction):
         if self.dim != dim:
             if self.zerox:
                 self.xopt = zeros(dim)
+                warnings.warn("F24 does not feature setting xopt to zero correctly")
             else:
                 self.xopt = .5 * self._mu1 * sign(gauss(dim, self.rseed))
             self.rotation = compute_rotation(self.rseed + 1e6, dim)

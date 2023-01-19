@@ -262,8 +262,8 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         N2 = len(X[0]) // 2
         f = [1e6 * sum(x[0:N2]**2) + sum(x[N2:]**2) for x in X]
         return f if len(f) > 1 else f[0]
-    def ellirot(self, x):
-        return ff.elli(array(x), 1)
+    def ellirot(self, x, cond=1e6):
+        return ff.elli(np.asarray(x), 1, cond=cond)
     def hyperelli(self, x):
         N = len(x)
         return sum((np.arange(1, N + 1) * x)**2)
@@ -412,6 +412,13 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         f += (w[-1] - 1)**2 * (1 + np.sin(2 * np.pi * w[-1])**2)
         w = w[1:-1]
         return f + sum((w - 1)**2 * (1 + 10 * np.sin(np.pi * w + 1)**2))
+    def absplussin(self, x):
+        """multimodal function with the global optimum at x_i = -1.152740846"""
+        x = np.asarray(x)
+        s = sum(np.abs(x)**0.8 + 5 * np.sin(x**3))
+        #                      1234567890123456789012345
+        return s + len(x) * (3.8757622790462818881784197)
+
     def rastrigin(self, x):
         """Rastrigin test objective function"""
         if not isscalar(x[0]):

@@ -41,7 +41,7 @@ To prepare a distribution from a (usual) dirty code folder::
     git checkout -- cma
     python setup.py check  # obsolete but why not
       # python build was: python setup.py sdist bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt  # bdist_wininst
-    python -m build ; less dist_call_output.txt  # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
+    python -m build > dist_call_output.txt ; less dist_call_output.txt  # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
     # bbdiff cma build/lib/cma/  # just checking
     backup --recover  # recover above moved folder (and backup current, just in case)
 

@@ -2,12 +2,15 @@
 because `hsig` is computed in the base class
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals, with_statement
+import warnings as _warnings
 import numpy as np
 from numpy import square as _square, sqrt as _sqrt
 from .utilities import utils
 from .utilities.math import Mh
 def _norm(x): return np.sqrt(np.sum(np.square(x)))
 del absolute_import, division, print_function  #, unicode_literals, with_statement
+
+_warnings.filterwarnings('once', message="Missing ``path_for_sigma_update.*")
 
 class CMAAdaptSigmaBase(object):
     """step-size adaptation base class, implement `hsig` (for stalling
@@ -66,9 +69,18 @@ class CMAAdaptSigmaBase(object):
 
         """
         self._update_ps(es)
-        if self.ps is None:
+        try: pc_for_ps = 'pc for ps' in es.opts['vv']  # just in case
+        except: pc_for_ps = False  # 'vv' has an incompatible format or does't exist
+        if pc_for_ps:
+            # was: es.D**-1 * np.dot(es.B.T, es.pc)
+            ps = es.sm.transform_inverse(es.pc)
+            cs = es.sp.cc
+        elif self.ps is None:
             return True
-        squared_sum = np.sum(self.ps**2) / (1 - (1 - self.cs)**(2 * es.countiter))
+        else:
+            ps = self.ps
+            cs = self.cs
+        squared_sum = np.sum(ps**2) / (1 - (1 - cs)**(2 * es.countiter))
         # correction with self.countiter seems not necessary,
         # as pc also starts with zero
         return squared_sum / es.N - 1 < 1 + 4. / (es.N + 1)
@@ -184,11 +196,11 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         From input argument `es`, the attributes isotropic_mean_shift,
         opts['CSA_clip_length_value'], and N are used.
         opts['CSA_clip_length_value'] can be a single value, the upper
-        bound parameter, such that::
+        bound factor, such that::
 
             max_len = sqrt(N) + opts['CSA_clip_length_value'] * N / (N+2)
 
-        or a list with lower and upper bound parameters.
+        or a list with a lower and an upper factor.
         """
         if not self.is_initialized:
             self.initialize(es)
@@ -218,19 +230,32 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
 
         Return change factor of self.delta.
 
-        From input `es`, either attribute N or const.chiN is used.
+        From input `es`, either attribute ``N`` or ``const.chiN`` is used and ``path_for_sigma_update``.
         """
         self._update_ps(es)  # caveat: if es.B or es.D are already updated and ps is not, this goes wrong!
         p = self.ps
-        if 'pc for ps' in es.opts['vv']:
+        try: pc_for_ps = 'pc for ps' in es.opts['vv']  # just in case
+        except: pc_for_ps = False  # 'vv' has an incompatible format or does't exist
+        if pc_for_ps:
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
             p = es.sm.transform_inverse(es.pc)
+        try:                                 # to filter coordinates or a
+            p = es.path_for_sigma_update(p)  # subspace depending on the state
+        except AttributeError:
+            if 11 < 3 and len(es.opts['integer_variables']):
+                m = ("Missing ``path_for_sigma_update`` attribute in {}."
+                    "\n This is usually not a problem unless integer mutations are used."
+                    "".format(type(es)))
+                _warnings.warn(m)
+        N = len(p)
+        if N == 0:  # all variables are masked, do nothing
+            return 1
         if es.opts['CSA_squared']:
-            s = (sum(_square(p)) / es.N - 1) / 2
+            s = (sum(_square(p)) / N - 1) / 2
             # sum(self.ps**2) / es.N has mean 1 and std sqrt(2/N) and is skewed
             # divided by 2 to have the derivative d/dx (x**2 / N - 1) for x**2=N equal to 1
         else:
-            s = _norm(p) / es.const.chiN - 1
+            s = _norm(p) / Mh.chiN(N) - 1
         s *= self.cs / self.damps
         s_clipped = Mh.minmax(s, -self.max_delta_log_sigma, self.max_delta_log_sigma)
         # "error" handling

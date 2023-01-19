@@ -100,12 +100,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
         if name_prefix is not None and name_prefix.endswith((os.sep, '/')):
             self.name_prefix = self.name_prefix + os.sep
-        self.file_names = ('axlen', 'axlencorr', 'axlenprec', 'fit', 'stddev', 'xmean',
-                'xrecentbest')
+        self.file_names = ('axlen', 'axlencorr', 'axlenprec', 'fit', 'stddev', 'sigvec',
+                           'xmean', 'xrecentbest')
         """used in load, however hard-coded in add, because data must agree with name"""
-        self.key_names = ('D', 'corrspec', 'precspec', 'f', 'std', 'xmean', 'xrecent')
+        self.key_names = ('D', 'corrspec', 'precspec', 'f', 'std', 'sigvec', 'xmean', 'xrecent')
         """used in load, however hard-coded in plot"""
-        self._key_names_with_annotation = ('std', 'xmean', 'xrecent')
+        self._key_names_with_annotation = ('std', 'sigvec', 'xmean', 'xrecent')
         """used in load to add one data row to be modified in plot"""
         self.modulo = modulo
         """how often to record data, allows calling `add` without args"""
@@ -220,7 +220,18 @@ class CMADataLogger(interfaces.BaseDataLogger):
         try:
             with open(fn, 'w') as f:
                 f.write('% # columns="iteration, evaluation, sigma, void, void, ' +
-                        ' stds==sigma*sqrt(diag(C))", ' +
+                        ' stds==sigma*sigma_vec.scaling*sqrt(diag(C))", ' +
+                        strseedtime +
+                        ', ' + self.persistent_communication_dict.as_python_tag +
+                        '\n')
+        except (IOError, OSError):
+            print('could not open file ' + fn)
+        # sigvec scaling factors from diagonal decoding
+        fn = self.name_prefix + 'sigvec.dat'
+        try:
+            with open(fn, 'w') as f:
+                f.write('% # columns="iteration, evaluation, sigma, beta, void, ' +
+                        ' sigvec==sigma_vec.scaling factors from diagonal decoding", ' +
                         strseedtime +
                         ', ' + self.persistent_communication_dict.as_python_tag +
                         '\n')
@@ -266,10 +277,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         `plot` and `disp`.
 
         Argument `filenameprefix` is the filename prefix of data to be
-        loaded (six files), by default ``'outcma/cma'``.
+        loaded (5-8 files), by default ``'outcmaes/'`` (where / stands
+        for the OS-specific path seperator).
 
         Return self with (added) attributes `xrecent`, `xmean`,
-        `f`, `D`, `std`, 'corrspec'
+        `f`, `D`, `std`, `corrspec`, `sigvec`.
 
         """
         if not filenameprefix:
@@ -280,11 +292,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
             try:
                 # list of rows to append another row latter
                 with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=UserWarning)
                     if self.file_names[i] in ['axlencorr', 'axlenprec']:
                         warnings.simplefilter("ignore")
                     try:
                         self.__dict__[self.key_names[i]] = list(
-                                np.loadtxt(fn, comments=['%', '#']))
+                                np.loadtxt(fn, comments=['%', '#'], ndmin=2))
                     except:
                         self.__dict__[self.key_names[i]] = list(
                                 np.loadtxt(fn, comments='%'))
@@ -304,8 +317,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 self.__dict__[self.key_names[i]] = \
                     np.asarray(self.__dict__[self.key_names[i]])
             except:
-                utils.print_warning('no data for %s' % fn, 'load',
-                               'CMADataLogger')
+                if self.file_names[i] != 'sigvec':
+                    utils.print_warning('no data for %s' % fn, 'load',
+                                'CMADataLogger')
         # convert single line to matrix of shape (1, len)
         for key in self.key_names:
             try:
@@ -314,7 +328,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 utils.print_warning("attribute %s missing" % key, 'load',
                                     'CMADataLogger')
                 continue
-            if len(d.shape) == 1:  # one line has shape (8, )
+            if len(d) and len(d.shape) == 1:  # one line has shape (8, )
                 setattr(self, key, d.reshape((1, len(d))))
 
         return self
@@ -401,6 +415,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 diagD = [1]
             maxD = max(diagD)
             minD = min(diagD)
+        diagonal_scaling = es.sigma_vec.scaling
+        try: diagonal_scaling_beta = es.sm._beta_diagonal_acceleration  # is for free
+        except: diagonal_scaling_beta = 1
         correlation_matrix = None
         if not hasattr(self, 'last_precision_matrix'):
             self.last_precision_matrix = None
@@ -416,6 +433,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         warnings.warn("CMADataLogger failed to compute precision matrix")
             except (AttributeError, NotImplementedError):
                 pass
+            # TODO: write also np.linalg.eigvalsh(sigma_vec.transform_covariance_matrix(es.C))
         more_to_write = es.more_to_write
         es.more_to_write = utils.MoreToWrite()
         # --- end interface ---
@@ -506,6 +524,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         + '0 0 '
                         + ' '.join(map(str, diagC))
                         + '\n')
+            # sigvec scaling factors from diagonal decoding
+            if np.size(diagonal_scaling) > 1:
+                fn = self.name_prefix + 'sigvec.dat'
+                with open(fn, 'a') as f:
+                    f.write(str(iteration) + ' '
+                            + str(evals) + ' '
+                            + str(sigma) + ' '
+                            + str(diagonal_scaling_beta) + ' '
+                            + '0 '
+                            + ' '.join(map(str, diagonal_scaling))
+                            + '\n')
             # xmean
             fn = self.name_prefix + 'xmean.dat'
             with open(fn, 'a') as f:
@@ -583,13 +612,15 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except AttributeError:
             pass
         try:
-            dat.corrspec = dat.x[_where([x in iteridx for x in
-                                           dat.corrspec[:, 0]])[0], :]
+            if len(dat.corrspec):
+                dat.corrspec = dat.x[_where([x in iteridx for x in
+                                             dat.corrspec[:, 0]])[0], :]
         except AttributeError:
             pass
         try:
-            dat.precspec = dat.x[_where([x in iteridx for x in
-                                           dat.precspec[:, 0]])[0], :]
+            if len(dat.precspec):
+                dat.precspec = dat.x[_where([x in iteridx for x in
+                                             dat.precspec[:, 0]])[0], :]
         except AttributeError:
             pass
     def plot(self, fig=None, iabscissa=1, iteridx=None,
@@ -598,7 +629,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              downsample_to=1e7,
              xsemilog=False,
              xnormalize=False,
-             addcols=0,
+             addcols=1,
              load=True):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
@@ -959,6 +990,73 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
+    def plot_sigvec(self, iabscissa=1, idx=None):
+        """plot (outer) scaling from diagonal decoding.
+        
+        ``iabscissa=0`` plots vs iterations
+
+        `idx` picks variables to plot if len(idx) < N, otherwise it picks
+        iteration indices (in case, after downsampling).
+        """
+        from matplotlib import pyplot as plt
+        if not hasattr(self, 'sigvec'):
+            self.load()
+        if not np.size(self.sigvec):  # nothing to plot
+            plt.text(0, 0, 'nothing to plot')
+            return self
+        dat = np.array(self.sigvec, copy=True)  # we change the data in the process
+        self._enter_plotting()
+        if idx is not None:
+            try: idx = list(idx)
+            except TypeError: pass  # idx has no len
+            else:
+                if len(np.shape(idx)) > 1:
+                    idx = idx[0]  # take only first row
+                if len(idx) < dat.shape[1] - 5:  # idx reduces the displayed variables
+                    dat = dat[:, list(range(5)) + [5 + i for i in idx]]
+                else:
+                    dat = dat[idx, :]
+        # remove sigma from stds (graphs become much better readible)
+        # dat[:, 5:] = np.transpose(dat[:, 5:].T / dat[:, 2].T)
+        if 1 < 2 and dat.shape[1] < 100:
+            # use fake last entry in x and std for line extension-annotation
+            minxend = int(1.06 * dat[-2, iabscissa])
+            # minxend = int(1.06 * dat.x[-2, iabscissa])
+            dat[-1, iabscissa] = minxend  # TODO: should be ax[1]
+            idx = np.argsort(dat[-2, 5:])
+            # idx2 = np.argsort(idx)
+            dat[-1, 5 + idx] = np.logspace(np.log10(np.min(dat[:, 5:])),
+                            np.log10(np.max(dat[:, 5:])), dat.shape[1] - 5)
+
+            dat[-1, iabscissa] = minxend  # TODO: should be ax[1]
+            plt.semilogy(dat[:, iabscissa], dat[:, 5:], '-')
+            # plt.hold(True)
+            ax = array(plt.axis())
+
+            # vertical separator
+            idx = np.argsort(dat[-1, 5:])
+            plt.plot(np.dot(dat[-2, iabscissa], [1, 1]),
+                        array([ax[2] * (1 + 1e-6), ax[3] / (1 + 1e-6)]),
+                        # array([np.min(dat[:, 5:]), np.max(dat[:, 5:])]),
+                        'k-')
+            annotations = self.persistent_communication_dict.get('variable_annotations')
+            if annotations is None:
+                annotations = range(len(idx))
+            for i, s in enumerate(annotations):
+                # text(ax[1], yy[i], ' '+str(idx[i]))
+                plt.text(dat[-1, iabscissa], dat[-1, 5 + i],
+                            ' ' + str(s))
+        else:
+            plt.semilogy(dat[:, iabscissa], dat[:, 5:], '-')
+        plt.plot(dat[:-1, iabscissa], 1 / dat[:-1, 3], 'k',
+                 label=r'$\beta=\max(2, \sqrt{cond(CORR)}) - 1$')
+        plt.text(dat[-2, iabscissa], 1 / dat[-2, 3], '$1/\\beta$')
+        plt.legend(framealpha=0.3)
+        smartlogygrid()
+        plt.title(r'Diagonal Decoding Scaling Factors')
+        self._xlabel(iabscissa)
+        self._finalize_plotting()
+        return self
     def plot_mean(self, iabscissa=1, x_opt=None, annotations=None, xsemilog=None, xnormalize=None):
         if not hasattr(self, 'xmean'):
             self.load()
@@ -1186,6 +1284,24 @@ class CMADataLogger(interfaces.BaseDataLogger):
         text(ax[0] + 0.01, ax[2],  # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
              '.min($f$)=' + repr(minfit))
              #'.f_recent=' + repr(dat.f[-1, 5]))
+
+        # AR and damping of diagonal decoding
+        if np.size(dat.sigvec) > 1:  # try to figure out whether we have data
+            semilogy(dat.sigvec[:, iabscissa], 1 / dat.sigvec[:, 3], 'k', label='$\\beta=\\sqrt{cond(CORR)} - 1$')
+            text(dat.sigvec[-1, iabscissa], 1 / dat.sigvec[-1, 3], 'dd-damp$\\approx1/\\sqrt{cond(CORR)}$')
+            semilogy(dat.sigvec[:, iabscissa], np.max(dat.sigvec[:, 5:], axis=1) / np.min(dat.sigvec[:, 5:], axis=1),
+                    'darkred', label='axis ratio of diagonal decoding')
+            text(dat.sigvec[-1, iabscissa], np.max(dat.sigvec[-1, 5:]) / np.min(dat.sigvec[-1, 5:]), 'dd-AR')
+        if np.size(dat.corrspec) > 1:
+            def c_odds(c):
+                cc = (c + 1) / (c - 1)
+                cc[cc < 0] = -1 / cc[cc < 0]
+                return cc
+            semilogy(dat.corrspec[:, iabscissa], c_odds(dat.corrspec[:, 2]), 'c', label='$min (c + 1) / (c - 1)$')
+            semilogy(dat.corrspec[:, iabscissa], c_odds(dat.corrspec[:, 5]), 'c', label='$max (c + 1) / (c - 1)$')
+            text(dat.corrspec[-1, iabscissa], c_odds(np.asarray([dat.corrspec[-1, 2]])), '$\\max (c + 1) / (c - 1)$')
+            text(dat.corrspec[-1, iabscissa], c_odds(np.asarray([dat.corrspec[-1, 5]])), '$-{\\min}^{-1} (c + 1)\dots$')
+        
 
         # title('abs(f) (blue), f-min(f) (cyan), Sigma (green), Axis Ratio (red)')
         # title(r'blue:$\mathrm{abs}(f)$, cyan:$f - \min(f)$, green:$\sigma$, red:axis ratio',
@@ -1464,7 +1580,7 @@ last_figure_number = 324
 def plot(name=None, fig=None, abscissa=1, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
-         xsemilog=None, xnormalize=None, addcols=0, **kwargs):
+         xsemilog=None, xnormalize=None, addcols=1, **kwargs):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for

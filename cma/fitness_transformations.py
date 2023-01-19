@@ -351,7 +351,8 @@ class ScaleCoordinates(ComposedFunction):
 
     def scale_and_offset(self, x):
         x = np.asarray(x)
-        r = lambda vec: utils.recycled(vec, as_=x)
+        def r(vec):
+            return utils.recycled(vec, as_=x)
         if self.zero is not None and self.multiplier is not None:
             x = r(self.multiplier) * (x - r(self.zero))
         elif self.zero is not None:
@@ -365,7 +366,8 @@ class ScaleCoordinates(ComposedFunction):
         ``y / multipliers + zero``
         """
         x = np.asarray(x)
-        r = lambda vec: utils.recycled(vec, as_=x)
+        def r(vec):
+            return utils.recycled(vec, as_=x)
         if self.zero is not None and self.multiplier is not None:
             x = x / r(self.multiplier) + r(self.zero)
         elif self.zero is not None:
@@ -514,9 +516,11 @@ class IntegerMixedFunction(ComposedFunction):
     on average. Option ``integer_variables`` of `cma.CMAOptions` 
     implements this simple measure. 
     """
-    def __init__(self, function, integer_variable_indices, copy_arg=True):
+    def __init__(self, function, integer_variable_indices, operator=np.floor, copy_arg=True):
+        """apply operator(x[i]) for i in integer_variable_indices before to call function(x)"""
         ComposedFunction.__init__(self, [function, self._flatten])
         self.integer_variable_indices = integer_variable_indices
+        self.operator = operator
         self.copy_arg = copy_arg
     def _flatten(self, x):
         x = np.array(x, copy=self.copy_arg)
@@ -525,5 +529,5 @@ class IntegerMixedFunction(ComposedFunction):
                 continue
             if i >= len(x):
                 break
-            x[i] = np.floor(x[i])
+            x[i] = self.operator(x[i])
         return x

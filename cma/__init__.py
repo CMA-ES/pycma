@@ -139,6 +139,7 @@ else:
     from .fitness_functions import ff
     from .fitness_transformations import GlueArguments, ScaleCoordinates
     from .evolution_strategy import fmin, fmin2, fmin_con, fmin_con2, CMAEvolutionStrategy, CMAOptions
+    CMA = CMAEvolutionStrategy  # shortcut for typing without completion
     from .logger import disp, plot, CMADataLogger
     from .optimization_tools import NoiseHandler
     from .constraints_handler import BoundPenalty, BoundTransform, ConstrainedFitnessAL
