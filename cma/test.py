@@ -234,28 +234,28 @@ def various_doctests():
     Both condition alleviation transformations are applied during this
     test, first in iteration 62ish, second in iteration 257ish:
 
-        >>> import warnings
-        >>> import cma
-        >>> ftabletrot = cma.fitness_transformations.Rotated(cma.ff.tablet, seed=10)
-        >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, {
-        ...                                   'tolconditioncov':False,
-        ...                                   'seed': 8,
-        ...                                   'CMA_mirrors': 0,
-        ...                                   'ftarget': 1e-9,
-        ...                                })  # doctest:+ELLIPSIS
-        (4_w...
-        >>> while not es.stop() and es.countiter < 82:
-        ...    X = es.ask()
-        ...    es.tell(X, [cma.ff.elli(x, cond=1e22) for x in X])  # doctest:+ELLIPSIS
-        NOTE ...iteration=...
-        >>> with warnings.catch_warnings(record=True) as warns:
-        ...     while not es.stop():
-        ...         X = es.ask()
-        ...         es.tell(X, [ftabletrot(x) for x in X])  # doctest:+ELLIPSIS
-        >>> assert isinstance(warns[0].message, UserWarning)
-        >>> assert es.countiter <= 344 and 'ftarget' in es.stop(), (
-        ...             "transformation bug in alleviate_condition?",
-        ...             es.countiter, es.stop())
+    >>> import warnings
+    >>> import cma
+    >>> ftabletrot = cma.fitness_transformations.Rotated(cma.ff.tablet, seed=10)
+    >>> es = cma.CMAEvolutionStrategy(4 * [1], 1, {
+    ...                                   'tolconditioncov':False,
+    ...                                   'seed': 8,
+    ...                                   'CMA_mirrors': 0,
+    ...                                   'ftarget': 1e-9,
+    ...                                })  # doctest:+ELLIPSIS
+    (4_w...
+    >>> while not es.stop() and es.countiter < 82:
+    ...     X = es.ask()
+    ...     es.tell(X, [cma.ff.elli(x, cond=1e22) for x in X])  # doctest:+ELLIPSIS
+    NOTE ...iteration=...
+    >>> with warnings.catch_warnings(record=True) as warns:
+    ...     while not es.stop():
+    ...         X = es.ask()
+    ...         es.tell(X, [ftabletrot(x) for x in X])  # doctest:+ELLIPSIS
+    >>> assert isinstance(warns[0].message, UserWarning)
+    >>> assert es.countiter <= 344 and 'ftarget' in es.stop(), (
+    ...             "transformation bug in alleviate_condition?",
+    ...             es.countiter, es.stop())
 
     Integer handling:
 
