@@ -991,3 +991,94 @@ class ListOfCallables(list):
             assert len(self) == len(res) == 1
             return res[0]  # for backwards compatibility when a single callable is used
         return res
+
+class ShowInline:
+    """callable instance to save and show figures with `matplotlib`.
+    
+    Saves figures to a folder ``'figs-...'`` with incremental filenames
+    allowing to conveniently view and compare these figures.
+
+    Each call of the instance saves the current `matplotlib` figure and
+    switches the focus to the save folder by calling the `open_path`
+    method.
+
+    Example::
+
+        >> import cma, matplotlib.pyplot as plt
+        >> show = cma.utilities.utils.ShowInline('01')  # use './figs-01' folder
+        >> 
+        >> plt.plot([1,2,3])
+        >> show()  # save current plot with a unique name in figs-01 folder
+        >>         # and switch focus to the folder
+
+    Under macOS, `open_path` invokes Finder where the figures can be
+    conveniently explored and compared using the space and up/down keys.
+    """
+    folder_prefix = 'figs-'
+    def __init__(self, name, type='pdf', dpi=400, **kwargs):
+        """save figures to folder ``'figs-' + name``.
+
+        pdf are smaller than png and not pixeliated.
+
+        `dpi` and `kwargs` are passed to `plt.savefig`.
+        """
+        self.path =  ShowInline.folder_prefix + name
+        """output folder path"""
+        self.format_string = "{:04d}." + type
+        """filename format string"""
+        self.kwargs = kwargs
+        """kwargs to ``plt.savefig``"""
+        self.kwargs['dpi'] = dpi
+        self.number = 0
+        """number of saved figures or id of last saved figure"""
+        if os.path.exists(self.path):
+            ls = sorted(n for n in os.listdir(self.path)
+                    if n[0] in [str(i) for i in range(10)] and n.endswith('.' + type))
+            if ls:
+                self.number = int(ls[-1].split('.' + type)[0])
+
+    def __call__(self,
+                 keep=True, show_in_notebook=False,
+                 show_in_folder=True, save=True,
+                 width_save=None, width_show=None,
+                 name=None):
+        """save current figure and show folder and/or image in notebook.
+
+        Uses `IPython.display.Image` to show the image in the notebook.
+        """
+        if save:
+            from matplotlib import pyplot as plt
+            if not os.path.exists(self.path):
+                if self.number != 0:
+                    warnings.warn(self.path + " not found"
+                                  " even though number={} (which should ever happen)."
+                                  .format(self.number))
+                os.mkdir(self.path)
+            if name is None:
+                self.number += 1
+                name = self.format_string.format(self.number)
+            name = os.path.join(self.path, name)
+            if width_save:
+                old_size = plt.gcf().get_size_inches()  # keep aspect ratio
+                plt.gcf().set_size_inches(width_save,
+                                          width_save * old_size[1] / old_size[0])
+            # plt.tight_layout()
+            plt.savefig(name, bbox_inches='tight', **self.kwargs)
+            self._last_saved = name
+            keep or plt.close()
+        show_in_folder and self.open_path()
+        if self.number and show_in_notebook:
+            self.show_in_notebook(width_show)
+        return self
+
+    def show_in_notebook(self, width=None, **kwargs_show):
+        """display last saved figure in notebook (doesn't work with pdf)"""
+        try:
+            import IPython.display
+            return IPython.display.Image(self._last_saved, width=width, **kwargs_show)
+        except:
+            print("{} could not be displayed".format(self._last_saved))
+
+    def open_path(self):
+        os.system('open ' + self.path)
+
