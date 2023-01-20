@@ -138,7 +138,7 @@ else:
     from . import s
     from .fitness_functions import ff
     from .fitness_transformations import GlueArguments, ScaleCoordinates
-    from .evolution_strategy import fmin, fmin2, fmin_con, fmin_con2, fmin_lq_surr
+    from .evolution_strategy import fmin, fmin2, fmin_con, fmin_con2, fmin_lq_surr, fmin_lq_surr2
     from .evolution_strategy import CMAEvolutionStrategy, CMAOptions
     CMA = CMAEvolutionStrategy  # shortcut for typing without completion
     from .logger import disp, plot, CMADataLogger

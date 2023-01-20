@@ -4241,6 +4241,106 @@ def fmin_lq_surr(objective_function, x0, sigma0, options=None, **kwargs):
                   **callback_in_kwargs(kwargs))
     return surrogate.model.X[np.argmin(surrogate.model.F)], es
 
+def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
+                  inject=True, restarts=0, incpopsize=2,
+                  keep_model=False, not_evaluated=np.isnan):
+    """minimize `objective_function` with lq-CMA-ES.
+
+    `x0` is the initial solution or can be a callable that returns an
+    initial solution (different for each restarted run). See ``cma.fmin``
+    for further input documentations and ``cma.CMAOptions()`` for the
+    available options.
+
+    `inject` determines whether the best solution of the model is
+    reinjected in each iteration. By default, a new surrogate model is used
+    after each restart (``keep_model=False``) and the population size is
+    multiplied by a factor of two (``incpopsize=2``) like in IPOP-CMA-ES
+    (see also ``help(cma.fmin)``).
+
+    Returns the tuple ``xbest, es`` like `fmin2`. As in general,
+    `es.result.xfavorite` (and `es.mean` as genotype) is considered the
+    best available estimate of the optimal solution.
+
+    Example code
+    ------------
+
+    >>> import cma
+    >>> x, es = cma.fmin_lq_surr2(cma.ff.rosen, 2 * [0], 0.1,
+    ...                           {'verbose':-9,  # verbosity for doctesting
+    ...                            'ftarget':1e-2})
+    >>> assert 'ftarget' in es.stop(), (es.stop(), es.result_pretty())
+    >>> assert es.result.evaluations < 130, es.result.evaluations
+
+    Details
+    -------
+    lq-CMA-ES builds a linear or quadratic (global) model as a surrogate to
+    circumvent evaluations of the objective function, see link below.
+
+    This code uses the ask-and-tell interface to CMA-ES via the class
+    `CMAEvolutionStrategy` to the `options` `dict` is passed.
+
+    To pass additional arguments to the objective function use
+    `functools.partial`.
+
+    `not_evaluated` must return `True` if a value indicates (by convention
+    of `cma.fitness_models.SurrogatePopulation.EvaluationManager.fvalues`)
+    a missing "true" evaluation of the `objective_function`.
+
+    See https://cma-es.github.io/lq-cma for references and details about
+    the algorithm.
+"""
+    if options is None:
+        options = {}
+    best = ot.BestSolution2()
+    for irun in range(1 + restarts):
+        if irun == 0 or not keep_model:
+            surrogate = _fitness_models.SurrogatePopulation(objective_function)
+        if irun > 0:  # increase popsize
+            options['popsize'] = int(es.sp.popsize * incpopsize + 1/2)
+        es = CMAEvolutionStrategy(x0, sigma0, options)
+        if irun > 0:  # pass counts from previous state
+            surrogate.evaluations = best.count
+            es.countevals = best.count
+            es.logger.append = True
+        while not es.stop():
+            X = es.ask()
+            F = surrogate(X)
+            es.tell(X, F)  # update sample distribution
+            es.countevals = surrogate.evaluations  # count only "true" evaluations
+            for f, x in zip(surrogate.evals.fvalues, surrogate.evals.X):
+                if not_evaluated(f):  # ignore NaN, important for correct count output
+                    continue
+                best.update(f, x)
+            if inject:
+                es.inject([surrogate.model.xopt])
+            es.logger.add()  # trigger the logging
+            es.disp()  # just checking what's going on
+        if es.opts['verb_disp'] > 0:
+            es.result_pretty(irun, time.asctime(time.localtime()),
+                             best.f)
+        if ('ftarget' in es.stop(check=False) or
+            'maxfevals' in es.stop(check=False) or
+            'callback' in es.stop(check=False)):
+            break
+
+    ### assign es.best from best and return
+    try:
+        i = np.nanargmin(surrogate.evals.fvalues)
+    except ValueError as e:
+        warnings.warn(str(e) + "\n  Valid assignment of `es.best.last` (best of last/current iteration) failed.")
+    else:
+        es.best.last.f = surrogate.evals.fvalues[i]
+        es.best.last.x = surrogate.evals.X[i]
+    es.best.f = best.f
+    es.best.x = best.x
+    try: es.best.x_geno = es.gp.tf_geno(best.x)
+    except: es.best.x_geno = None
+    es.best.evals = best.count_saved
+    es.best.compared = best.count
+    # es.best.evalsall remains as is, not clear what this is though
+    es.best_fmin_lq_surr2 = best  # as a reference in case
+    return best.x, es
+
 def fmin2(objective_function, x0, sigma0,
          options=None,
          args=(),
