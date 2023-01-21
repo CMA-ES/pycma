@@ -1737,7 +1737,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
                     str(type(self.sm))))
             self._updateBDfromSM(self.sm)
-        self._stds_into_limits()  # put stds into [minstd, maxstd]
+        self._stds_into_limits(warn=global_verbosity > 0)  # put stds into [minstd, maxstd]
         self.dC = self.sm.variances
         self.D = self.dC**0.5  # we assume that the initial C is diagonal
         self.pop_injection_solutions = []
@@ -1868,11 +1868,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except NotImplementedError:
             pass
 
-    def _stds_into_limits(self):
+    def _stds_into_limits(self, warn=False):
         """set ``self.sigma_vec.scaling`` to respect ``opts['max/minstd']``
         """
         is_min = np.any(self.opts['minstd'] > 0)  # accepts also a scalar
         is_max = np.any(np.isfinite(self.opts['maxstd']))
+        initial_linalg_fix = np.exp(1e-4) if self.countiter <= 2 else 1
+        """prevent warning from equal eigenvals prevention hack"""
         if not is_min and not is_max:
             return
         def get_i(bnds, i):
@@ -1886,10 +1888,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 found = s < sb
             if is_max and not found:
                 sb = get_i(self.opts['maxstd'], i)
-                found = s > sb
+                found = s > sb * initial_linalg_fix
             if found:
                 self.sigma_vec._init_(self.N)
                 self.sigma_vec.set_i(i, self.sigma_vec.scaling[i] * sb / s)
+                if warn:
+                    warnings.warn("Sampling standard deviation i={} at iteration {}"
+                                  " change by {} to stds[{}]={}"
+                                  .format(i, self.countiter, sb / s, i, self.stds[i]))
 
     def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
