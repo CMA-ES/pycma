@@ -462,7 +462,7 @@ def cma_default_options_(  # to get keyword completion back
     mean_shift_line_samples='False #v sample two new solutions colinear to previous mean shift',
     mindx='0  #v minimal std in any arbitrary direction, cave interference with tol*',
     minstd='0  #v minimal std (scalar or vector) in any coordinate direction, cave interference with tol*',
-    maxstd='None  #v maximal std in any coordinate direction',
+    maxstd='None  #v maximal std (scalar or vector) in any coordinate direction',
     pc_line_samples='False #v one line sample along the evolution path pc',
     popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
     popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
