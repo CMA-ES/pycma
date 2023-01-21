@@ -992,8 +992,8 @@ class ListOfCallables(list):
             return res[0]  # for backwards compatibility when a single callable is used
         return res
 
-class ShowInline:
-    """callable instance to save and show figures with `matplotlib`.
+class ShowInFolder:  # was ShowInline
+    """callable instance to save and show figures from `matplotlib`.
     
     Saves figures to a folder ``'figs-...'`` with incremental filenames
     allowing to conveniently view and compare these figures.
@@ -1018,13 +1018,15 @@ class ShowInline:
     def __init__(self, name, type='pdf', dpi=400, **kwargs):
         """save figures to folder ``'figs-' + name``.
 
-        pdf are smaller than png and not pixeliated.
+        pdf are smaller than png and not pixeliated. The type can be
+        changed at any time be reassigning the `type` attribute.
 
         `dpi` and `kwargs` are passed to `plt.savefig`.
         """
-        self.path =  ShowInline.folder_prefix + name
+        self.path =  ShowInFolder.folder_prefix + name
         """output folder path"""
-        self.format_string = "{:04d}." + type
+        self.type = type
+        self.format_string = "{:04d}."
         """filename format string"""
         self.kwargs = kwargs
         """kwargs to ``plt.savefig``"""
@@ -1056,7 +1058,7 @@ class ShowInline:
                 os.mkdir(self.path)
             if name is None:
                 self.number += 1
-                name = self.format_string.format(self.number)
+                name = self.format_string.format(self.number) + self.type
             name = os.path.join(self.path, name)
             if width_save:
                 old_size = plt.gcf().get_size_inches()  # keep aspect ratio
