@@ -463,6 +463,7 @@ def cma_default_options_(  # to get keyword completion back
     mindx='0  #v minimal std in any arbitrary direction, cave interference with tol*',
     minstd='0  #v minimal std (scalar or vector) in any coordinate direction, cave interference with tol*',
     maxstd='None  #v maximal std (scalar or vector) in any coordinate direction',
+    maxstd_boundrange='1/3  # maximal std relative to bound_range per coordinate, overruled by maxstd',
     pc_line_samples='False #v one line sample along the evolution path pc',
     popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
     popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
@@ -1526,7 +1527,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if opts['maxstd'] is None:
                 # set maxstd according to boundary range
                 opts['maxstd'] = (self.boundary_handler.get_bounds('upper', self.N_pheno) -
-                                  self.boundary_handler.get_bounds('lower', self.N_pheno)) / 3
+                                  self.boundary_handler.get_bounds('lower', self.N_pheno)
+                                  ) * opts['maxstd_boundrange']
 
         # set self.mean to geno(x0)
         tf_geno_backup = self.gp.tf_geno
