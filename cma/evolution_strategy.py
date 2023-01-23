@@ -1531,7 +1531,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # set self.mean to geno(x0)
         tf_geno_backup = self.gp.tf_geno
         if self.gp.tf_pheno and self.gp.tf_geno is None:
-            self.gp.tf_geno = lambda x: x  # a hack to avoid an exception
+            def identity(x):
+                return x
+            self.gp.tf_geno = identity  # a hack to avoid an exception
             warnings.warn(
                 "computed initial point may well be wrong, because no\n"
                 "inverse for the user provided phenotype transformation "
