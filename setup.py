@@ -26,7 +26,7 @@ To prepare the docs from a dirty code folder::
     backup cma --move
     git checkout -- cma
     pip install -e .
-    pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt ; less pydoctor-messages.txt  # check for errors
+    pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt ; less pydoctor-messages.txt  # check for errors (which are at the end!)
     backup --recover
 
     # push new docs to github
