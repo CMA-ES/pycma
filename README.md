@@ -73,6 +73,19 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``3.3.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.3.0)
+  implements
+  - diagonal acceleration via diagonal decoding (option
+    `CMA_diagonal_decoding`, by default still off).
+  - `fmin_lq_surr2` for running the surrogate assisted
+    [lq-CMA-ES](https://cma-es.github.io/lq-cma).
+  - `optimization_tools.ShowInFolder` to facilitate rapid experimentation.
+  - `verb_disp_overwrite` option starts to overwrite the last line of the
+    display output instead of continuing adding lines to avoid screen
+    flooding with longish runs (off by default).
+  - various smallish improvements, bug fixes and additional features and
+    functions.
+
 * [Release ``3.2.2``](https://github.com/CMA-ES/pycma/releases/tag/r3.2.2)
   fixes some smallish interface and logging bugs in `ConstrainedFitnessAL`
   and a bug when printing a warning. Polishing mainly in the plotting
