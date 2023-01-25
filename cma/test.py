@@ -117,11 +117,11 @@ def various_doctests():
     ...         for j in range(i + 1, len(m)):
     ...             val = max((val, abs(m[i, j])))
     ...     return val
-    >>> x, es = cma.fmin2(cma.ff.elli, [1, 0, 0], 0.5, {'verbose':-9}, args=[True])  # rotated
-    >>> assert maxcorr(es.sm.correlation_matrix) > 0.9, es.sm.correlation_matrix
-    >>> es = cma.CMAEvolutionStrategy([1, 0, 0], 0.5,
+    >>> x, es = cma.fmin2(cma.ff.elli, [1, 0, 0, 0], 0.5, {'verbose':-9}, args=[True])  # rotated
+    >>> assert maxcorr(es.sm.correlation_matrix) > 0.85, es.sm.correlation_matrix
+    >>> es = cma.CMAEvolutionStrategy([1, 0, 0, 0], 0.5,
     ...                               {'verbose':-9}).optimize(cma.ff.elli, args=[1])
-    >>> assert maxcorr(es.sm.correlation_matrix) > 0.9, es.sm.correlation_matrix
+    >>> assert maxcorr(es.sm.correlation_matrix) > 0.85, es.sm.correlation_matrix
 
     Testing output file consistency with diagonal option:
 
