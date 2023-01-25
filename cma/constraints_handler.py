@@ -310,7 +310,7 @@ class BoundPenalty(BoundaryHandlerBase):
     options (`CMAOptions`) of the class `cma.CMAEvolutionStrategy`:
 
     >>> import cma
-    >>> res = cma.fmin(cma.ff.elli, 6 * [0.9], 1/2,
+    >>> res = cma.fmin(cma.ff.elli, 6 * [0.9], 0.1,
     ...     {'BoundaryHandler': cma.BoundPenalty,
     ...      'bounds': [-1, 1],
     ...      'tolflatfitness': 10,
