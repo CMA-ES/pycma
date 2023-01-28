@@ -383,7 +383,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             besteverf = es.best.f
             bestf = es.fit.fit[0]
             worstf = es.fit.fit[-1]
-            medianf = es.fit.fit[es.sp.popsize // 2]
+            medianf = es.fit.fit[len(es.fit.fit) // 2]
         except:
             if iteration > 0:  # first call without f-values is OK
                 raise
