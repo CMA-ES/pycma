@@ -2732,6 +2732,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if 11 < 3 and lam != sp.popsize:  # turned off, because mu should stay constant, still not desastrous
             utils.print_warning('population size has changed, recomputing parameters')
             self.sp.set(self.opts, lam)  # not really tested
+        if 1 < 3 and (lam > sp.popsize + 2 or lam < sp.popsize - 2 or (
+            lam < sp.popsize and lam < 5)):  # see above
+            m = "The number of solutions passed to `tell` should"
+            utils.print_warning("{} generally be the same as (or close to) the population size,"
+                                "\n  was: len(solutions)={} != {}=popsize."
+                                "\n  To suppress this warning execute"
+                                "\nwarnings.filterwarnings('ignore', message='{}.*')"
+                                "\n".format(m, len(solutions), sp.popsize, m),
+                                'tell', 'CMAEvolutionStrategy', self.countiter+1)
         if lam < sp.weights.mu:  # rather decrease cmean instead of having mu > lambda//2
             raise ValueError('not enough solutions passed to function tell'
                              ' (passed solutions={} < mu={})'
