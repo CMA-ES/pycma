@@ -238,7 +238,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         except: pc_for_ps = False  # 'vv' has an incompatible format or does't exist
         if pc_for_ps:
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
-            if es.opts['verbose'] > 5 and es.countiter == 1:
+            if es.opts['verbose'] > 1 and es.countiter == 1:
                 utils.print_message('pc for ps is active')
             p = es.sm.transform_inverse(es.pc)
         try:                                 # to filter coordinates or a
