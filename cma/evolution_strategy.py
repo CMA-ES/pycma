@@ -2766,9 +2766,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # self.out['recent_f'] = fit.fit[0]
 
         # fitness histories
-        fit.hist.insert(0, fit.fit[0])  # caveat: this may neither be the best nor the best in-bound fitness, TODO
-        fit.median = (fit.fit[self.popsize // 2] if self.popsize % 2
-                      else np.mean(fit.fit[self.popsize // 2 - 1: self.popsize // 2 + 1]))
+        fit.hist.insert(0, fit.fit[0])  # caveat: this may neither be the best nor the best in-bound fitness
+        fit.median = (fit.fit[len(fit.fit) // 2] if len(fit.fit) % 2
+                      else np.mean(fit.fit[len(fit.fit) // 2 - 1: len(fit.fit) // 2 + 1]))
         # if len(self.fit.histbest) < 120+30*N/sp.popsize or  # does not help, as tablet in the beginning is the critical counter-case
         if ((self.countiter % 5) == 0):  # 20 percent of 1e5 gen.
             fit.histbest.insert(0, fit.fit[0])
@@ -3906,7 +3906,7 @@ class _CMAStopDict(dict):
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:
-                if es.fit.fit[0] < es.fit.fit[int(0.75 * es.popsize)]:
+                if es.fit.fit[0] < es.fit.fit[int(0.75 * len(es.fit.fit))]:
                     es.fit.flatfit_iterations = 0
                 else:
                     # print(es.fit.fit)
