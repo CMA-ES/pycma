@@ -2733,7 +2733,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             utils.print_warning('population size has changed, recomputing parameters')
             self.sp.set(self.opts, lam)  # not really tested
         if lam < sp.weights.mu:  # rather decrease cmean instead of having mu > lambda//2
-            raise ValueError('not enough solutions passed to function tell (mu>lambda)')
+            raise ValueError('not enough solutions passed to function tell'
+                             ' (passed solutions={} < mu={})'
+                             .format(lam, sp.weights.mu))
 
         self.countiter += 1  # >= 1 now
         self.countevals += lam * self.evaluations_per_f_value
