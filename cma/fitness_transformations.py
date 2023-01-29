@@ -6,6 +6,7 @@ from functools import partial
 import numpy as np
 import time
 from .utilities import utils
+from .utilities.math import Mh as _Mh
 from .transformations import ConstRandnShift, Rotation
 from .constraints_handler import BoundTransform
 from .optimization_tools import EvalParallel2  # for backwards compatibility
@@ -305,16 +306,58 @@ class Shifted(ComposedFunction):
         ComposedFunction.__init__(self, [f, shift])
 
 class ScaleCoordinates(ComposedFunction):
-    """compose a (fitness) function with a scaling for each variable
-    (more concisely, a coordinate-wise affine transformation).
+    """compose a (fitness) function with a preceding scaling and offset.
 
+    Scaling interface
+    -----------------
     After ``fun2 = cma.ScaleCoordinates(fun, multipliers, zero)``, we have
-    ``fun2(x) == fun(multipliers * (x - zero))``, where the size of
+    ``fun2(x) == fun(multipliers * (x - zero))``, where the vector size of
     `multipliers` and `zero` is adapated to the size of `x`, in case by
-    recycling their last entry.
+    recycling their last entry. This awkwardly asks to pass the `zero`
+    argument of the preimage space where it has little meaning. Hence more
+    conveniently,
+    ``fun2 = cma.ScaleCoordinates(fun, multipliers, lower=lower)`` gets
+    ``fun2(x) == fun(multipliers * x + lower)``.
+
+    Domain interface (lower and upper variable values)
+    --------------------------------------------------
+    Let ``u`` and ``l`` be vectors (or a scalar) of (approximate) lower and
+    upper variable values, respectively. After
+    ``fun2 = cma.ScaleCoordinates(fun, upper=u, lower=l)`` we have
+    ``fun2(x) == fun(l + (u - l) * x)``. Now, passing 0 as ``x[i]`` to
+    ``fun2`` evaluates ``fun`` at ``l[i]`` while passing 1 evaluates
+    ``fun`` at ``u[i]``.
+
+    To match the size of ``x``, the sizes of ``u`` and ``l`` are shortened
+    or their last entry is recycled if necessary.
+
+    The default value for `lower` is zero in which case `upper` just
+    becomes a scaling multiplier.
+
+    Bounding the search domain of ``fun2`` to ``[0, 1]`` now bounds ``fun``
+    to the domain ``[l, u]``. The ``'bounds'`` option of `CMAOptions`
+    allows to set these bounds.
+
+    More general, the affine transformation is defined such that
+    ``x[i]==from_lower_upper[0]`` evaluates ``fun`` at ``l[i]`` and
+    ``x[i]==from_lower_upper[1]`` evaluates ``fun`` at ``u[i]`` where
+    ``from_lower_upper == [0, 1]`` by default.
+
+    Examples and Doctest
+    --------------------
 
     >>> import numpy as np
     >>> import cma
+    >>> fun = cma.ScaleCoordinates(cma.ff.sphere, upper=[30, 1])
+    >>> fun([1, 1]) == 30**2 + 1**2
+    True
+    >>> list(fun.transform([1, 1])), list(fun.transform([0.2, 0.2]))
+    ([30.0, 1.0], [6.0, 0.2])
+    >>> list(fun.inverse(fun.transform([0.1, 0.3])))
+    [0.1, 0.3]
+    >>> fun = cma.ScaleCoordinates(cma.ff.sphere, upper=[31, 3], lower=[1, 2])
+    >>> -1e-9 < fun([1, -1]) - (31**2 + 1**2) < 1e-9
+    True
     >>> f = cma.ScaleCoordinates(cma.ff.sphere, [100, 1])
     >>> assert f[0] == cma.ff.sphere  # first element of f-composition
     >>> assert f(range(1, 6)) == 100**2 + sum([x**2 for x in range(2, 6)])
@@ -326,28 +369,108 @@ class ScaleCoordinates(ComposedFunction):
     >>> f([5, 6]) == sum(x**2 for x in [100 * -2 * (5 - 2), 7 * (6 - 3)])
     True
 
+    See also these [Practical Hints](https://cma-es.github.io/cmaes_sourcecode_page.html#practical)
+    for encoding variables.
     """
-    def __init__(self, fitness_function, multipliers=None, zero=None):
+    def __init__(self, fitness_function, multipliers=None, zero=None,
+                 upper=None, lower=None, from_lower_upper=(0, 1)):
         """
         :param fitness_function: a `callable` object
         :param multipliers: coordinate-wise multipliers.
         :param zero: defines a new zero in preimage space, that is,
             calling the `ScaleCoordinates` instance returns
             ``fitness_function(multipliers * (x - zero))``.
+        :param upper: variable value to which from_lower_upper[1] maps.
+        :param lower: variable value to which from_lower_upper[0] maps.
 
-        For both arguments, ``multipliers`` and ``zero``, to fit
-        the length of the given input, superfluous trailing
-        elements are ignored and the last element is recycled
-        if needed.
+        Only either `multipliers` or 'upper` can be passed. If `zero` is
+        passed then `upper` and `lower` are ignored. The arguments
+        ``multipliers``, ``zero``, ``upper`` and ``lower`` can be vectors
+        or scalars, superfluous trailing elements are ignored and the last
+        element is recycled if needed to fit the length of the later given
+        input.
+
+        `from_lower_upper` is `(0, 1)` by default and defines the preimage
+        values which are mapped to `lower` and `upper`, respectively
+        (unless `multipliers` or `zero` are given). These two preimage
+        values are always the same for all coordinates.
+
+        Details
+        -------
+        The `upper` and `lower` and `from_lower_upper` parameters are used
+        to assign `multipliers` and `zero` such that the transformation is
+        then always computed from the latter two only.
         """
         ComposedFunction.__init__(self,
                 [fitness_function, self.scale_and_offset])
+        self.transform = self.scale_and_offset  # a useful alias
         self.multiplier = multipliers
-        if self.multiplier is not None:
-            self.multiplier = np.asarray(self.multiplier, dtype=float)
         self.zero = zero
+        # the following settings are only used in __init__:
+        self.lower = lower
+        self.upper = upper
+        self.from_lower_upper = from_lower_upper
+
+        def align(a1, a2):
+            """align shorter to longer array such that a1*a2 doesn't bail"""
+            try:
+                l1, l2 = len(a1), len(a2)
+            except: pass
+            else:
+                if l1 < l2:
+                    a1 = utils.recycled(a1, as_=a2)
+                elif l2 < l1:
+                    a2 = utils.recycled(a2, as_=a1)
+            return a1, a2
+
+        if multipliers is not None:
+            if upper is not None:
+                raise ValueError('Either `multipliers` or `upper` argument must be None')
+            if from_lower_upper not in (None, (0, 1)):
+                warnings.warn("from_lower_upper={} ignored because multipliers={} were given"
+                              .format(from_lower_upper, multipliers))
+            self.multiplier = np.asarray(self.multiplier, dtype=float)
+            if zero is None and lower is not None:
+                self.multiplier, self.lower = align(self.multiplier, self.lower)
+                self.zero = - np.asarray(self.lower) / self.multiplier
+        elif zero is None:
+            if upper is None and lower is None:
+                raise ValueError('Either `multipliers` or `zero` or `upper` or `lower`'
+                                 ' argument must be given.')
+            if from_lower_upper is None:
+                self.from_lower_upper = (0, 1)
+            if lower is None:
+                self.lower = 0
+            if upper is None:
+                self.upper = np.asarray(self.lower) + 1
+            idx = np.where(np.asarray(self.upper, dtype=float) - self.lower <= 0)[0]
+            if len(idx):
+                raise ValueError('`upper` value(s) must be stricly larger than'
+                                    ' `lower` value(s); values were:'
+                                 '\n upper={}'
+                                 '\n lower={}'
+                                 '\n offending indices = {}'
+                                 .format(self.upper, self.lower, list(idx)))
+            self.lower, self.upper = align(self.lower, self.upper)
+
+            dx = self.from_lower_upper[1] - self.from_lower_upper[0]
+            self.multiplier = (np.asarray(self.upper, dtype=float) - self.lower) / dx
+            self.zero = self.from_lower_upper[0] - self.multiplier**-1 * self.lower
+            zero_from_upper = self.from_lower_upper[1] - self.multiplier**-1 * self.upper
+            if not _Mh.vequals_approximately(self.zero, zero_from_upper):
+                warnings.warn('zero computed from upper and lower differ'
+                              '\n from upper={}'
+                              '\n from lower={}'
+                              '\n This may be a bug or due to small numerical deviations'
+                              .format(zero_from_upper, self.zero))
         if zero is not None:
             self.zero = np.asarray(zero, dtype=float)
+            if lower is not None:
+                warnings.warn("lower={} is ignored because zero={} was given"
+                              .format(lower, zero))
+            if upper is not None:
+                warnings.warn("upper={} is ignored because zero={} was given"
+                              .format(upper, zero))
 
     def scale_and_offset(self, x):
         x = np.asarray(x)
