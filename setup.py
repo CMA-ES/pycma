@@ -8,9 +8,9 @@ Run local tests
 
     ./script-test-all.py
 
-Push to origin/development to trigger test:
+Push to a test branch to trigger test:
 
-    git push origin HEAD:development
+    git push origin HEAD:test
 
 Edit version numbers into (new) commit vX.X.X::
 
@@ -19,25 +19,27 @@ Edit version numbers into (new) commit vX.X.X::
 
 Add a release note (based on git ls, same commit) in::
 
-    ./README.md  # add release description
+    ./README.md  # add release description and amend v.X.X.X. commit
 
-To prepare the docs from a dirty code folder::
+To prepare (and check) the docs from a dirty code folder (run ``./script-make-apidocs.sh ``)::
 
     backup cma --move
     git checkout -- cma
     pip install -e .
-    pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt ; less pydoctor-messages.txt  # check for errors (which are at the end!)
+    pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt
     backup --recover
+    less +G pydoctor-messages.txt  # check for errors (which are at the end!)
 
     # push new docs to github
     cp -r apidocs/* /Users/hansen/git/CMA-ES.github.io/apidocs-pycma
-    cd /Users/hansen/git/CMA-ES.github.io; git add apidocs-pycma  # there may be new files
+    cd /Users/hansen/git/CMA-ES.github.io
+    git add apidocs-pycma  # there may be new files
     git ci
     git push
 
 To prepare a distribution from a (usual) dirty code folder::
 
-    backup cma --move    # backup is a homebrew minitool
+    backup cma --move    # backup is a self-coded minitool
     git checkout -- cma
     python setup.py check  # obsolete but why not
       # python build was: python setup.py sdist bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt  # bdist_wininst
@@ -51,13 +53,18 @@ Check distribution and project description:
     twine check dist/*
     # python setup.py --long-description | rst2html.py > long-description.html ; open long-description.html
 
+Loop over tests and distribution and fix code until everything is fine and
+rebase v.X.X.X. commit to be last commit.
+
 Push branch to master::
 
     git push
 
-Finally upload the distribution::
+Upload the distribution::
 
     twine upload dist/*3.x.x*  # to not upload outdated stuff
+
+Create a release on GitHub (click on releases and then new draft).
 
 Anaconda::
 
