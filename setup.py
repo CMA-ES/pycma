@@ -61,6 +61,7 @@ Finally upload the distribution::
 
 Anaconda::
 
+    # edit version number in tools/conda.recipe/meta.yaml
     conda-build -q tools/conda.recipe  # takes about 1/2 hour
 
 """
