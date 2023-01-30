@@ -354,7 +354,8 @@ class ModelInjectionCallback(object):
         else:
             self.logger.add(-xdist).push()
 
-class Tau(object): "placeholder to store Kendall tau related things"
+class Tau(object):
+    "placeholder to store Kendall tau related things"
 
 def _n_for_model_building_default(m):  # type: (LQModel) -> int
     """truncate worst solutions for model building"""
