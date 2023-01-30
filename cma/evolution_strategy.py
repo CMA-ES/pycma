@@ -4257,7 +4257,8 @@ def fmin_lq_surr(objective_function, x0, sigma0, options=None, **kwargs):
 
 def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
                   inject=True, restarts=0, incpopsize=2,
-                  keep_model=False, not_evaluated=np.isnan):
+                  keep_model=False, not_evaluated=np.isnan,
+                  callback=None):
     """minimize `objective_function` with lq-CMA-ES.
 
     `x0` is the initial solution or can be a callable that returns an
@@ -4312,6 +4313,7 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
         if irun > 0:  # increase popsize
             options['popsize'] = int(es.sp.popsize * incpopsize + 1/2)
         es = CMAEvolutionStrategy(x0, sigma0, options)
+        es.surrogate = surrogate  # may be used in callback
         if irun > 0:  # pass counts from previous state
             surrogate.evaluations = best.count
             es.countevals = best.count
@@ -4327,6 +4329,12 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
                 best.update(f, x)
             if inject:
                 es.inject([surrogate.model.xopt])
+            if callback:
+                if callable(callback):
+                    callback(es)
+                else:
+                    for c in callback:
+                        c(es)
             es.logger.add()  # trigger the logging
             es.disp()  # just checking what's going on
         if es.opts['verb_disp'] > 0:
@@ -4353,7 +4361,6 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
     es.best.compared = best.count
     # es.best.evalsall remains as is, not clear what this is though
     es.best_fmin_lq_surr2 = best  # as a reference in case
-    es.surrogate = surrogate
     return best.x, es
 
 def fmin2(objective_function, x0, sigma0,
