@@ -4252,6 +4252,7 @@ def fmin_lq_surr(objective_function, x0, sigma0, options=None, **kwargs):
 
     _, es = fmin2(None, x0, sigma0, options=options, parallel_objective=surrogate,
                   **callback_in_kwargs(kwargs))
+    es.surrogate = surrogate
     return surrogate.model.X[np.argmin(surrogate.model.F)], es
 
 def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
@@ -4352,6 +4353,7 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
     es.best.compared = best.count
     # es.best.evalsall remains as is, not clear what this is though
     es.best_fmin_lq_surr2 = best  # as a reference in case
+    es.surrogate = surrogate
     return best.x, es
 
 def fmin2(objective_function, x0, sigma0,
