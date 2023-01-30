@@ -4780,6 +4780,7 @@ def fmin(objective_function, x0, sigma0,
                                    [es.f0], 1)
                     es.countevals += 1
             es.objective_function = objective_function  # only for the record
+            es.parallel_objective = parallel_objective
 
             opts = es.opts  # processed options, unambiguous
             # a hack:
