@@ -1428,11 +1428,16 @@ class CMADataLogger(interfaces.BaseDataLogger):
         i = 2  # find smallest i where iteration count differs (in case the same row appears twice)
         while i < len(dat.f) and dat.f[-i][0] == dat.f[-1][0]:
             i += 1
+        popsi = ((dat.f[-1][1] - dat.f[-i][1]) / (dat.f[-1][0] - dat.f[-i][0])
+                 if len(dat.f.T[0]) > 1 and dat.f[-1][0] > dat.f[-i][0] else None)
+        mpopsi = ((dat.f[-1][1] - dat.f[0][1]) / (dat.f[-1][0] - dat.f[0][0])
+                  if dat.f[-1][0] > dat.f[0][0] else None)
         title('Object Variables (' +
                 (remark + ', ' if remark is not None else '') +
-                str(dat_x.shape[1] - 5) + '-D, popsize~' +
-                (str(int((dat.f[-1][1] - dat.f[-i][1]) / (dat.f[-1][0] - dat.f[-i][0])))
-                    if len(dat.f.T[0]) > 1 and dat.f[-1][0] > dat.f[-i][0] else 'NA')
+                str(dat_x.shape[1] - 5) + '-D, popsize=' +
+                ((str(int(popsi)) if popsi is not None else 'NA') + 
+                  ('|' + str(np.round(mpopsi, 1)) if mpopsi != popsi else '')
+                )
                 + ')')
         self._finalize_plotting()
     def downsampling(self, factor=10, first=3, switch=True, verbose=False):
