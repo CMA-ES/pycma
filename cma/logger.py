@@ -630,7 +630,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
              xsemilog=False,
              xnormalize=False,
              addcols=None,
-             load=True):
+             load=True,
+             message=None):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
 
@@ -736,7 +737,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             < 1.4 + 0.5 * addcols):
             self.fighandle.set_figwidth((1 + 0.45 * addcols) * self.fighandle.get_figwidth())
 
-        self.plot_divers(iabscissa, foffset)
+        self.plot_divers(iabscissa, foffset, message=message)
         pyplot.xlabel('')
 
         # Scaling
@@ -1130,7 +1131,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_divers(self, iabscissa=1, foffset=1e-19):
+    def plot_divers(self, iabscissa=1, foffset=1e-19, message=None):
         """plot fitness, sigma, axis ratio...
 
         :param iabscissa: 0 means vs evaluations, 1 means vs iterations
@@ -1285,8 +1286,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
         axis(ax)
-        text(ax[0] + 0.01, ax[2],  # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
-             '.min($f$)=' + repr(minfit))
+        text(ax[0], ax[2] * (ax[3]/ax[2])**0.002,
+                    # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
+             ('.' + message + '\n' if message else '') +
+             '.min($f$)=' + repr(minfit)
+            )
              #'.f_recent=' + repr(dat.f[-1, 5]))
 
         # AR and damping of diagonal decoding

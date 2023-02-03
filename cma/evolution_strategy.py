@@ -3680,7 +3680,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         Details: calls `self.logger.plot`.
         """
         try:
-            self.logger.plot(*args, **kwargs)
+            self.logger.plot(*args, message='stop()={} '.format(self.stop()) +
+                             kwargs.pop('message', ''), **kwargs)
         except AttributeError:
             utils.print_warning('plotting failed, no logger attribute found')
         except:
