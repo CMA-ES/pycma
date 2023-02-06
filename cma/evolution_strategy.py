@@ -4203,9 +4203,9 @@ def fmin_lq_surr(objective_function, x0, sigma0, options=None, **kwargs):
     >>> import cma
     >>> x, es = cma.fmin_lq_surr(cma.ff.rosen, 2 * [0], 0.1,
     ...                          {'verbose':-9,  # verbosity for doctesting
-    ...                           'ftarget':1e-2})
+    ...                           'ftarget':1e-2, 'seed':11})
     >>> assert 'ftarget' in es.stop(), (es.stop(), es.result_pretty())
-    >>> assert es.result.evaluations < 130, es.result.evaluations
+    >>> assert es.result.evaluations < 90, es.result.evaluations  # can be 137 depending on seed
 
     Details
     -------
@@ -4282,9 +4282,10 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
     >>> import cma
     >>> x, es = cma.fmin_lq_surr2(cma.ff.rosen, 2 * [0], 0.1,
     ...                           {'verbose':-9,  # verbosity for doctesting
-    ...                            'ftarget':1e-2})
+    ...                            'ftarget':1e-2, 'seed':3})
     >>> assert 'ftarget' in es.stop(), (es.stop(), es.result_pretty())
-    >>> assert es.result.evaluations < 130, es.result.evaluations
+    >>> assert es.result.evaluations < 90, es.result.evaluations  # can be >130? depending on seed
+    >>> assert es.countiter < 60, es.countiter
 
     Details
     -------
