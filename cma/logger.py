@@ -623,7 +623,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                              dat.precspec[:, 0]])[0], :]
         except AttributeError:
             pass
-    def plot(self, fig=None, iabscissa=1, iteridx=None,
+    def plot(self, fig=None, iabscissa=0, iteridx=None,
              plot_mean=False, # was: plot_mean=True
              foffset=1e-19, x_opt=None, fontsize=7,
              downsample_to=1e7,
@@ -774,7 +774,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.timer_plot.pause()
         return self
 
-    def plot_all(self, fig=None, iabscissa=1, iteridx=None,
+    def plot_all(self, fig=None, iabscissa=0, iteridx=None,
              foffset=1e-19, x_opt=None, fontsize=7):
         """
         plot data from a `CMADataLogger` (using the files written by the logger).
@@ -902,7 +902,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         self._finalize_plotting()
         return self
-    def plot_axes_scaling(self, iabscissa=1):
+    def plot_axes_scaling(self, iabscissa=0):
         from matplotlib import pyplot
         if not hasattr(self, 'D'):
             self.load()
@@ -929,8 +929,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_stds(self, iabscissa=1, idx=None):
-        """``iabscissa==0`` means vs iterations, `idx` picks variables to plot"""
+    def plot_stds(self, iabscissa=0, idx=None):
+        """``iabscissa=1`` means vs function evaluations, `idx` picks variables to plot"""
         from matplotlib import pyplot
         if not hasattr(self, 'std'):
             self.load()
@@ -993,10 +993,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_sigvec(self, iabscissa=1, idx=None):
+    def plot_sigvec(self, iabscissa=0, idx=None):
         """plot (outer) scaling from diagonal decoding.
         
-        ``iabscissa=0`` plots vs iterations
+        ``iabscissa=1`` plots vs function evaluations
 
         `idx` picks variables to plot if len(idx) < N, otherwise it picks
         iteration indices (in case, after downsampling).
@@ -1060,7 +1060,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_mean(self, iabscissa=1, x_opt=None, annotations=None, xsemilog=None, xnormalize=None):
+    def plot_mean(self, iabscissa=0, x_opt=None, annotations=None, xsemilog=None, xnormalize=None):
         if not hasattr(self, 'xmean'):
             self.load()
         self.x = self.xmean
@@ -1070,7 +1070,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                      xsemilog=xsemilog, xnormalize=xnormalize)
         self._xlabel(iabscissa)
         return self
-    def plot_xrecent(self, iabscissa=1, x_opt=None, annotations=None,
+    def plot_xrecent(self, iabscissa=0, x_opt=None, annotations=None,
                      xsemilog=None, xnormalize=None):
         if not hasattr(self, 'xrecent'):
             self.load()
@@ -1079,7 +1079,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                      xsemilog=xsemilog, xnormalize=xnormalize)
         self._xlabel(iabscissa)
         return self
-    def plot_correlations(self, iabscissa=1, name='corrspec'):
+    def plot_correlations(self, iabscissa=0, name='corrspec'):
         """spectrum of correlation or precision matrix and percentiles of off-diagonal entries"""
         if not hasattr(self, name):
             self.load()
@@ -1131,7 +1131,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_divers(self, iabscissa=1, foffset=1e-19, message=None):
+    def plot_divers(self, iabscissa=0, foffset=1e-19, message=None):
         """plot fitness, sigma, axis ratio...
 
         :param iabscissa: 0 means vs evaluations, 1 means vs iterations
@@ -1343,11 +1343,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # https://github.com/efiring/matplotlib/commit/94c5e161d1f3306d90092c986694d3f611cc5609
         # https://stackoverflow.com/questions/6130341/exact-semantics-of-matplotlibs-interactive-mode-ion-ioff
         pyplot.rcParams['font.size'] = self.original_fontsize  # changes font size in current figure which defeats the original purpose
-    def _xlabel(self, iabscissa=1):
+    def _xlabel(self, iabscissa=0):
         from matplotlib import pyplot
         pyplot.xlabel('iterations' if iabscissa == 0
                       else 'function evaluations')
-    def _plot_x(self, iabscissa=1, x_opt=None, remark=None,
+    def _plot_x(self, iabscissa=0, x_opt=None, remark=None,
                 annotations=None, xsemilog=None, xnormalize=False):
         """If ``len(x_opt) == dimension``, the difference to `x_opt` is plotted.
         Otherwise, the first row of ``x_opt`` is taken as indices and the second
@@ -1590,7 +1590,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
     # end class CMADataLogger
 
 last_figure_number = 324
-def plot(name=None, fig=None, abscissa=1, iteridx=None,
+def plot(name=None, fig=None, abscissa=0, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
          xsemilog=None, xnormalize=None, addcols=None, **kwargs):
