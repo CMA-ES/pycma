@@ -171,8 +171,15 @@ class _BoxConstraintsTransformationTemplate(BoxConstraintsTransformationBase):
     except: pass
 
 class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
-    """implement a bijective, monotonous transformation between
-    ``[lb - al, ub + au]`` and ``[lb, ub]``.
+    """implement a periodic transformation that is bijective from
+
+    ``[lb - al, ub + au]`` -> ``[lb, ub]``, where either (default)
+    ``al = min((ub-lb) / 2, 0.05 * (|lb| + 1))`` and
+    ``ul = min((ub-lb) / 2, 0.05 * (|ub| + 1))`` or
+    ``al = min((ub-lb) / 2, 0.05 * max(|lb|, 1))`` and
+    ``ul = min((ub-lb) / 2, 0.05 * max(|ub|, 1))``
+    depending on the method `cma.transformations.linquad_margin_width`
+    assigned as `margin_width1` or `margin_width2`.
 
     Generally speaking, this transformation aims to resemble ``sin`` to
     be a continuous differentiable (ie. C^1) transformation over R into
@@ -182,21 +189,23 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     limits, and (ii) numerical stability in "pathological" corner cases
     of the boundary limit values.
 
-    The transformation is the identity (and therefore linear) in ``[lb
-    + al, ub - au]`` (typically about 90% of the interval) and
-    quadratic in ``[lb - 3*al, lb + al]`` and in ``[ub - au,
-    ub + 3*au]``. The transformation is periodically expanded beyond
-    the limits (somewhat resembling the shape ``sin(x-pi/2))`` with a
-    period of ``2 * (ub - lb + al + au)``.
+    The transformation resembles the shape ``sin(2*pi * x / a - pi/2))``
+    with a period length of ``a = 2 * ((ub + au) - (lb - al)) = 2 * (ub -
+    lb + al + au)``.
+
+    The transformation is the identity in ``[lb + al, ub - au]`` (typically
+    about 90% of the interval) and it is quadratic to the left of
+    ``lb + al`` down to ``lb - 3*al`` and to the right of ``ub - au`` up to
+    ``ub + 3*au``.
 
     Details
     =======
-
     Partly due to numerical considerations depend the values ``al`` and
-    ``au`` on ``abs(lb)`` and ``abs(ub)`` which makes the
-    transformation non-translation invariant. In particular, the linear
-    proportion decreases to zero when ``ub-lb`` becomes small. In
-    contrast to ``sin(.)``, the transformation is also robust to
+    ``au`` on ``abs(lb)`` and ``abs(ub)`` which makes the transformation
+    non-translation invariant. When ``ub-lb`` is small compared to
+    ``min(|lb|, |ub|)``, the linear proportion becomes zero.
+
+    In contrast to ``sin(.)``, the transformation is robust to
     "arbitrary" large values for boundaries, e.g. a lower bound of
     ``-1e99`` or upper bound of ``np.Inf`` or bound ``None``.
 
@@ -230,8 +239,9 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
 
     Example of the internal workings:
 
-    >>> from cma.transformations import BoxConstraintsLinQuadTransformation
-    >>> tf = BoxConstraintsLinQuadTransformation([[1,2], [1,11], [1,11]])
+    >>> import cma.transformations as ts
+    >>> ts.linquad_margin_width = ts.margin_width1
+    >>> tf = ts.BoxConstraintsLinQuadTransformation([[1,2], [1,11], [1,11]])
     >>> tf.bounds
     [[1, 2], [1, 11], [1, 11]]
     >>> tf([1.5, 1.5, 1.5])
@@ -239,10 +249,34 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     >>> list(np.round(tf([1.52, -2.2, -0.2, 2, 4, 10.4]), 9))
     [1.52, 4.0, 2.0, 2.0, 4.0, 10.4]
     >>> res = np.round(tf._au, 2)
-    >>> assert list(res[:4]) == [ 0.15, 0.6, 0.6, 0.6]
+    >>> assert list(res[:4]) == [ 0.15, 0.6, 0.6, 0.6], list(res[:4])
     >>> res = [round(x, 2) for x in tf.shift_or_mirror_into_invertible_domain([1.52, -12.2, -0.2, 2, 4, 10.4])]
-    >>> assert res == [1.52, 9.2, 2.0, 2.0, 4.0, 10.4]
+    >>> assert res == [1.52, 9.2, 2.0, 2.0, 4.0, 10.4], res
     >>> tmp = tf([1])  # call with lower dimension
+
+    >>> ts.linquad_margin_width = ts.margin_width2
+    >>> tf = ts.BoxConstraintsLinQuadTransformation([[1,2], [1,11], [1,11]])
+    >>> tf.bounds
+    [[1, 2], [1, 11], [1, 11]]
+    >>> tf([1.5, 1.5, 1.5])
+    [1.5, 1.5, 1.5]
+    >>> list(np.round(tf([1.52, -2.2, -0.2, 2, 4, 10.4]), 9))
+    [1.52, 4.1, 2.1, 2.0, 4.0, 10.4]
+    >>> res = np.round(tf._au, 2)
+    >>> assert list(res[:4]) == [ 0.1, 0.55, 0.55, 0.55], list(res[:4])
+    >>> res = [round(x, 2) for x in tf.shift_or_mirror_into_invertible_domain([1.52, -12.2, -0.2, 2, 4, 10.4])]
+    >>> assert res == [1.52, 9.0, 2.1, 2.0, 4.0, 10.4], res
+    >>> tmp = tf([1])  # call with lower dimension
+    >>> for i in range(5):
+    ...     lb = np.random.randn(4) - 1000 * i * np.random.rand()
+    ...     ub = lb + (1e-7 + np.random.rand(4)) / (1e-9 + np.random.rand(4)) + 1001 * i * np.random.rand()
+    ...     lb[-1], ub[-1] = lb[-2], ub[-2]
+    ...     b = ts.BoxConstraintsLinQuadTransformation([[l, u] for (l, u) in zip(lb[:3], ub[:3])])
+    ...     for x in [(ub - lb) * np.random.randn(4) / np.sqrt(np.random.rand(4)) for _ in range(11)]:
+    ...         assert all(lb <= b.transform(x)), (lb, ub, b.transform(x), b.__dict__)
+    ...         assert all(b.transform(x) <= ub), (lb, ub, b.transform(x), b.__dict__)
+    ...         assert all(b.transform(lb - b._al) == lb), (lb, ub, b.transform(x), b.__dict__)
+    ...         assert all(b.transform(ub + b._au) == ub), (lb, ub, b.transform(x), b.__dict__)
 
     """
     def __init__(self, bounds):
@@ -279,6 +313,10 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
                           for i in range(length)], copy=False)
         lb = self._lb
         ub = self._ub
+        if any(lb >= ub):
+            raise ValueError('Lower bounds need to be smaller than upper bounds. They'
+                             ' were not at idx={} where lb={}, ub={}'
+                             .format(np.where(lb >= ub)[0], lb, ub))
         # define added values for lower and upper bound
         self._al = array([min([(ub[i] - lb[i]) / 2, (1 + np.abs(lb[i])) / 20])
                              if isfinite(lb[i]) else 1 for i in rglen(lb)], copy=False)
@@ -289,6 +327,10 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
         # about four times faster version of array([self._transform_i(x, i) for i, x in enumerate(solution_genotype)])
         # still, this makes a typical run on a test function two times slower, but there might be one too many copies
         # during the transformations in gp
+        # the boundary handling adds [0.2, 0.35] ms to [0.4, 0.5] ms per non-verbose iteration without CMA
+        # in dimension [10, 40] as of 2023.
+        # return np.array([self._transform_i(x, i) for i, x in enumerate(solution_genotype)])
+        # adds [.35, 1.9] ms
         if len(self._lb) != len(solution_genotype):
             self.initialize(len(solution_genotype))
         lb = self._lb
