@@ -89,6 +89,7 @@ class SurrogatePopulationSettings(DefaultSettings):
     return_true_fitnesses = True  # return true fitness if all solutions are evaluated
     # change_threshold = -1.0     # not in use tau between previous and new model; was: 0.8
     # crazy_sloppy = 0  # number of loops only done on the model, should depend on tau.tau?
+    logging_push = True  # call logger.push in __call__, otherwise leave it to the user to push
 
 class SurrogatePopulation(object):
     """surrogate f-values for a population.
@@ -319,7 +320,8 @@ class SurrogatePopulation(object):
             # a hack to have some grasp on zero evaluations from outside
             self.evaluations = 1e-2  # hundred zero=iterations sum to one evaluation
         self.logger.add(evals.evaluations / len(X))
-        self.logger.push()
+        if self.settings.logging_push:
+            self.logger.push()
         return evals.surrogate_values(model.eval, self.settings.return_true_fitnesses)
 
 class ModelInjectionCallbackSettings(DefaultSettings):
