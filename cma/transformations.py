@@ -170,6 +170,17 @@ class _BoxConstraintsTransformationTemplate(BoxConstraintsTransformationBase):
     try: __doc__ = BoxConstraintsTransformationBase.__doc__ + __doc__
     except: pass
 
+def margin_width1(bound):
+    """return quadratic domain image width ``(1 + abs(bound)) / 20``"""
+    return (np.abs(bound) + 1) / 20
+
+def margin_width2(bound):
+    """return quadratic domain image width ``max(1, abs(bound)) / 20``"""
+    return max((1, np.abs(bound))) / 20
+
+linquad_margin_width = margin_width1
+'''used in BoxConstraintsLinQuadTransformation.initialize'''
+
 class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     """implement a periodic transformation that is bijective from
 
@@ -279,24 +290,6 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     ...         assert all(b.transform(ub + b._au) == ub), (lb, ub, b.transform(x), b.__dict__)
 
     """
-    def __init__(self, bounds):
-        """``x`` is defined in ``[lb - 3*al, ub + au + r - 2*al]`` with
-        ``r = ub - lb + al + au``, and ``x == transformation(x)`` in
-        ``[lb + al, ub - au]``.
-
-        ``beta*x - alphal = beta*x - alphau`` is then defined in
-        ``[lb, ub]``.
-
-        ``alphal`` and ``alphau`` represent the same value,
-        but respectively numerically better suited for values close to
-        lb and ub.
-
-        todo: revise this to be more comprehensible.
-        """
-        # BoxConstraintsTransformationBase.__init__(self, bounds)
-        super(BoxConstraintsLinQuadTransformation, self).__init__(bounds)
-        # super().__init__(bounds) # only available since Python 3.x
-        # super(BB, self).__init__(bounds) # is supposed to call initialize
 
     def initialize(self, length=None):
         """see ``__init__``"""
@@ -318,9 +311,9 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
                              ' were not at idx={} where lb={}, ub={}'
                              .format(np.where(lb >= ub)[0], lb, ub))
         # define added values for lower and upper bound
-        self._al = array([min([(ub[i] - lb[i]) / 2, (1 + np.abs(lb[i])) / 20])
+        self._al = array([min([(ub[i] - lb[i]) / 2, linquad_margin_width(lb[i])])
                              if isfinite(lb[i]) else 1 for i in rglen(lb)], copy=False)
-        self._au = array([min([(ub[i] - lb[i]) / 2, (1 + np.abs(ub[i])) / 20])
+        self._au = array([min([(ub[i] - lb[i]) / 2, linquad_margin_width(ub[i])])
                              if isfinite(ub[i]) else 1 for i in rglen(ub)], copy=False)
 
     def __call__(self, solution_genotype, copy=True):
