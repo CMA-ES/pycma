@@ -178,15 +178,15 @@ def margin_width2(bound):
     """return quadratic domain image width ``max(1, abs(bound)) / 20``"""
     return max((1, np.abs(bound))) / 20
 
-linquad_margin_width = margin_width1
+linquad_margin_width = margin_width2
 '''used in BoxConstraintsLinQuadTransformation.initialize'''
 
 class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     """implement a periodic transformation that is bijective from
 
-    ``[lb - al, ub + au]`` -> ``[lb, ub]``, where either (default)
+    ``[lb - al, ub + au]`` -> ``[lb, ub]``, where either
     ``al = min((ub-lb) / 2, 0.05 * (|lb| + 1))`` and
-    ``ul = min((ub-lb) / 2, 0.05 * (|ub| + 1))`` or
+    ``ul = min((ub-lb) / 2, 0.05 * (|ub| + 1))`` or (default)
     ``al = min((ub-lb) / 2, 0.05 * max(|lb|, 1))`` and
     ``ul = min((ub-lb) / 2, 0.05 * max(|ub|, 1))``
     depending on the method `cma.transformations.linquad_margin_width`
