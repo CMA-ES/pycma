@@ -232,11 +232,11 @@ class BoundTransform(BoundaryHandlerBase):
     >>> from cma.constraints_handler import BoundTransform
     >>> from cma import fitness_transformations as ft
     >>> veq = cma.utilities.math.Mh.vequals_approximately
-    >>> b = BoundTransform([None, 1])
-    >>> assert b.bounds == [[None], [1]]
-    >>> assert veq(b.repair([0, 1, 1.2]), np.array([ 0., 0.975, 0.975]))
+    >>> b = BoundTransform([0, None])
+    >>> assert b.bounds == [[0], [None]]
+    >>> assert veq(b.repair([-0.1, 0, 1, 1.2]), np.array([0.0125, 0.0125, 1, 1.2])), b.repair([-0.1, 0, 1, 1.2])
     >>> assert b.is_in_bounds([0, 0.5, 1])
-    >>> assert veq(b.transform([0, 1, 2]), [ 0.   ,  0.975,  0.2  ])
+    >>> assert veq(b.transform([-1, 0, 1, 2]), [0.9, 0.0125,  1,  2  ]), b.transform([-1, 0, 1, 2])
     >>> bounded_sphere = ft.ComposedFunction([
     ...         cma.ff.sphere,
     ...         BoundTransform([[], 5 * [-1] + [np.inf]]).transform
@@ -259,6 +259,13 @@ class BoundTransform(BoundaryHandlerBase):
     ...     assert veq(x_to_b, x2_to_b)
     ...     assert veq(x2, x3)
     ...     assert veq(x2_to_b, x3_to_b)
+    >>> for _ in range(5):
+    ...     lb = np.random.randn(4)
+    ...     ub = lb + 1e-7 + np.random.rand(4)
+    ...     b = BoundTransform([lb, ub])
+    ...     for x in [np.random.randn(4) / np.sqrt(np.random.rand(4)) for _ in range(22)]:
+    ...         assert all(lb <= b.transform(x)), (lb, ub, b.__dict__)
+    ...         assert all(b.transform(x) <= ub), (lb, ub, b.__dict__)
 
     Details: this class uses ``class BoxConstraintsLinQuadTransformation``
 
