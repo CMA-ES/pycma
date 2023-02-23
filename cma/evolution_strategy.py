@@ -1177,8 +1177,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> es.optimize(cma.ff.elli, verb_disp=1)  # doctest: +ELLIPSIS
     Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]
         1      8 2.09...
-    >>> assert len(es.result) == 8
-    >>> assert es.result[1] < 1e-9
+    >>> assert len(es.result) == 8, es.result
+    >>> assert es.result[1] < 1e-9, es.result
 
     The optimization loop can also be written explicitly:
 
@@ -1214,8 +1214,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...     es.disp()  #doctest: +ELLIPSIS
     Itera...
     >>>
-    >>> assert es.result[1] < 1e-9
-    >>> assert es.result[2] < 9000  # by internal termination
+    >>> assert es.result[1] < 1e-9, es.result
+    >>> assert es.result[2] < 9000, es.result  # by internal termination
     >>> # es.logger.plot()  # will plot data
     >>> # cma.s.figshow()  # display plot window
 
@@ -1226,6 +1226,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> with warnings.catch_warnings(record=True) as warns:
     ...     es = cma.CMAEvolutionStrategy(5 * [3], 0.1,
     ...                 {"transformation": [lambda x: x**2+1.2, None],
+    ...                  "ftarget": 1e-7 + 5.54781521192,
     ...                  "verbose": -2,})
     >>> warns[0].message  # doctest:+ELLIPSIS
     UserWarning('in class GenoPheno: user defined transformations have not been tested thoroughly ()'...
@@ -1233,8 +1234,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     UserWarning('computed initial point...
     >>> es.optimize(cma.ff.rosen, verb_disp=0)  #doctest: +ELLIPSIS
     <cma...
-    >>> assert cma.ff.rosen(es.result[0]) < 1e-7 + 5.54781521192
-    >>> assert es.result[2] < 3300
+    >>> assert cma.ff.rosen(es.result[0]) < 1e-7 + 5.54781521192, es.result
+    >>> assert es.result[2] < 3300, es.result
 
     The inverse transformation is (only) necessary if the `BoundPenalty`
     boundary handler is used at the same time.
@@ -1284,7 +1285,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...     if bestever.f < 1e-8:  # global optimum was hit
     ...         break  #doctest: +ELLIPSIS
     (5_w,...
-    >>> assert es.result[1] < 1e-8
+    >>> assert es.result[1] < 1e-8, es.result
 
     On the Rastrigin function, usually after five restarts the global
     optimum is located.
@@ -1323,9 +1324,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> # resuming
     >>> es.optimize(cma.ff.rosen, verb_disp=200)  #doctest: +ELLIPSIS
       200 ...
-    >>> assert es.result[2] < 15000
-    >>> assert cma.s.Mh.vequals_approximately(es.result[0], 12 * [1], 1e-5)
-    >>> assert len(es.result) == 8
+    >>> assert es.result[2] < 15000, es.result
+    >>> assert cma.s.Mh.vequals_approximately(es.result[0], 12 * [1], 1e-5), es.result
+    >>> assert len(es.result) == 8, es.result
 
     Details
     =======
