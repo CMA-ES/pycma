@@ -141,7 +141,7 @@ else:
     from .evolution_strategy import fmin, fmin2, fmin_con, fmin_con2, fmin_lq_surr, fmin_lq_surr2
     from .evolution_strategy import CMAEvolutionStrategy, CMAOptions
     CMA = CMAEvolutionStrategy  # shortcut for typing without completion
-    from .logger import disp, plot, CMADataLogger
+    from .logger import disp, plot, plot_zip, CMADataLogger
     from .optimization_tools import NoiseHandler
     from .constraints_handler import BoundPenalty, BoundTransform, ConstrainedFitnessAL
     from .evolution_strategy import cma_default_options_

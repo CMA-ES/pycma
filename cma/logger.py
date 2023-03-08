@@ -627,6 +627,54 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         if switch:
             self.name_prefix = nameprefix
+
+    def zip(self, filename=None, unique=True):
+        """write logger data to file ``filename [+ ...] + '.tar.gz'``.
+
+        `filename` defaults to ``self.name_prefix``.
+
+        When `unique` is true, `filename` is furnished with a unique time
+        stamp.
+
+        Return the path (relative or absolute) of the output file.
+
+        This function does in essence just ``tar -czf filename.tar.gz folder``
+        where ``folder`` defaults to the current plot data folder and
+        ``filename`` is created to be unique.
+        """
+        # extract: zipfile.ZipFile(filename, "r").extractall(dirname) ?
+        #          tarfile.open(filename, "r").extractall()
+        import tarfile
+        
+        def unique_time_stamp(decimals=3):
+            "a unique timestamp up to 1/10^decimals seconds"
+            s = '{:.' + str(decimals) + 'f}' + '.' * (decimals == 0)
+            return time.strftime("%Y-%m-%dd%Hh%Mm%Ss") + (
+                    s.format(time.time()).split('.')[1])
+
+        if filename is None:
+            filename = self.name_prefix  # name_prefix is an absolute path
+        filename = filename.rstrip('/').rstrip(os.path.sep)
+        if unique:
+            filename += '-' + unique_time_stamp(3 if unique is True else unique)
+        filename += '.tar.gz'
+
+        with tarfile.open(filename, 'w:gz') as tar:
+            tar.add(os.path.relpath(self.name_prefix))
+
+        return filename
+
+    def _unzip(self, filename):
+        """to unzip use "tar -xf filename" in a system shell
+
+        and afterwards::
+
+            logger = cma.CMADataLogger(extacted_folder_name).plot()
+
+        in a Python shell.
+        """
+        raise NotImplementedError(self._unzip.__doc__)
+
     def select_data(self, iteration_indices):
         """keep only data of `iteration_indices`"""
         dat = self
@@ -1659,7 +1707,7 @@ def plot(name=None, fig=None, abscissa=0, iteridx=None,
     ---------
     `name`
         name of the logger, filename prefix, None evaluates to
-        the default 'outcma/cma'
+        the default 'outcmaes/'
     `fig`
         filename or figure number, or both as a tuple (any order)
     `abscissa`
@@ -1706,6 +1754,30 @@ def plot(name=None, fig=None, abscissa=0, iteridx=None,
     return CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
                              x_opt, fontsize, downsample_to, xsemilog, xnormalize,
                              addcols, **kwargs)
+
+def plot_zip(name=None, filename=None, unique=True):
+    """create tar file ``filename [+ ...] + '.tar.gz'`` of folder `name`.
+
+    The resulting tar file serves to recreate the current `cma.plot`
+    elsewhere.
+
+    `name` defaults to the folder plotted with `cma.plot` by default.
+    `filename` defaults to `name` while adding a unique time stamp if
+    `unique` is true.
+
+    Return the path of the created file (may be absolute or relative).
+
+    Details
+    =======
+
+    This is a convenience replacement for executing ``tar -czf
+    filename.tar.gz name`` in a system shell where ``name`` defaults to the
+    default plot data folder and ``filename`` is created to be unique.
+
+    This function calls `CMADataLogger.zip` to do the real work.
+    """
+    return CMADataLogger(name if name else CMADataLogger.default_prefix
+                         ).zip(filename=filename, unique=unique)
 
 def disp(name=None, idx=None):
     """displays selected data from (files written by) the class
