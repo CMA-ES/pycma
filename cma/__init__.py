@@ -108,12 +108,12 @@ From a python shell::
 #    sphinx: doc style of doc.python.org, could not make it work (yet)
 # __docformat__ = "reStructuredText"  # this hides some comments entirely?
 
-from __future__ import absolute_import  # now local imports must use .
-# big difference between PY2 and PY3:
-from __future__ import division
-from __future__ import print_function
-# only necessary for python 2.5 (not supported) and not in heavy use
-from __future__ import with_statement
+from __future__ import absolute_import as _ab # now local imports must use .
+from __future__ import division as _di
+from __future__ import print_function as _pr
+del _ab, _di, _pr
+
+
 ___author__ = "Nikolaus Hansen and Petr Baudis and Youhei Akimoto"
 __license__ = "BSD 3-clause"
 
@@ -122,8 +122,8 @@ import warnings as _warnings
 # __package__ = 'cma'
 from . import purecma
 try:
-    import numpy
-    del numpy
+    import numpy as _np
+    del _np
 except ImportError:
     _warnings.warn('Only `cma.purecma` has been imported. Install `numpy` ("pip'
           ' install numpy") if you want to import the entire `cma`'
@@ -145,8 +145,6 @@ else:
     from .optimization_tools import NoiseHandler
     from .constraints_handler import BoundPenalty, BoundTransform, ConstrainedFitnessAL
     from .evolution_strategy import cma_default_options_
-
-del division, print_function, absolute_import, with_statement  #, unicode_literals
 
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
