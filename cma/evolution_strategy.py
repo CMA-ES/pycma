@@ -448,6 +448,7 @@ def cma_default_options_(  # to get keyword completion back
     CSA_disregard_length='False  #v True is untested, also changes respective parameters',
     CSA_clip_length_value='None  #v poorly tested, [0, 0] means const length N**0.5, [-1, 1] allows a variation of +- N/(N+2), etc.',
     CSA_squared='False  #v use squared length for sigma-adaptation ',
+    CSA_invariant_path='False  #v pc is invariant and ps (default) is unbiased',
     BoundaryHandler='BoundTransform  # or BoundPenalty, unused when ``bounds in (None, [None, None])``',
     bounds='[None, None]  # lower (=bounds[0]) and upper domain boundaries, each a scalar or a list/vector',
      # , eval_parallel2='not in use {"processes": None, "timeout": 12, "is_feasible": lambda x: True} # distributes function calls to processes processes'

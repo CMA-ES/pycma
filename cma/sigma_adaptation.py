@@ -69,9 +69,7 @@ class CMAAdaptSigmaBase(object):
 
         """
         self._update_ps(es)
-        try: pc_for_ps = 'pc for ps' in es.opts['vv']  # just in case
-        except: pc_for_ps = False  # 'vv' has an incompatible format or does't exist
-        if pc_for_ps:
+        if es.opts.get('CSA_invariant_path'):  # was pc_for_ps = 'pc for ps' in es.opts['vv']
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
             ps = es.sm.transform_inverse(es.pc)
             cs = es.sp.cc
@@ -234,12 +232,10 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         """
         self._update_ps(es)  # caveat: if es.B or es.D are already updated and ps is not, this goes wrong!
         p = self.ps
-        try: pc_for_ps = 'pc for ps' in es.opts['vv']  # just in case
-        except: pc_for_ps = False  # 'vv' has an incompatible format or does't exist
-        if pc_for_ps:
+        if es.opts.get('CSA_invariant_path'):  # was pc_for_ps = 'pc for ps' in es.opts['vv']
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
             if es.opts['verbose'] > 1 and es.countiter == 1:
-                utils.print_message('pc for ps is active')
+                utils.print_message('CSA uses invariant path pc for ps')
             p = es.sm.transform_inverse(es.pc)
         try:                                 # to filter coordinates or a
             p = es.path_for_sigma_update(p)  # subspace depending on the state
