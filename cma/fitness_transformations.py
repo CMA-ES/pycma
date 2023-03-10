@@ -220,6 +220,9 @@ class GlueArguments(Function):
         ``args`` are appended to arguments passed in the call, ``kwargs``
         are updated with keyword arguments passed in the call.
         """
+        warnings.warn("GlueArguments is deprecated.\n"
+                      "Use `functools.partial` (`cma.fitness_transformations.partial`) instead.",
+                      DeprecationWarning)
         Function.__init__(self, fitness_function)
         self.fitness_function = fitness_function  # never used
         self.args = args
