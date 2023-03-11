@@ -677,6 +677,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if hasattr(self, 'es') and self.es is not None:
             if fig is self.es:      # in case of usage in a callback
                 fig = gcf().number  # plot in current figure
+            if message is None:
+                message = ''
+            if not 'stop()' in message:
+                if not message.endswith('\n'):
+                    message += '\n'
+                message += "stop()={}".format(self.es.stop())
             # check whether self.es may be running and we want to negotiate timings
             if not self.es.stop() and self.es.countiter > self.last_skipped_iteration:
                 # print(self.timer_plot.toc, self.relative_allowed_time_for_plotting, self.timer_all.toc)

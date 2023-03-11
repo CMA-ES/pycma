@@ -3691,9 +3691,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Details: calls `self.logger.plot`.
         """
+        if not hasattr(self.logger, 'es') or self.logger.es is None:
+            self.logger.es = self  # let logger extract es.stop()
         try:
-            self.logger.plot(*args, message='stop()={} '.format(self.stop()) +
-                             kwargs.pop('message', ''), **kwargs)
+            self.logger.plot(*args, **kwargs)
         except AttributeError:
             utils.print_warning('plotting failed, no logger attribute found')
         except:
