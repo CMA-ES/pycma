@@ -1286,10 +1286,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
         axis(ax)
-        text(ax[0], ax[2] * (ax[3]/ax[2])**0.002,
+        text(ax[0] + 0.003 * (ax[1] - ax[0]), ax[2] * (ax[3]/ax[2])**0.002,
                     # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
-             ('.' + message + '\n' if message else '') +
-             '.min($f$)=' + repr(minfit)
+             (message + '\n' if message else '') +
+             'min($f$)=' + repr(minfit)
             )
              #'.f_recent=' + repr(dat.f[-1, 5]))
 
