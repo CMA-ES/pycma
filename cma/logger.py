@@ -20,6 +20,23 @@ from . import restricted_gaussian_sampler as _rgs
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 array = np.array
 
+def _fix_lower_xlim_and_clipping():
+    """minimize space wasted below x=0"""
+    from matplotlib.pyplot import gca
+    a = gca()
+    for line in a.get_lines():
+        line.set_clip_on(False)
+    for key in a.spines:  # avoid border lines hiding data
+        a.spines[key].set_zorder(0)  # 1.01 is still below the grid
+    a.set_ymargin(0)
+    if a.get_xlim()[0] < 0:  # first value is probably zero or one
+       a.set_xlim(0 * -0.006 * a.get_xlim()[1], a.get_xlim()[1])
+        # a.spines['left'].set_visible(False)
+        # a.spines['left'].set_clip_on(False)
+    else:
+        a.set_xmargin(0)
+
+
 class CMADataLogger(interfaces.BaseDataLogger):
     """data logger for class `CMAEvolutionStrategy`.
 
@@ -1353,6 +1370,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         from matplotlib import pyplot
         pyplot.xlabel('iterations' if iabscissa == 0
                       else 'function evaluations')
+        _fix_lower_xlim_and_clipping()
     def _plot_x(self, iabscissa=0, x_opt=None, remark=None,
                 annotations=None, xsemilog=None, xnormalize=False):
         """If ``len(x_opt) == dimension``, the difference to `x_opt` is plotted.
@@ -2055,3 +2073,4 @@ def smartlogygrid(**kwargs):
         return
     if lims[1] / lims[0] < 1e5:
         plt.grid(True, which='minor')
+    _fix_lower_xlim_and_clipping()    
