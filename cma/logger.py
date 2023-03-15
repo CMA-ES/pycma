@@ -36,6 +36,25 @@ def _fix_lower_xlim_and_clipping():
     else:
         a.set_xmargin(0)
 
+def _monotone_abscissa(x, iabscissa=0):
+    """make x monotone if ``not iabscissa``.
+
+    Useful to to plot restarted runs where the iteration is reset after
+    each restart.
+
+    TODO: handle same iteration number better, but how?
+    Currently we assume it was written "on purpose" twice.
+    """
+    if iabscissa:
+        return x  # mainly for efficiency
+    x = np.asarray(x)
+    d = np.diff(x)
+    idxs = d < 0  # indices as boolean
+    if not np.any(idxs):
+        return x
+    for i in np.nonzero(idxs)[0]:
+        x[i+1:] -= d[i]  # d[i] is smaller than zero
+    return x
 
 class CMADataLogger(interfaces.BaseDataLogger):
     """data logger for class `CMAEvolutionStrategy`.
@@ -939,8 +958,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._enter_plotting()
         color = iter(pyplot.cm.get_cmap('plasma_r')(
                     np.linspace(0.35, 1, dat.D.shape[1] - 5)))
+        _x = _monotone_abscissa(dat.D[:, iabscissa], iabscissa)
         for i in range(5, dat.D.shape[1]):
-            pyplot.semilogy(dat.D[:, iabscissa], dat.D[:, i],
+            pyplot.semilogy(_x, dat.D[:, i],
                             '-', color=next(color))
         # pyplot.hold(True)
         smartlogygrid()
@@ -973,18 +993,19 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # ax = array(pyplot.axis())
         # ax[1] = max(minxend, ax[1])
         # axis(ax)
+        _x = _monotone_abscissa(dat.std[:, iabscissa], iabscissa)
         if 1 < 2 and dat.std.shape[1] < 100:
             # use fake last entry in x and std for line extension-annotation
-            minxend = int(1.06 * dat.std[-2, iabscissa])
+            minxend = int(1.06 * _x[-2])
             # minxend = int(1.06 * dat.x[-2, iabscissa])
-            dat.std[-1, iabscissa] = minxend  # TODO: should be ax[1]
+            _x[-1] = minxend  # TODO: should be ax[1]
             idx = np.argsort(dat.std[-2, 5:])
             # idx2 = np.argsort(idx)
             dat.std[-1, 5 + idx] = np.logspace(np.log10(np.min(dat.std[:, 5:])),
                             np.log10(np.max(dat.std[:, 5:])), dat.std.shape[1] - 5)
 
-            dat.std[-1, iabscissa] = minxend  # TODO: should be ax[1]
-            pyplot.semilogy(dat.std[:, iabscissa], dat.std[:, 5:], '-')
+            _x[-1] = minxend  # TODO: should be ax[1]
+            pyplot.semilogy(_x, dat.std[:, 5:], '-')
             # pyplot.hold(True)
             ax = array(pyplot.axis())
 
@@ -994,7 +1015,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # idx2 = np.argsort(idx)
             # plot(np.dot(dat.std[-2, iabscissa],[1,1]), array([ax[2]+1e-6, ax[3]-1e-6]), 'k-') # vertical separator
             # vertical separator
-            pyplot.plot(np.dot(dat.std[-2, iabscissa], [1, 1]),
+            pyplot.plot(np.dot(_x[-2], [1, 1]),
                         array([ax[2] * (1 + 1e-6), ax[3] / (1 + 1e-6)]),
                         # array([np.min(dat.std[:, 5:]), np.max(dat.std[:, 5:])]),
                         'k-')
@@ -1005,10 +1026,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 annotations = range(len(idx))
             for i, s in enumerate(annotations):
                 # text(ax[1], yy[i], ' '+str(idx[i]))
-                pyplot.text(dat.std[-1, iabscissa], dat.std[-1, 5 + i],
+                pyplot.text(_x[-1], dat.std[-1, 5 + i],
                             ' ' + str(s))
         else:
-            pyplot.semilogy(dat.std[:, iabscissa], dat.std[:, 5:], '-')
+            pyplot.semilogy(_x, dat.std[:, 5:], '-')
         # pyplot.hold(True)
         smartlogygrid()
         pyplot.title(r'Standard Deviations $\times$ $\sigma^{-1}$ in All Coordinates')
@@ -1044,24 +1065,25 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     dat = dat[idx, :]
         # remove sigma from stds (graphs become much better readible)
         # dat[:, 5:] = np.transpose(dat[:, 5:].T / dat[:, 2].T)
+        _x = _monotone_abscissa(dat[:, iabscissa], iabscissa)
         if 1 < 2 and dat.shape[1] < 100:
             # use fake last entry in x and std for line extension-annotation
-            minxend = int(1.06 * dat[-2, iabscissa])
+            minxend = int(1.06 * _x[-2])
             # minxend = int(1.06 * dat.x[-2, iabscissa])
-            dat[-1, iabscissa] = minxend  # TODO: should be ax[1]
+            _x[-1] = minxend  # TODO: should be ax[1]
             idx = np.argsort(dat[-2, 5:])
             # idx2 = np.argsort(idx)
             dat[-1, 5 + idx] = np.logspace(np.log10(np.min(dat[:, 5:])),
                             np.log10(np.max(dat[:, 5:])), dat.shape[1] - 5)
 
-            dat[-1, iabscissa] = minxend  # TODO: should be ax[1]
-            plt.semilogy(dat[:, iabscissa], dat[:, 5:], '-')
+            _x[-1] = minxend  # TODO: should be ax[1]
+            plt.semilogy(_x, dat[:, 5:], '-')
             # plt.hold(True)
             ax = array(plt.axis())
 
             # vertical separator
             idx = np.argsort(dat[-1, 5:])
-            plt.plot(np.dot(dat[-2, iabscissa], [1, 1]),
+            plt.plot(np.dot(_x[-2], [1, 1]),
                         array([ax[2] * (1 + 1e-6), ax[3] / (1 + 1e-6)]),
                         # array([np.min(dat[:, 5:]), np.max(dat[:, 5:])]),
                         'k-')
@@ -1070,13 +1092,13 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 annotations = range(len(idx))
             for i, s in enumerate(annotations):
                 # text(ax[1], yy[i], ' '+str(idx[i]))
-                plt.text(dat[-1, iabscissa], dat[-1, 5 + i],
+                plt.text(_x[-1], dat[-1, 5 + i],
                             ' ' + str(s))
         else:
-            plt.semilogy(dat[:, iabscissa], dat[:, 5:], '-')
-        plt.plot(dat[:-1, iabscissa], 1 / dat[:-1, 3], 'k',
+            plt.semilogy(_x, dat[:, 5:], '-')
+        plt.plot(_x[:-1], 1 / dat[:-1, 3], 'k',
                  label=r'$\beta=\max(2, \sqrt{cond(CORR)}) - 1$')
-        plt.text(dat[-2, iabscissa], 1 / dat[-2, 3], '$1/\\beta$')
+        plt.text(_x[-2], 1 / dat[-2, 3], '$1/\\beta$')
         plt.legend(framealpha=0.3)
         smartlogygrid()
         plt.title(r'Diagonal Decoding Scaling Factors')
@@ -1109,7 +1131,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if len(getattr(self, name)) < 2:
             return self
         from matplotlib import pyplot
-        x = getattr(self, name)[:, iabscissa]
+        x = _monotone_abscissa(getattr(self, name)[:, iabscissa], iabscissa)
         y = getattr(self, name)[:, 6:]  # principal axes
         ys = getattr(self, name)[:, :6]  # "special" values
 
@@ -1185,32 +1207,33 @@ class CMADataLogger(interfaces.BaseDataLogger):
         dfit2[dfit2 < 1e-28] = np.NaN
 
         self._enter_plotting()
+        _x = _monotone_abscissa(dat.f[:, iabscissa], iabscissa)
         if dat.f.shape[1] > 7:
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
-            semilogy(dat.f[:, iabscissa], abs(dat.f[:, [6, 7]]) + foffset, '-k')
+            semilogy(_x, abs(dat.f[:, [6, 7]]) + foffset, '-k')
             # hold(True)
 
         # (larger indices): additional fitness data, for example constraints values
         if dat.f.shape[1] > 8:
             # dd = abs(dat.f[:,7:]) + 10*foffset
             # dd = _where(dat.f[:,7:]==0, np.NaN, dd) # cannot be
-            semilogy(dat.f[:, iabscissa], np.abs(dat.f[:, 8:]) + 10 * foffset, 'y')
+            semilogy(_x, np.abs(dat.f[:, 8:]) + 10 * foffset, 'y')
             # hold(True)
 
         idx = _where(dat.f[:, 5] > 1e-98)[0]  # positive values
-        semilogy(dat.f[idx, iabscissa], dat.f[idx, 5] + foffset, '.b')
+        semilogy(_x[idx], dat.f[idx, 5] + foffset, '.b')
         # hold(True)
         smartlogygrid()
 
-        semilogy(dat.f[:, iabscissa], abs(dat.f[:, 5]) + foffset, '-b')
-        text(dat.f[-1, iabscissa], abs(dat.f[-1, 5]) + foffset,
+        semilogy(_x, abs(dat.f[:, 5]) + foffset, '-b')
+        text(_x[-1], abs(dat.f[-1, 5]) + foffset,
              r'$|f_\mathsf{best}|$', fontsize=fontsize + 2)
 
         # negative f-values, dots
         sgn = np.sign(dat.f[:, 5])
         sgn[np.abs(dat.f[:, 5]) < 1e-98] = 0
         idx = _where(sgn < 0)[0]
-        semilogy(dat.f[idx, iabscissa], abs(dat.f[idx, 5]) + foffset,
+        semilogy(_x[idx], abs(dat.f[idx, 5]) + foffset,
                  '.m')  # , markersize=5
 
         # lines between negative f-values
@@ -1224,33 +1247,34 @@ class CMADataLogger(interfaces.BaseDataLogger):
             istop = istop[0] if len(istop) else 0
             idx = range(istart, istop if istop else dat.f.shape[0])
             if len(idx) > 1:
-                semilogy(dat.f[idx, iabscissa], abs(dat.f[idx, 5]) + foffset,
+                semilogy(_x[idx], abs(dat.f[idx, 5]) + foffset,
                         'm')  # , markersize=5
             # lines between positive and negative f-values
             # TODO: the following might plot values very close to zero
             if istart > 0:  # line to the left of istart
-                semilogy(dat.f[istart-1:istart+1, iabscissa],
+                semilogy(_x[istart-1:istart+1],
                          abs(dat.f[istart-1:istart+1, 5]) +
                          foffset, '--m')
             if istop:  # line to the left of istop
-                semilogy(dat.f[istop-1:istop+1, iabscissa],
+                semilogy(_x[istop-1:istop+1],
                          abs(dat.f[istop-1:istop+1, 5]) +
                          foffset, '--m')
                 # mark the respective first positive values
-                semilogy(dat.f[istop, iabscissa], abs(dat.f[istop, 5]) +
+                semilogy(_x[istop], abs(dat.f[istop, 5]) +
                          foffset, '.b', markersize=7)
             # mark the respective first negative values
-            semilogy(dat.f[istart, iabscissa], abs(dat.f[istart, 5]) +
+            semilogy(_x[istart], abs(dat.f[istart, 5]) +
                      foffset, '.r', markersize=7)
 
         # standard deviations std
-        semilogy(dat.std[:-1, iabscissa],
+        _x_std = _monotone_abscissa(dat.std[:, iabscissa])
+        semilogy(_x_std[:-1],
                  np.vstack([list(map(max, dat.std[:-1, 5:])),
                             list(map(min, dat.std[:-1, 5:]))]).T,
                      '-m', linewidth=2)
-        text(dat.std[-2, iabscissa], max(dat.std[-2, 5:]), 'max std',
+        text(_x_std[-2], max(dat.std[-2, 5:]), 'max std',
              fontsize=fontsize)
-        text(dat.std[-2, iabscissa], min(dat.std[-2, 5:]), 'min std',
+        text(_x_std[-2], min(dat.std[-2, 5:]), 'min std',
              fontsize=fontsize)
 
         # delta-fitness in cyan
@@ -1261,50 +1285,50 @@ class CMADataLogger(interfaces.BaseDataLogger):
             if any(idx):
                 idx_nan = _where(np.logical_not(idx))[0]  # gaps
                 if not len(idx_nan):  # should never happen
-                    semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
+                    semilogy(_x[idx], dfit[idx], '-c')
                 else:
                     i_start = 0
                     for i_end in idx_nan:
                         if i_end > i_start:
-                            semilogy(dat.f[:, iabscissa][i_start:i_end],
+                            semilogy(_x[i_start:i_end],
                                                     dfit[i_start:i_end], '-c')
                         i_start = i_end + 1
                     if len(dfit) > idx_nan[-1] + 1:
-                        semilogy(dat.f[:, iabscissa][idx_nan[-1]+1:],
+                        semilogy(_x[idx_nan[-1]+1:],
                                                 dfit[idx_nan[-1]+1:], '-c')
-                text(dat.f[idx, iabscissa][-1], dfit[idx][-1],
+                text(_x[-1], dfit[idx][-1],
                      label, fontsize=fontsize + 2)
 
             elif 11 < 3 and any(idx):
-                semilogy(dat.f[:, iabscissa][idx], dfit[idx], '-c')
-                text(dat.f[idx, iabscissa][-1], dfit[idx][-1],
+                semilogy(_x[idx], dfit[idx], '-c')
+                text(_x[-1], dfit[idx][-1],
                      r'$f_\mathsf{best} - \min(f)$', fontsize=fontsize + 2)
 
             if 11 < 3:  # delta-fitness as points
                 dfit = dat.f[1:, 5] - dat.f[:-1, 5]  # should be negative usually
-                semilogy(dat.f[1:, iabscissa],  # abs(fit(g) - fit(g-1))
+                semilogy(_x[1:],  # abs(fit(g) - fit(g-1))
                     np.abs(dfit) + foffset, '.c')
                 i = dfit > 0
                 # print(np.sum(i) / float(len(dat.f[1:,iabscissa])))
-                semilogy(dat.f[1:, iabscissa][i],  # abs(fit(g) - fit(g-1))
+                semilogy(_x[1:][i],  # abs(fit(g) - fit(g-1))
                     np.abs(dfit[i]) + foffset, '.r')
             # postcondition: dfit, idx = dfit1, ...
 
         # fat red dot for overall minimum
         i = np.argmin(dat.f[:, 5])
-        semilogy(dat.f[i, iabscissa], np.abs(dat.f[i, 5]), 'ro',
+        semilogy(_x[i], np.abs(dat.f[i, 5]), 'ro',
                  markersize=9)
         if any(idx):  # another fat red dot
-            semilogy(dat.f[i, iabscissa], dfit[idx][np.argmin(dfit[idx])]
+            semilogy(_x[i], dfit[idx][np.argmin(dfit[idx])]
                  + 1e-98, 'ro', markersize=9)
         # semilogy(dat.f[-1, iabscissa]*np.ones(2), dat.f[-1,4]*np.ones(2), 'rd')
 
         # AR and sigma
-        semilogy(dat.f[:, iabscissa], dat.f[:, 3], '-r')  # AR
-        semilogy(dat.f[:, iabscissa], dat.f[:, 2], '-g')  # sigma
-        text(dat.f[-1, iabscissa], dat.f[-1, 3], r'axis ratio',
+        semilogy(_x, dat.f[:, 3], '-r')  # AR
+        semilogy(_x, dat.f[:, 2], '-g')  # sigma
+        text(_x[-1], dat.f[-1, 3], r'axis ratio',
              fontsize=fontsize)
-        text(dat.f[-1, iabscissa], dat.f[-1, 2] / 1.5, r'$\sigma$',
+        text(_x[-1], dat.f[-1, 2] / 1.5, r'$\sigma$',
              fontsize=fontsize+3)
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
@@ -1318,20 +1342,22 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         # AR and damping of diagonal decoding
         if np.size(dat.sigvec) > 1:  # try to figure out whether we have data
-            semilogy(dat.sigvec[:, iabscissa], 1 / dat.sigvec[:, 3], 'k', label='$\\beta=\\sqrt{cond(CORR)} - 1$')
-            text(dat.sigvec[-1, iabscissa], 1 / dat.sigvec[-1, 3], 'dd-damp$\\approx1/\\sqrt{cond(CORR)}$')
-            semilogy(dat.sigvec[:, iabscissa], np.max(dat.sigvec[:, 5:], axis=1) / np.min(dat.sigvec[:, 5:], axis=1),
+            _x = _monotone_abscissa(dat.sigvec[:, iabscissa], iabscissa)
+            semilogy(_x, 1 / dat.sigvec[:, 3], 'k', label='$\\beta=\\sqrt{cond(CORR)} - 1$')
+            text(_x[-1], 1 / dat.sigvec[-1, 3], 'dd-damp$\\approx1/\\sqrt{cond(CORR)}$')
+            semilogy(_x, np.max(dat.sigvec[:, 5:], axis=1) / np.min(dat.sigvec[:, 5:], axis=1),
                     'darkred', label='axis ratio of diagonal decoding')
-            text(dat.sigvec[-1, iabscissa], np.max(dat.sigvec[-1, 5:]) / np.min(dat.sigvec[-1, 5:]), 'dd-AR')
+            text(_x[-1], np.max(dat.sigvec[-1, 5:]) / np.min(dat.sigvec[-1, 5:]), 'dd-AR')
         if np.size(dat.corrspec) > 1:
             def c_odds(c):
                 cc = (c + 1) / (c - 1)
                 cc[cc < 0] = -1 / cc[cc < 0]
                 return cc
-            semilogy(dat.corrspec[:, iabscissa], c_odds(dat.corrspec[:, 2]), 'c', label='$min (c + 1) / (c - 1)$')
-            semilogy(dat.corrspec[:, iabscissa], c_odds(dat.corrspec[:, 5]), 'c', label='$max (c + 1) / (c - 1)$')
-            text(dat.corrspec[-1, iabscissa], c_odds(np.asarray([dat.corrspec[-1, 2]])), '$\\max (c + 1) / (c - 1)$')
-            text(dat.corrspec[-1, iabscissa], c_odds(np.asarray([dat.corrspec[-1, 5]])), '$-{\\min}^{-1} (c + 1)\dots$')
+            _x = _monotone_abscissa(dat.corrspec[:, iabscissa], iabscissa)
+            semilogy(_x, c_odds(dat.corrspec[:, 2]), 'c', label='$min (c + 1) / (c - 1)$')
+            semilogy(_x, c_odds(dat.corrspec[:, 5]), 'c', label='$max (c + 1) / (c - 1)$')
+            text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 2]])), '$\\max (c + 1) / (c - 1)$')
+            text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 5]])), '$-{\\min}^{-1} (c + 1)\dots$')
         
 
         # title('abs(f) (blue), f-min(f) (cyan), Sigma (green), Axis Ratio (red)')
@@ -1422,7 +1448,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         else:
             minxend = 0
         self._enter_plotting()
-        plot(dat_x[:, iabscissa], dat_x[:, 5:], '-')
+        _x = _monotone_abscissa(dat_x[:, iabscissa], iabscissa)
+        plot(_x, dat_x[:, 5:], '-')
         if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
             _d = dat_x[:, 5:]
             _d_pos = np.abs(_d[_d != 0])
@@ -1439,14 +1466,14 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat_x.shape[1] - 5)
             # yyl = np.sort(dat_x[-1,5:])
             # plot([dat_x[-1, iabscissa], ax[1]], [dat_x[-1,5:], yy[idx2]], 'k-') # line from last data point
-            plot(np.dot(dat_x[-2, iabscissa], [1, 1]),
+            plot(np.dot(_x[-2], [1, 1]),
                 array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
             # plot(array([dat_x[-1, iabscissa], ax[1]]),
             #      reshape(array([dat_x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
             for i in range(len(idx)):
                 # TODOqqq: annotate phenotypic value!?
                 # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
-                text(dat_x[-1, iabscissa], dat_x[-1, 5 + i],
+                text(_x[-1], dat_x[-1, 5 + i],
                     ('' + str(i) + ': ' if annotations is None
                         else str(i) + ':' + annotations[i] + "=")
                     + utils.num2str(dat_x[-2, 5 + i],
