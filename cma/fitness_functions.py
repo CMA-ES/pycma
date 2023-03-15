@@ -256,11 +256,11 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         f += condition**0.5 * sum(x[:m]**2)
         f += condition**-0.5 * sum(x[-m:]**2)
         return f
-    def twoaxes(self, y):
+    def twoaxes(self, y, cond=1e6):
         """Cigtab test objective function"""
         X = [y] if isscalar(y[0]) else y
         N2 = len(X[0]) // 2
-        f = [1e6 * sum(x[0:N2]**2) + sum(x[N2:]**2) for x in X]
+        f = [cond * sum(x[0:N2]**2) + sum(x[N2:]**2) for x in X]
         return f if len(f) > 1 else f[0]
     def ellirot(self, x, cond=1e6):
         return ff.elli(np.asarray(x), 1, cond=cond)
@@ -346,11 +346,15 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
             f += cfac * sum(max(0, c + 1e-3)**2 for c in cvals)
         return f
     def rosen(self, x, alpha=1e2):
-        """Rosenbrock test objective function"""
+        """Rosenbrock test objective function, x0=0"""
         x = [x] if isscalar(x[0]) else x  # scalar into list
         x = np.asarray(x)
         f = [sum(alpha * (x[:-1]**2 - x[1:])**2 + (1. - x[:-1])**2) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
+    def rosen0(self, x, alpha=1e2):
+        """Rosenbrock test objective function with optimum in all-zeros, x0=-1"""
+        x = np.asarray(x) + 1
+        return sum(alpha * (x[:-1]**2 - x[1:])**2 + (1. - x[:-1])**2)
     def grad_rosen(self, x, *args):
         N = len(x)
         grad = np.zeros(N)
