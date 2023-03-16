@@ -188,6 +188,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         self.ps = np.zeros(es.N)
         self._ps_updated_iteration = -1
         self.is_initialized = True
+        return self
     def _update_ps(self, es):
         """update path with isotropic delta mean, possibly clipped.
 
@@ -305,6 +306,7 @@ class CMAAdaptSigmaMedianImprovement(CMAAdaptSigmaBase):
         self.damp = 2 - 2 / es.N  # sign-rule: 2
         self.c = 0.3  # sign-rule needs <= 0.3
         self.s = 0  # averaged statistics, usually between -1 and +1
+        return self
     def update(self, es, **kwargs):
         if es.countiter < 2:
             self.initialize(es)
