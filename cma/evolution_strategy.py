@@ -1867,9 +1867,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.x0.ndim != 1:
             raise ValueError('x0 must be 1-D array')
         if len(self.x0) <= 1:
-            raise ValueError('Could not digest initial solution argument x0=%s.\n'
-                             'Optimization in 1-D is not supported (code was never tested)'
-                             % str(self.x0))
+            utils.print_warning('Initial solution argument x0=%s.\n'
+                                'CAVEAT: Optimization in 1-D is poorly tested.'
+                                % str(self.x0))
         try:
             self.x0.resize(self.x0.shape[0])  # 1-D array, not really necessary?!
         except NotImplementedError:
