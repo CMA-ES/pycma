@@ -2106,3 +2106,17 @@ def smartlogygrid(**kwargs):
     if lims[1] / lims[0] < 1e5:
         plt.grid(True, which='minor')
     _fix_lower_xlim_and_clipping()    
+
+def custom_default_matplotlib():
+    """reduce wasted margin area from 19.0% to 4.0% and make both grids default and
+
+    show legend when labels are available.
+    """
+    import matplotlib.pyplot as plt
+    plt.grid(True)
+    plt.grid(True, which='minor', linewidth=0.5)
+    plt.margins(x=.01, y=.01)  # mpl.rcParams['axes.xmargin'] = 0.01, default is 0.05
+
+    labels = [line.get_label() for line in plt.gca().get_lines()]
+    if any([label and not label.startswith('_') for label in labels]):
+        plt.legend()
