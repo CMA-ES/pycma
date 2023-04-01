@@ -1336,7 +1336,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         text(ax[0] + 0.003 * (ax[1] - ax[0]), ax[2] * (ax[3]/ax[2])**0.002,
                     # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
              (message + '\n' if message else '') +
-             'min($f$)=' + repr(minfit)
+             'evals/iter={}/{} min($f$)={}'.format(
+                 int(dat.f[-1, 1]), int(dat.f[-1, 0]), repr(minfit))
             )
              #'.f_recent=' + repr(dat.f[-1, 5]))
 
@@ -1441,10 +1442,14 @@ class CMADataLogger(interfaces.BaseDataLogger):
             minxend = int(1.06 * dat_x[-2, iabscissa])
             # write y-values for individual annotation into dat_x
             dat_x[-1, iabscissa] = minxend  # TODO: should be ax[1]
-            idx = np.argsort(dat_x[-2, 5:])
-            # idx2 = np.argsort(idx)
-            dat_x[-1, 5 + idx] = np.linspace(np.min(dat_x[:, 5:]),
-                        np.max(dat_x[:, 5:]), dat_x.shape[1] - 5)
+            if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
+                dat_x[-1, 5:] = dat_x[-2, 5:]  # set horizontal
+                idx = np.arange(dat_x.shape[1] - 5)
+            else:
+                idx = np.argsort(dat_x[-2, 5:])
+                # idx2 = np.argsort(idx)
+                dat_x[-1, 5 + idx] = np.linspace(np.min(dat_x[:, 5:]),
+                            np.max(dat_x[:, 5:]), dat_x.shape[1] - 5)
         else:
             minxend = 0
         self._enter_plotting()
