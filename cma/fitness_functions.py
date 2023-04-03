@@ -579,4 +579,51 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return s if s else foffset
 
 
+class _F_0:
+    """return a "normalized" BBOB function, funID=1..24 when suite='bbob'.
+
+    The `fun` attribute is the original function which also provides the
+    `fun.final_target_hit` attribute. The `suite` attribute contains all
+    nonnormalized problems from the standard full suite with the given
+    `funID` and 15 instances with numbers ``>= instance``.
+
+    `self.x_add` is the additional x-offset and can be set to zero to recover
+    the orginal x-offset and optimum.
+    """
+    def __init__(self, funID, dimension=10, suite='bbob', instance=1):
+        """initialize or re-initialize ``self``"""
+        self._input_parameters = dict(l for l in list(locals().items())
+                                      if l[0] != 'self')  # for the record
+        import cocoex
+        if suite not in cocoex.known_suite_names:
+            raise ValueError("Sorry, suite '{0}' is not known, choices are {1}"
+                             .format(suite, cocoex.known_suite_names))
+        self.suite = cocoex.Suite(suite,  # caveat: unknown suite may crash Python
+                        'instances: {0}-{1}'.format(instance, instance + 14),
+                        'function_indices: ' + str(funID))
+        self.fun = self.suite.get_problem_by_function_dimension_instance(
+            funID, dimension, instance)
+        self.set_opt()
+        self.fun = self.suite.get_problem_by_function_dimension_instance(
+            funID, dimension, instance)  # reset final_target_hit
+    def set_opt(self):
+        self.fun._best_parameter('print')
+        self.x_opt = np.loadtxt('._bbob_problem_best_parameter.txt')
+        self.x_add = self.x_opt
+        self.f_opt = self.fun(self.x_opt)
+    def __call__(self, x):
+        return self.fun(self.x_add + x) - self.f_opt
+    @property
+    def lower_bounds(self):
+        return self.fun.lower_bounds - self.x_add
+    @property
+    def upper_bounds(self):
+        return self.fun.upper_bounds - self.x_add
+    @property
+    def initial_solution(self):
+        return self.fun.initial_solution - self.x_add
+    def initial_solution_proposal(self, restart_number=None):
+        return self.fun.initial_solution_proposal(restart_number) - self.x_add
+
+
 ff = FitnessFunctions()
