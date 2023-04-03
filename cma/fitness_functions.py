@@ -12,6 +12,8 @@ from __future__ import (absolute_import, division, print_function,
 # from __future__ import collections.MutableMapping
 # does not exist in future, otherwise Python 2.5 would work, since 0.91.01
 
+sum_ = sum  # sum becomes np.sum
+
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
 # sort, argsort, random, ones,...
@@ -523,29 +525,58 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         if termination_friendly and val < 1:
             val **= 1. / len(x)
         return val
-    @staticmethod
-    def leadingones(x, foffset=1e-2 - 1e-5):
-        """return len(x) - nb of leading-ones-in-x, where only
 
-        values in [1, 2) are considered to be "equal to" 1.
+    binary_optimum_interval = (0.5, 1.5)
+    '''default interval where the optimum is assumed on binary functions.
+
+        The interval is chosen such that the value from round(.) or floor(.
+        + 1/2) or int(. + 1/2) is in the interval middle. This prevents
+        some unexpected outcomes with algorithms that search on the
+        continuous values. The most logical domain boundary values are now
+        [-0.5, 1.5] or [0, 1].
+
+       Details: Changing this *default* is only effective *before* import.
+    '''
+    binary_foffset = 1e-3 - 1e-4
+    '''default f-offset for binary functions at the optimum.
+
+        Changing this *default* is only effective *before* import.
+    '''
+    @staticmethod
+    def binval(x, foffset=binary_foffset, optimum=binary_optimum_interval):
+        """return ``sum_i(0 if (optimum[0] <= x[i] <= optimum[1]) else 2**i)``
+
+        to be minimized.
+
+        Details: the result is computed as `int`, because in dimension > 54
+        a `float` representation can not account for the least sensitive
+        bit anymore. Because we minimize, this is not necessarily a big
+        problem.
+        """
+        s = sum_(0 if optimum[0] <= val <= optimum[1] else 2**i
+                 for i, val in enumerate(x))
+        return s if s else foffset
+    @staticmethod
+    def leadingones(x, foffset=binary_foffset, optimum=binary_optimum_interval):
+        """return ``len(x) - nb of leading-ones-in-x`` to be minimized,
+
+        where only values in [optimum[0], optimum[1]] are considered to be "equal to" 1.
         """
         s = len(x)  # worst value
         for xi in x:
-            if 1 <= xi < 2:
+            if optimum[0] <= xi <= optimum[1]:
                 s -= 1
             else:
                 break
-        return s + (s == 0) * foffset
+        return s if s else foffset
     @staticmethod
-    def binval(x, foffset=1e-2 - 1e-5):
-        """return sum_i(0 if (1 <= x[i] < 2) else 2**i)**(1/n)"""
-        s = sum([0 if 1 <= val < 2 else 2**i for i, val in enumerate(x)])
-        return s**(1/len(x)) + (s == 0) * foffset
-    @staticmethod
-    def onemax(x, foffset=1e-2 - 1e-5, optimum=(1, 2)):
-        """return ``sum_i(0 if (1 <= x[i] <= 2) else 1)`` to be minimized"""
+    def onemax(x, foffset=binary_foffset, optimum=binary_optimum_interval):
+        """return ``sum_i(0 if (optimum[0] <= x[i] <= optimum[1]) else 1)``
+
+        to be minimized.
+        """
         s = sum_(0 if optimum[0] <= val <= optimum[1] else 1 for val in x)
-        return s + (s == 0) * foffset
+        return s if s else foffset
 
 
 ff = FitnessFunctions()
