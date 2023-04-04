@@ -3431,6 +3431,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # new interface: if sm.condition_number > condition ...
         if not self.gp.isidentity or not condition or self.condition_number < condition:
             return
+        if len(self.opts['integer_variables']):
+            utils.print_warning(
+            'geno-pheno transformation not implemented with int-variables',
+                'alleviate_conditioning', 'CMAEvolutionStrategy',
+                self.countiter)
+            return
         try:
             old_condition_number = self.condition_number
             tf_inv = self.sm.to_linear_transformation_inverse()
