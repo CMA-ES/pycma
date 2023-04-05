@@ -951,7 +951,7 @@ class GenoPheno(object):
             # assert all(tf[0](tf[1](r)) - r < 1e-7)
             # r = np.random.randn(dim)
             # assert all(tf[0](tf[1](r)) - r > -1e-7)
-            print_warning("in class GenoPheno: user defined transformations have not been tested thoroughly")
+            print_warning("in class GenoPheno: user defined transformations have not been tested thoroughly", maxwarns=1)
         else:
             self.tf_geno = None
             self.tf_pheno = None

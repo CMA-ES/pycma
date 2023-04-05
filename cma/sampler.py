@@ -436,9 +436,9 @@ class GaussFullSampler(GaussSampler):
                 elif self.constant_trace.startswith('geig'):
                     s = np.exp(-np.mean(np.log(self.D)))
                 else:
-                    print_warning("trace normalization option setting '%s' not recognized (further warnings will be surpressed)" %
+                    print_warning("trace normalization option setting '%s' not recognized" %
                                   repr(self.constant_trace),
-                                  class_name='GaussFullSampler', maxwarns=1, iteration=self.count_eigen + 1)
+                                  class_name='GaussFullSampler', maxwarns=1, iteration=self.count_eigen)
                     s = 1
             except AttributeError:
                 raise ValueError("Value '%s' not allowed for constant trace setting" % repr(self.constant_trace))

@@ -331,15 +331,19 @@ def num2str(val, significant_digits=2, force_rounding=False,
     return s_ret
 
 # todo: this should rather be a class instance
+warnings_counter = collections.defaultdict(int)
 def print_warning(msg, method_name=None, class_name=None, iteration=None,
                    verbose=None, maxwarns=None, **kwargs_for_warn):
-    """Poor man's maxwarns: warn only if ``iteration<=maxwarns``"""
+    """Poor man's maxwarns: msg must match exactly"""
     if verbose is None:
         verbose = global_verbosity
-    if maxwarns is not None and iteration is None:
-        raise ValueError('iteration must be given to activate maxwarns')
-    if verbose >= -2 and (iteration is None or maxwarns is None or
-                            iteration <= maxwarns):
+    if maxwarns is not None:  # we could do the counting irrespectively?
+        warnings_counter[msg] += 1
+        if warnings_counter[msg] > maxwarns:
+            return
+        if warnings_counter[msg] == maxwarns:
+            msg += ' (further warnings will be suppressed)'
+    if verbose >= -2:
         warnings.warn(msg + ' (' +
               ('class=%s ' % str(class_name) if class_name else '') +
               ('method=%s ' % str(method_name) if method_name else '') +

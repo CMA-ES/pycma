@@ -1236,7 +1236,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...                  "ftarget": 1e-7 + 5.54781521192,
     ...                  "verbose": -2,})
     >>> warns[0].message  # doctest:+ELLIPSIS
-    UserWarning('in class GenoPheno: user defined transformations have not been tested thoroughly ()'...
+    UserWarning('in class GenoPheno: user defined transformations have not been tested thoroughly (...
     >>> warns[1].message  # doctest:+ELLIPSIS
     UserWarning('computed initial point...
     >>> es.optimize(cma.ff.rosen, verb_disp=0)  #doctest: +ELLIPSIS
@@ -3440,7 +3440,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             utils.print_warning(
             'geno-pheno transformation not implemented with int-variables',
                 'alleviate_conditioning', 'CMAEvolutionStrategy',
-                self.countiter)
+                self.countiter, maxwarns=1)
             return
         try:
             old_condition_number = self.condition_number
