@@ -725,7 +725,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         Arguments
         ---------
         `fig`
-            figure number, by default 325
+            figure number, by default starting from 325
         `iabscissa`
             ``0==plot`` versus iteration count,
             ``1==plot`` versus function evaluation number
@@ -784,7 +784,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.timer_plot.tic
 
         if fig is None:
-            fig = 325
+            global last_figure_number  # we need this because the variable is not mutable
+            last_figure_number += 1
+            fig = last_figure_number
         if iabscissa not in (0, 1):
             iabscissa = 1
 
