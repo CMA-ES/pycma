@@ -4815,7 +4815,7 @@ def fmin(objective_function, x0, sigma0,
 
         irun = 0
         best = ot.BestSolution()
-        all_stoppings = []
+        all_stoppings[:] = []
         while True:  # restart loop
             sigma_factor = 1
 
