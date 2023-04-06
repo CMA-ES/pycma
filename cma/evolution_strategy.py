@@ -1813,6 +1813,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit.median = None
         self.fit.median0 = None
         self.fit.median_min = np.inf
+        self.fit.median_previous = np.inf
+        self.fit.median_got_worse = 0
         self.fit.flatfit_iterations = 0
 
         self.more_to_write = utils.MoreToWrite()  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
@@ -2809,6 +2811,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.median0 = fit.median
         if fit.median_min > fit.median:
             fit.median_min = fit.median
+        if fit.median <= fit.median_previous:
+            fit.median_got_worse = 0  # don't keep a high number when median is constant
+        else:  # if fit.median > fit.median_previous:
+            fit.median_got_worse += 1
+        fit.median_previous = fit.median
 
         ### line 2665
 
@@ -3059,6 +3066,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # step-size adaptation, adapt sigma
         # in case of TPA, function_values[0] and [1] must reflect samples colinear to xmean - xmean_old
+        self._sigma_old = self.sigma
         try:
             self.sigma *= self.adapt_sigma.update2(self,
                                         function_values=function_values)
