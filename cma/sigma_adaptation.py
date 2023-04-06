@@ -403,6 +403,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             self.sp.damp = damp_fac * (4 - 3.6/eval('N')**0.5)  # (2) should become new default!?
             self.sp.damp = damp_fac * eval('N')**0.25
             self.sp.damp = 0.7 + np.log(eval('N'))  # between 2 and 9 very close to N**1/2, for N=7 equal to (1) and (2)
+            self.sp.damp = 0.7 + 2 * np.log(eval('N'))  # fix issue 231 but barely
             # self.sp.damp = 100
         except:
             self.sp.damp = 4  # or 1 + np.log(10)
@@ -459,7 +460,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             es.sigma *= np.exp(self.s / self.sp.dampup)
         else:
             es.sigma *= np.exp(self.s / self.sp.dampdown)
-        #es.more_to_write.append(10**z)
+        #es.more_to_write.extend([10**z, 10**self.s])
 
     def check_consistency(self, es):
         assert isinstance(es.adapt_sigma, CMAAdaptSigmaTPA)
