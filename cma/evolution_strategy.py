@@ -444,7 +444,8 @@ def cma_default_options_(  # to get keyword completion back
     CMA_stds='None  # multipliers for sigma0 in each coordinate (not represented in C), or use `cma.ScaleCoordinates` instead',
     # CMA_AII='False  # not yet tested',
     CSA_dampfac='1  #v positive multiplier for step-size damping, 0.3 is close to optimal on the sphere',
-    CSA_damp_mueff_exponent='0.5  # zero would mean no dependency of damping on mueff, useful with CSA_disregard_length option',
+    CSA_damp_mueff_exponent='None  # exponent for mueff/N, by default 0.5 and 1 if CSA_squared,'
+        ' zero means no dependency of damping on mueff, useful with CSA_disregard_length option',
     CSA_disregard_length='False  #v True is untested, also changes respective parameters',
     CSA_clip_length_value='None  #v poorly tested, [0, 0] means const length N**0.5, [-1, 1] allows a variation of +- N/(N+2), etc.',
     CSA_squared='False  #v use squared length for sigma-adaptation ',

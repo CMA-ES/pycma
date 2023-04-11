@@ -167,11 +167,15 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         ## meta_parameters.cs_multiplier == 1.0
         self.cs = 1.0 * (es.sp.weights.mueff + 2)**b / (es.N**b + (es.sp.weights.mueff + 3)**b)
 
-        self.damps = es.opts['CSA_dampfac'] * (0.5 +
-                                          0.5 * min([1, (es.sp.lam_mirr / (0.159 * es.sp.popsize) - 1)**2])**1 +
-                                          2 * max([0, ((es.sp.weights.mueff - 1) / (es.N + 1))**es.opts['CSA_damp_mueff_exponent'] - 1]) +
-                                          self.cs
-                                          )
+        exponent = es.opts['CSA_damp_mueff_exponent']
+        if exponent is None:  # set default
+            exponent = 1 if es.opts['CSA_squared'] else 0.5
+        self.damps = es.opts['CSA_dampfac'] * (
+                0.5 +
+                min([1, (es.sp.lam_mirr / (0.159 * es.sp.popsize) - 1)**2])**1 / 2 +
+                2 * max((0, ((es.sp.weights.mueff-1) / (es.N+1))**exponent - 1)) +
+                self.cs
+                )
         self.max_delta_log_sigma = 1  # in symmetric use (strict lower bound is -cs/damps anyway)
 
         if self.disregard_length_setting:
