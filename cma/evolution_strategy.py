@@ -450,6 +450,8 @@ def cma_default_options_(  # to get keyword completion back
     CSA_clip_length_value='None  #v poorly tested, [0, 0] means const length N**0.5, [-1, 1] allows a variation of +- N/(N+2), etc.',
     CSA_squared='False  #v use squared length for sigma-adaptation ',
     CSA_invariant_path='False  #v pc is invariant and ps (default) is unbiased',
+    stall_sigma_change_on_divergence_iterations='False  #v number of iterations of median'
+        ' worsenings threshold at which the sigma change is stalled; the default may become 2',
     BoundaryHandler='BoundTransform  # or BoundPenalty, unused when ``bounds in (None, [None, None])``',
     bounds='[None, None]  # lower (=bounds[0]) and upper domain boundaries, each a scalar or a list/vector',
      # , eval_parallel2='not in use {"processes": None, "timeout": 12, "is_feasible": lambda x: True} # distributes function calls to processes processes'
@@ -3073,11 +3075,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except (NotImplementedError, AttributeError):
             self.adapt_sigma.update(self, function_values=function_values)
 
-        if 11 < 3 and self.opts['vv']:
-            if self.countiter < 2:
-                print('constant sigma applied')
-                print(self.opts['vv'])  # N=10,lam=10: 0.8 is optimal
-            self.sigma = self.opts['vv'] * self.sp.weights.mueff * sum(self.mean**2)**0.5 / N
+        # this is not sufficiently effective with CSA_squared option:
+        if self.opts['stall_sigma_change_on_divergence_iterations'] and (
+                self.fit.median_got_worse >= self.opts['stall_sigma_change_on_divergence_iterations']):
+            # for the record only
+            if not hasattr(self, '_stall_sigma_change_on_divergence_events'):
+                self._stall_sigma_change_on_divergence_events = 30 * [None]
+            self._stall_sigma_change_on_divergence_events[
+                    self.countiter % len(self._stall_sigma_change_on_divergence_events)] = (
+                self.countiter, self.fit.median_got_worse, self._sigma_old, self.sigma)
+            # keep sigma constant, then sooner or later the median will improve again
+            self.sigma = self._sigma_old  # min((es.sigma, es._sigma_old))
 
         self._stds_into_limits()
 
@@ -3756,14 +3764,20 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         return self
 
 class _StopTolXStagnation:
-    """Provide a termination signal depending on how much a vector has changed
-    over a number of iterations.
+    """Provide a termination signal depending on how much a vector has changed,
+
+    typically applied to the distribution mean over several iterations.
 
     The `stop` property is the boolean termination signal, the `update`
     method needs to be called in each iteration with the (changing) vector.
 
-    Details: ``stop is True`` iff delta t > threshold and Delta x < delta *
-    max(1, sqrt(delta t / threshold)) for at least delta t previous iterations.
+    ``self.stop is True`` iff
+    - ``delta t > threshold`` and
+    - ``Delta x < delta * max(1, sqrt(delta t / threshold))`` for at least delta t iterations.
+
+    The (iteration) threshold is computed in property `time_threshold`
+    based on the iteration count and three parameters as ``p1 + p2 * count**p3``.
+
     """
     def __init__(self, x=None):
         """`x` is the initial vector (optional), default settings are taken from `CMAOptions`"""
@@ -3806,7 +3820,8 @@ class _StopTolXStagnation:
         self.count += 1
         # allow for a larger delta when self.x is older than the time_threshold
         delta = self.delta * max((1, (self.count - self.count_x) / self.time_threshold))**0.5
-        if self.x is None or np.sum((self.x - x)**2)**0.5 > delta:
+        if delta < 0 or self.x is None or np.sum((self.x - x)**2)**0.5 > delta:
+            # reset stagnation measure
             self.x = np.asarray(x)
             self.count_x = self.count
         return self

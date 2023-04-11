@@ -75,8 +75,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         es.optimize(cma.ff.elli, callback=es.logger.plot)
 
     plots into the current `matplotlib` figure (or opens one if none
-    exists) via a generic callback. `es.optimize` already adds by default
-    `es.logger.add` to its callback list to add data to the logger. This
+    exists) via a generic callback. ``es.optimize`` already adds by default
+    ``es.logger.add`` to its callback list to add data to the logger. This
     call::
 
         x, es = cma.fmin2(cma.ff.elli, 12 * [3], 4, {'verb_plot': 1})
