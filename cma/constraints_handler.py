@@ -119,7 +119,8 @@ class BoundaryHandlerBase(object):
     def has_bounds(self):
         """return `True` if any variable is bounded"""
         bounds = self.bounds
-        if bounds is None or all(b is None for b in bounds):
+        if bounds is None or bounds in (False, [], ()) or (
+                bounds[0] is None and bounds[1] is None):
             return False
         for ib, bound in enumerate(bounds):
             if bound is not None:
@@ -365,8 +366,8 @@ class BoundPenalty(BoundaryHandlerBase):
         # TODO (old data): CPU(N,lam,iter=20,200,100): 3.3s of 8s for two bounds, 1.8s of 6.5s for one bound
         # remark: np.max([bounds[0], x]) is about 40 times slower than max((bounds[0], x))
         copy = copy_if_changed
-        bounds = self.bounds
-        if bounds not in (None, [None, None], (None, None)):  # solely for effiency
+        if self.has_bounds():
+            bounds = self.bounds
             if copy:
                 x = np.array(x, copy=True)
             if bounds[0] is not None:
@@ -398,7 +399,7 @@ class BoundPenalty(BoundaryHandlerBase):
         """
         # if x in (None, (), []):  # breaks when x is a nparray
         #     return x
-        if self.bounds in (None, [None, None], (None, None)):
+        if not self.has_bounds():
             return 0.0 if np.isscalar(x[0]) else [0.0] * len(x)  # no penalty
 
         x_is_single_vector = np.isscalar(x[0])

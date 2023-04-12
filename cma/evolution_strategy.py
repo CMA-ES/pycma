@@ -1514,7 +1514,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.boundary_handler = opts['BoundaryHandler']
         if isinstance(self.boundary_handler, type):
             self.boundary_handler = self.boundary_handler(opts['bounds'])
-        elif opts['bounds'] not in (None, False, [], [None, None]):
+        elif opts['bounds'] not in (None, False, [], ()) or (
+                opts['bounds'][0] is None and opts['bounds'][1] is None):
             warnings.warn("""
                 Option 'bounds' ignored because a BoundaryHandler *instance* was found.
                 Consider to pass only the desired BoundaryHandler class. """)
