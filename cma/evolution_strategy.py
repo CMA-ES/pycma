@@ -491,7 +491,7 @@ def cma_default_options_(  # to get keyword completion back
                    ' Delta f current < tolfunrel * (median0 - median_min)',
     tolstagnation='int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
     tolx='1e-11  #v termination criterion: tolerance in x-changes',
-    transformation='''None  # depreciated, use cma.fitness_transformations.FitnessTransformation instead.
+    transformation='''None  # deprecated, use cma.fitness_transformations.FitnessTransformation instead.
             [t0, t1] are two mappings, t0 transforms solutions from CMA-representation to f-representation (tf_pheno),
             t1 is the (optional) back transformation, see class GenoPheno''',
     typical_x='None  # used with scaling_of_variables',
