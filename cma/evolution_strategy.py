@@ -490,6 +490,9 @@ def cma_default_options_(  # to get keyword completion back
     tolfunrel='0  #v termination criterion: relative tolerance in function value:'\
                    ' Delta f current < tolfunrel * (median0 - median_min)',
     tolstagnation='int(100 + 100 * N**1.5 / popsize)  #v termination if no improvement over tolstagnation iterations',
+    tolxstagnation='[1e-9, 20, 0.1]  #v termination thresholds for Delta of [mean, iterations, iterations fraction], the latter two are summed; '
+                   'trigger termination if Dmean stays below the threshold over Diter iterations, '
+                   'pass `False` or a negative value to turn off tolxstagnation',
     tolx='1e-11  #v termination criterion: tolerance in x-changes',
     transformation='''None  # deprecated, use cma.fitness_transformations.FitnessTransformation instead.
             [t0, t1] are two mappings, t0 transforms solutions from CMA-representation to f-representation (tf_pheno),
@@ -1787,6 +1790,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self._stopdict = _CMAStopDict()
         "    attribute for stopping criteria in function stop"
+        self._stoptolxstagnation = _StopTolXStagnation(self.mean)
         self.callbackstop = ()
         "    return values of callbacks, used like ``if any(callbackstop)``"
         self.fit = _BlancClass()
@@ -3099,6 +3103,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pop = []  # remove this in case pop is still needed
         # self.pop_sorted = []
         self.mean_after_tell[:] = self.mean
+        self._stoptolxstagnation.set_params(self.opts['tolxstagnation']).update(self.mean)
         self._flgtelldone = True
         try:  # shouldn't fail, but let's be nice to code abuse
             self.timer.pause()
@@ -3703,6 +3708,69 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                            'plot', 'CMAEvolutionStrategy')
         return self
 
+class _StopTolXStagnation:
+    """Provide a termination signal depending on how much a vector has changed
+    over a number of iterations.
+
+    The `stop` property is the boolean termination signal, the `update`
+    method needs to be called in each iteration with the (changing) vector.
+
+    Details: ``stop is True`` iff delta t > threshold and Delta x < delta *
+    max(1, sqrt(delta t / threshold)) for at least delta t previous iterations.
+    """
+    def __init__(self, x=None):
+        """`x` is the initial vector (optional), default settings are taken from `CMAOptions`"""
+        vals = CMAOptions().eval('tolxstagnation')  # get default values
+        self.delta = vals[0]
+        self.time_delta_offset = vals[1]  # should depend on dimension because of adaptation delays?
+        self.time_delta_frac = vals[2]
+        self.time_delta_expo = 1
+        self.count = 0
+        self.count_x = 0
+        self.x = x
+    def set_params(self, param_values, names=(
+                    'delta', 'time_delta_offset', 'time_delta_frac', 'time_delta_expo')):
+        """`param_values` is a `list` conforming to ``CMAOptions['tolxstagnation']``.
+        
+        Do nothing if ``param_values in (None, True)``, set ``delta = -1``
+        if ``param_values is False``.
+
+        `None` entries in `param_values` don't change the respective
+        parameter and ``[0.12]`` is the same as ``[0.12, None, None, None]``.
+
+        Details: In principle, `'delta'` should be propto sqrt(mu/dimension).
+        """
+        if param_values in (None, True):
+            return self  # use default or current values
+        if param_values is False:
+            self.delta = -1
+            return self
+        try: iter(param_values)
+        except TypeError:
+            self.delta = param_values
+            return self
+        for name, value in zip(names, param_values):
+            assert hasattr(self, name), name
+            if value is not None:
+                setattr(self, name, value)
+        return self
+    def update(self, x):
+        """caveat: this stores x as a reference"""
+        self.count += 1
+        # allow for a larger delta when self.x is older than the time_threshold
+        delta = self.delta * max((1, (self.count - self.count_x) / self.time_threshold))**0.5
+        if self.x is None or np.sum((self.x - x)**2)**0.5 > delta:
+            self.x = np.asarray(x)
+            self.count_x = self.count
+        return self
+    @property
+    def time_threshold(self):
+        return (self.time_delta_offset + 
+                self.time_delta_frac * self.count**self.time_delta_expo)
+    @property
+    def stop(self):
+        return self.count - self.count_x > self.time_threshold
+
 class _CMAStopDict(dict):
     """keep and update a termination condition dictionary.
 
@@ -3870,6 +3938,7 @@ class _CMAStopDict(dict):
                         np.median(es.fit.histmedian[:l]) >= np.median(es.fit.histmedian[l:2 * l]) and
                         np.median(es.fit.histbest[:l]) >= np.median(es.fit.histbest[l:2 * l]))
             # iiinteger: stagnation termination can prevent to find the optimum
+        self._addstop('tolxstagnation', es._stoptolxstagnation.stop)
 
         s = es.sigma / es.D.max()
         self._addstop('tolupsigma', opts['tolupsigma'] and
