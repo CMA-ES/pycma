@@ -600,7 +600,7 @@ class CMAOptions(dict):
     :See also: `fmin2` (), `CMAEvolutionStrategy`, `_CMAParameters`
 
     """
-
+    _ps_for_pc = False
     # @classmethod # self is the class, not the instance
     # @property
     # def default(self):
@@ -3024,7 +3024,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 if 11 < 3:  # may be better but needs to be checked
                     pop_zero_encoded = pop_zero / (self.sigma * self.sigma_vec.scaling)
                     # pc is already good
-                self.sm.update([(c1 / (c1a + 1e-23))**0.5 * self.pc] +  # c1a * pc**2 gets c1 * pc**2
+                pc = self.pc
+                if CMAOptions._ps_for_pc:  # experimental
+                    try:
+                        # avoid a large update when ||ps|| is large
+                        fac = self.N**0.5 / np.linalg.norm(self.adapt_sigma.ps)
+                        # fac = min((fac, 1/fac))  # this is biased
+                        # the step-size increases iff the norm is large
+                        # fac = 1
+                        pc =  fac * self.sm.transform(
+                            self.adapt_sigma.ps)  # ps is not yet updated
+                    except: raise
+                self.sm.update([(c1 / (c1a + 1e-23))**0.5 * pc] +  # c1a * pc**2 gets c1 * pc**2
                               list(pop_zero_encoded),
                               sampler_weights)
             if any(np.asarray(self.sm.variances) < 0):
