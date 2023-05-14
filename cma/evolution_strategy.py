@@ -2925,10 +2925,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if self.countiter == 1:
                 print('parameters modified')
         # hsig = sum(self.ps**2) / self.N < 2 + 4./(N+1)
-        # adjust missing variance due to hsig, in 4-D with damps=1e99 and sig0 small
-        #       hsig leads to premature convergence of C otherwise
-        # hsiga = (1-hsig**2) * c1 * cc * (2-cc)  # to be removed in future
-        c1a = c1 * (1 - (1 - hsig**2) * cc * (2 - cc))  # adjust for variance loss
 
         if 11 < 3:  # diagnostic data
             # self.out['hsigcount'] += 1 - hsig
@@ -2942,6 +2938,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             #       put correction term, but how?
             if self.countiter == 1:
                 print('hsig=1')
+
+        # adjust missing variance due to hsig, in 4-D with damps=1e99 and sig0 small
+        #       hsig leads to premature convergence of C otherwise
+        # hsiga = (1-hsig**2) * c1 * cc * (2-cc)  # to be removed in future
+        c1a = c1 * (1 - (1 - hsig**2) * cc * (2 - cc))  # adjust for variance loss
 
         self.pc = (1 - cc) * self.pc + hsig * (
                     (cc * (2 - cc) * self.sp.weights.mueff)**0.5 / self.sigma
