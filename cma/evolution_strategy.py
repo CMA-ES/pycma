@@ -601,6 +601,7 @@ class CMAOptions(dict):
 
     """
     _ps_for_pc = False
+    _hsig = True  # False == never toggle hsig
     # @classmethod # self is the class, not the instance
     # @property
     # def default(self):
@@ -2933,7 +2934,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if 11 < 3:  # diagnostic message
             if not hsig:
                 print(str(self.countiter) + ': hsig-stall')
-        if 11 < 3:  # for testing purpose
+        if not CMAOptions._hsig:  # for testing purpose
             hsig = 1  # TODO:
             #       put correction term, but how?
             if self.countiter == 1:
