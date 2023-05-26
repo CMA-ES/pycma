@@ -602,6 +602,7 @@ class CMAOptions(dict):
     """
     _ps_for_pc = False
     _hsig = True  # False == never toggle hsig
+    _stationary_sphere = False  # True or callable like lambda x: cma.ff.elli(x)**0.5
     # @classmethod # self is the class, not the instance
     # @property
     # def default(self):
@@ -3094,6 +3095,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # TODO increase sigma in case of a plateau?
 
         # Uncertainty noise measurement is done on an upper level
+
+        if CMAOptions._stationary_sphere:
+            if callable(CMAOptions._stationary_sphere):
+                self.mean *= (CMAOptions._stationary_sphere(self.mean_old) /
+                              CMAOptions._stationary_sphere(self.mean))
+            else:
+                self.mean *= np.sqrt(sum(np.square(self.mean_old)) /
+                                     sum(np.square(self.mean)))
 
         # move mean into "feasible preimage", leads to weird behavior on
         # 40-D tablet with bound 0.1, not quite explained (constant
