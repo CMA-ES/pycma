@@ -707,6 +707,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                              dat.precspec[:, 0]])[0], :]
         except AttributeError:
             pass
+        return self
     def plot(self, fig=None, iabscissa=0, iteridx=None,
              plot_mean=False, # was: plot_mean=True
              foffset=1e-19, x_opt=None, fontsize=7,
@@ -757,7 +758,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             from matplotlib.pyplot import figure, subplot, gcf
         except ImportError:
             ImportError('could not find matplotlib.pyplot module, function plot() is not available')
-            return
+            return self
         if hasattr(self, 'es') and self.es is not None:
             if fig is self.es:      # in case of usage in a callback
                 fig = gcf().number  # plot in current figure
