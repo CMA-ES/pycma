@@ -1439,10 +1439,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             res, self._stopdict._value = self._stopdict._value, None
         return res
 
-    def __init__(self, x0, sigma0, inopts=None):
+    def __init__(self, x0, sigma0, inopts=None, options=None):
         """see class `CMAEvolutionStrategy`
 
+        `options` is for consistency with `fmin2` options and is only
+        in effect if ``inopts is None``.
         """
+        if options and inopts is None:
+            inopts = options
+        del options
         self.inputargs = dict(locals())  # for the record
         del self.inputargs['self']  # otherwise the instance self has a cyclic reference
         if inopts is None:
