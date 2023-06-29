@@ -887,7 +887,7 @@ class Sections(object):
         self.basis = np.eye(len(x)) if basis is None else basis
 
         try:
-            self.load()
+            load and self.load()
             if any(self.res['x'] != x):
                 self.res = {}
                 self.res['x'] = x  # TODO: res['x'] does not look perfect
