@@ -222,8 +222,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         try:
             with open(fn, 'w') as f:
                 f.write('% # columns="iteration, evaluation, sigma, axis ratio, ' +
-                        'bestever, best, median, worst objective function value, ' +
-                        'further objective values of best", ' +
+                        'bestever, best, median, worst objective function value, interquartile range, ' +
+                        'further/more values", ' +
                         strseedtime +
                         ', ' + self.persistent_communication_dict.as_python_tag +
                         '\n')
@@ -420,6 +420,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             bestf = es.fit.fit[0]
             worstf = es.fit.fit[-1]
             medianf = es.fit.fit[len(es.fit.fit) // 2]
+            iqrangef = np.diff(_mathutils.Mh.prctile(es.fit.fit, [25, 75], sorted_=True))
         except:
             if iteration > 0:  # first call without f-values is OK
                 raise
@@ -487,6 +488,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + '%.16e' % bestf + ' '
                             + str(float(medianf)) + ' '
                             + str(float(worstf)) + ' '
+                            + str(float(iqrangef)) + ' '
                             # + str(es.sp.popsize) + ' '
                             # + str(10**es.noiseS) + ' '
                             # + str(es.sp.cmean) + ' '
@@ -1261,9 +1263,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(_x, abs(dat.f[:, [6, 7]]) + foffset, '-k')
             # hold(True)
+        if dat.f.shape[1] > 8:
+            # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
+            semilogy(_x, abs(dat.f[:, [8]]) + foffset, 'grey', linewidth=0.7)  # darkorange is nice
 
         # (larger indices): additional fitness data, for example constraints values
-        if dat.f.shape[1] > 8:
+        if dat.f.shape[1] > 9:
             # dd = abs(dat.f[:,7:]) + 10*foffset
             # dd = _where(dat.f[:,7:]==0, np.NaN, dd) # cannot be
             semilogy(_x, np.abs(dat.f[:, 8:]) + 10 * foffset, 'y')
