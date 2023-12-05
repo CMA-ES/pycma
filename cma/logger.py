@@ -215,6 +215,16 @@ class CMADataLogger(interfaces.BaseDataLogger):
             except OSError:
                 pass  # folder exists
 
+        # write x0
+        fn = self.name_prefix + 'x0.dat'
+        try:
+            with open(fn, 'w') as f:
+                f.write(repr(list(es.x0)))
+        except (IOError, OSError):
+            print('could not open file ' + fn)
+        except Exception as e:
+            warnings.warn("could not save `X0` due to this exception:\n    {}".format(repr(e)))
+
         # write headers for output
         fn = self.name_prefix + 'fit.dat'
         strseedtime = 'seed=%s, %s' % (str(es.opts['seed']), time.asctime())
@@ -732,7 +742,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         `iteridx`
             iteration indices to plot, e.g. ``range(100)`` for the first 100 evaluations.
         `x_opt`
-            if ``len(x_opt) == dimension``, the difference to `x_opt` is
+            If `isscalar(x_opt)` it is interpreted as iteration number and the
+            difference of ``x`` to the respective iteration is plotted. If it is
+            a negative scalar the respective index rather than the iteration is used.
+            Namely in particular, ``x_opt=0`` subtracts the initial solution ``X0``
+            and ``x_opt=-1`` subtracts the final solution of the data.
+            If ``len(x_opt) == dimension``, the difference to `x_opt` is
             plotted, otherwise the first row of ``x_opt`` are the indices of
             the variables to be plotted and the second row, if present, is used
             to take the difference.
@@ -884,7 +899,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         `iteridx`
             iteration indices to plot
         `x_opt`
-            if ``len(x_opt) == dimension``, the difference to `x_opt` is
+            If `isscalar(x_opt)` it is interpreted as iteration number and the
+            difference of ``x`` to the respective iteration is plotted. If it is
+            a negative scalar the respective index rather than the iteration is used.
+            Namely in particular, ``x_opt=0`` subtracts the initial solution ``X0``
+            and ``x_opt=-1`` subtracts the final solution of the data.
+            If ``len(x_opt) == dimension``, the difference to `x_opt` is
             plotted, otherwise the first row of ``x_opt`` are the indices of
             the variables to be plotted and the second row, if present, is used
             to take the difference.
@@ -1456,9 +1476,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         _fix_lower_xlim_and_clipping()
     def _plot_x(self, iabscissa=0, x_opt=None, remark=None,
                 annotations=None, xsemilog=None, xnormalize=False):
-        """If ``len(x_opt) == dimension``, the difference to `x_opt` is plotted.
-        Otherwise, the first row of ``x_opt`` is taken as indices and the second
-        row, if present, is used to take the difference.
+        """see def plot(...
         """
         if not hasattr(self, 'x'):
             utils.print_warning('no x-attributed found, use methods ' +
@@ -1470,9 +1488,35 @@ class CMADataLogger(interfaces.BaseDataLogger):
         import matplotlib
         from matplotlib.pyplot import plot, yscale, text, grid, axis, title
         dat = self  # for convenience and historical reasons
-        if not np.any(x_opt):
-            dat_x = dat.x
-        else:
+        # interpret x_opt
+        dat_x = dat.x
+        if np.isscalar(x_opt):  # interpret as iteration number or negative index
+            if x_opt == 0:  # subtract X0
+                import ast
+                fn = self.name_prefix + 'x0.dat'
+                try:
+                    with open(fn, 'r') as f:
+                        x_opt = ast.literal_eval(f.read())
+                except (IOError, OSError):
+                    warnings.warn('could not open file {} to subtract ``X0``'.format(fn))
+                except Exception as e:
+                    warnings.warn("could not read `X0` due to this exception:\n    {}".format(repr(e)))
+            elif x_opt < 0:  # interpret x_opt as index in data
+                x_opt = self.x[x_opt, 5:]
+            else:  # interpret x_opt as iteration number
+                _i = np.searchsorted(self.x[:, 0], x_opt)
+                _m = np.shape(self.x)[0]
+                if _i == _m or (  # index is above range
+                    _i > 0 and x_opt - self.x[_i-1, 0] < self.x[_i, 0] - x_opt):
+                    _i -= 1  # left iteration number is closer to x_opt
+                if self.x[_i, 0] != x_opt:
+                    warnings.warn("\n  Using iteration {0} (index={1}/{2}) instead"
+                                  " of iteration {3} from `x_opt` argument"
+                                  .format(self.x[_i, 0], _i, _m, x_opt))
+                x_opt = self.x[_i, 5:]
+            dat_x = dat.x[:,:]
+            dat_x[:, 5:] -= x_opt
+        elif x_opt is not None:  # x_opt is a vector or an index array to reduce dimension or both
             dat_x = dat.x[:,:]
             try:
                 dat_x[:, 5:] -= x_opt
@@ -1724,7 +1768,12 @@ def plot(name=None, fig=None, abscissa=0, iteridx=None,
     `iteridx`
         iteration indices to plot
     `x_opt`
-        if ``len(x_opt) == dimension``, the difference to `x_opt` is
+        If `isscalar(x_opt)` it is interpreted as iteration number and the
+        difference of ``x`` to the respective iteration is plotted. If it is
+        a negative scalar the respective index rather than the iteration is used.
+        Namely in particular, ``x_opt=0`` subtracts the initial solution ``X0``
+        and ``x_opt=-1`` subtracts the final solution of the data.
+        If ``len(x_opt) == dimension``, the difference to `x_opt` is
         plotted, otherwise the first row of ``x_opt`` are the indices of
         the variables to be plotted and the second row, if present, is used
         to take the difference.
