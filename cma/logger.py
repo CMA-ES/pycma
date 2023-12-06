@@ -345,8 +345,24 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         self.__dict__[self.key_names[i]] = list(
                                 np.loadtxt(fn, comments=['%', '#'], ndmin=2))
                     except:
-                        self.__dict__[self.key_names[i]] = list(
+                        try:
+                            self.__dict__[self.key_names[i]] = list(
                                 np.loadtxt(fn, comments='%'))
+                        except ValueError:  # fit.dat may have different number of columns
+                            with open(fn, 'r') as f_:
+                                lines = f_.readlines()
+                            import ast, collections
+                            data = [[ast.literal_eval(s) for s in line.split()]
+                                    for line in lines if len(line.strip()) and not line.lstrip().startswith(('#', '%'))]
+                            lengths = collections.Counter(len(row) for row in data)
+                            if len(lengths) > 1:
+                                print("rows in {} have different lengths {}, filling in `np.nan`"
+                                      .format(fn, lengths))  # warnings are filtered out
+                                l = max(lengths)
+                                for row in data:
+                                    while len(row) < l:
+                                        row.append(np.nan)
+                            self.__dict__[self.key_names[i]] = data
                 # read dict from <python> tag in first line
                 with open(fn) as file:
                     self.persistent_communication_dict.update(
