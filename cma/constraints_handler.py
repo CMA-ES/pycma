@@ -976,7 +976,7 @@ class AugmentedLagrangian(object):
 
         The formulas to set the coefficients::
 
-            lam = iqr(f) / (sqrt(n) * iqr(g))
+            lam = iqr(f) / (n * iqr(g))
             mu = 2 * iqr(f) / (5 * n * (iqr(g) + iqr(g**2)))
 
         are taken out of thin air and not thoroughly tested. They are
