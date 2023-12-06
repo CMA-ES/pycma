@@ -726,6 +726,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              downsample_to=1e7,
              xsemilog=False,
              xnormalize=False,
+             fshift=0,
              addcols=None,
              load=True,
              message=None):
@@ -751,6 +752,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
             plotted, otherwise the first row of ``x_opt`` are the indices of
             the variables to be plotted and the second row, if present, is used
             to take the difference.
+        `fshift`
+            is added to all displayed fitness values
 
         Return `CMADataLogger` itself.
 
@@ -847,7 +850,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             < 1.4 + 0.5 * addcols):
             self.fighandle.set_figwidth((1 + 0.45 * addcols) * self.fighandle.get_figwidth())
 
-        self.plot_divers(iabscissa, foffset, message=message)
+        self.plot_divers(iabscissa, foffset, fshift=fshift, message=message)
         pyplot.xlabel('')
 
         # Scaling
@@ -888,6 +891,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
              foffset=1e-19, x_opt=None, fontsize=7):
         """
         plot data from a `CMADataLogger` (using the files written by the logger).
+
+        Superseded by `plot`?
 
         Arguments
         ---------
@@ -1249,11 +1254,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_divers(self, iabscissa=0, foffset=1e-19, message=None):
+    def plot_divers(self, iabscissa=0, foffset=1e-19, fshift=0, message=None):
         """plot fitness, sigma, axis ratio...
 
         :param iabscissa: 0 means vs evaluations, 1 means vs iterations
-        :param foffset: added to f-value
+        :param foffset: added to f-value after abs(f) is taken
 
         :See: `plot`
 
@@ -1265,6 +1270,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         if not hasattr(self, 'f'):
             self.load()
+        self.f[:, 5:8] += fshift
+
         dat = self
 
         # correct values which are rather not reasonable
@@ -1416,6 +1423,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
                  int(dat.f[-1, 1]), int(dat.f[-1, 0]), repr(minfit))
             )
              #'.f_recent=' + repr(dat.f[-1, 5]))
+
+        self.f[:, 5:8] -= fshift
 
         # AR and damping of diagonal decoding
         if np.size(dat.sigvec) > 1:  # try to figure out whether we have data
@@ -1749,7 +1758,7 @@ last_figure_number = 324
 def plot(name=None, fig=None, abscissa=0, iteridx=None,
          plot_mean=False,
          foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
-         xsemilog=None, xnormalize=None, addcols=None, **kwargs):
+         xsemilog=None, xnormalize=None, fshift=0, addcols=None, **kwargs):
     """
     plot data from files written by a `CMADataLogger`,
     the call ``cma.plot(name, **argsdict)`` is a shortcut for
@@ -1779,6 +1788,8 @@ def plot(name=None, fig=None, abscissa=0, iteridx=None,
         to take the difference.
     `xsemilog`
         customized semilog plot for x-values
+    `fshift`
+        is added to plotted and shown f-values
 
     Return `None`
 
@@ -1810,7 +1821,7 @@ def plot(name=None, fig=None, abscissa=0, iteridx=None,
         last_figure_number = fig
     return CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
                              x_opt, fontsize, downsample_to, xsemilog, xnormalize,
-                             addcols, **kwargs)
+                             fshift, addcols, **kwargs)
 
 def plot_zip(name=None, filename=None, unique=True):
     """create tar file ``filename [+ ...] + '.tar.gz'`` of folder `name`.
