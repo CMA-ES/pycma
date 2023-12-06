@@ -11,25 +11,12 @@ from __future__ import (absolute_import, division, print_function,
                         )  # unicode_literals, with_statement)
 # from __future__ import collections.MutableMapping
 # does not exist in future, otherwise Python 2.5 would work, since 0.91.01
-from .utilities.python3for2 import range
-
-import os, sys
 
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
 # sort, argsort, random, ones,...
 from numpy import array, dot, isscalar, sum  # sum is not needed
 # from numpy import inf, exp, log, isfinite
-# to access the built-in sum fct:  ``__builtins__.sum`` or ``del sum``
-# removes the imported sum and recovers the shadowed build-in
-try: np.median([1,2,3,2])  # fails currently in pypy, also sigma_vec.scaling
-except AttributeError:
-    def _median(x):
-        x = sorted(x)
-        if len(x) % 2:
-            return x[len(x) // 2]
-        return (x[len(x) // 2 - 1] + x[len(x) // 2]) / 2
-    np.median = _median
 from .transformations import Rotation
 from .utilities import utils
 from .utilities.utils import rglen
@@ -40,19 +27,8 @@ del (division, print_function, absolute_import,
 # $Id: fitness_functions.py 4150 2015-03-20 13:53:36Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' fitness_functions.py
 
-try:
-    from . import bbobbenchmarks
-    BBOB = bbobbenchmarks  # for backwards compatibility
-except ImportError:
-    BBOB = """Call::
-        cma.ff.fetch_bbob_fcts()
-    to download and extract `bbobbenchmarks.py` and thereby setting
-    cma.ff.BBOB to these benchmarks; then, e.g., `F12 = cma.ff.BBOB.F12()`
-    returns an instance of F12 Bent Cigar.
-
-    CAVEAT: in the downloaded `bbobbenchmarks.py` file in L987
-    ``np.negative(idx)`` needs to be replaced by ``~idx``.
-    """
+from . import bbobbenchmarks
+BBOB = bbobbenchmarks  # for backwards compatibility
 from .fitness_transformations import rotate  #, ComposedFunction, Function
 
 def elli(x, cond=1e6):
@@ -80,7 +56,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def BBOB(self):
         return bbobbenchmarks
     try: BBOB.__doc__ = bbobbenchmarks.__doc__
-    except: pass  # in Python 2 __doc__ is readonly
+    except Exception: pass  # in Python 2 __doc__ is readonly
 
     def rot(self, x, fun, rot=1, args=()):
         """returns ``fun(rotation(x), *args)``, ie. `fun` applied to a rotated argument"""
@@ -565,31 +541,11 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         """return sum_i(0 if (1 <= x[i] < 2) else 2**i)**(1/n)"""
         s = sum([0 if 1 <= val < 2 else 2**i for i, val in enumerate(x)])
         return s**(1/len(x)) + (s == 0) * foffset
+    @staticmethod
+    def onemax(x, foffset=1e-2 - 1e-5, optimum=(1, 2)):
+        """return ``sum_i(0 if (1 <= x[i] <= 2) else 1)`` to be minimized"""
+        s = sum_(0 if optimum[0] <= val <= optimum[1] else 1 for val in x)
+        return s + (s == 0) * foffset
 
-    def _fetch_bbob_fcts(self):
-        """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
-
-        Side effects in the current folder: two files are added and folder
-        "._tmp_" is removed.
-        """
-        # fetch http://coco.lri.fr/downloads/download15.02/bbobpproc.tar.gz
-        bbob_version, fname = '15.03', 'bbobpproc.tar.gz'
-        url = 'http://coco.lri.fr/downloads/download'+bbob_version+'/'+fname # 3MB
-        print('downloading %s ...' % url, end=''); sys.stdout.flush()
-        utils.download_file(url)
-        print(' done downloading')
-        print('extracting bbobbenchmarks.py'); sys.stdout.flush()
-        utils.extract_targz(url.split(os.path.sep)[-1],
-                            os.path.join('bbob.v' + bbob_version,
-                                  'python', 'bbobbenchmarks.py'))
-        print('importing bbobbenchmarks.py and setting as BBOB attribute')
-        import bbobbenchmarks
-        self.BBOB = bbobbenchmarks
-        print("BBOB set and ready to go. Example: `f11 = cma.FF.BBOB.F11()`")
-
-    def fetch_bbob_fcts(self):
-        """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
-        """
-        url = "http://coco.gforge.inria.fr/python/bbobbenchmarks.py"
 
 ff = FitnessFunctions()
