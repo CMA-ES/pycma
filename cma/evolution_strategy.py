@@ -198,7 +198,7 @@ from . import interfaces
 from . import transformations
 from . import optimization_tools as ot
 from . import sampler
-from .utilities import utils as _utils
+from .utilities import utils
 from . import constraints_handler as _constraints_handler
 from cma import fitness_models as _fitness_models
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
@@ -422,7 +422,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_const_trace='False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
     CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix,'\
                                         ' True for always',  # TODO 4/ccov_separable?
-    CMA_diagonal_decoding='0  # multiplier for additional diagonal update',
+    CMA_diagonal_decoding='0  # learning rate multiplier for additional diagonal update',
     CMA_eigenmethod='np.linalg.eigh  # or cma.utilities.math.eig or pygsl.eigen.eigenvectors',
     CMA_elitist='False  #v or "initial" or True, elitism likely impairs global search performance',
     CMA_injections_threshold_keep_len='1  #v keep length if Mahalanobis length is below the given relative threshold',
@@ -3155,8 +3155,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         in the current and last iteration.
         """
         vals = list(vals)
-        r0 = _utils.ranks(vals + list(self.fit.fit))
-        r1 = _utils.ranks(vals + list(function_values))
+        r0 = utils.ranks(vals + list(self.fit.fit))
+        r1 = utils.ranks(vals + list(function_values))
         self._recorded_rankings = [r0[:2], r1[:2]]
         return self._recorded_rankings
 

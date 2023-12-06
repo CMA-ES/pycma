@@ -39,7 +39,7 @@ def _fix_lower_xlim_and_clipping():
 def _monotone_abscissa(x, iabscissa=0):
     """make x monotone if ``not iabscissa``.
 
-    Useful to to plot restarted runs where the iteration is reset after
+    Useful to plot restarted runs where the iteration is reset after
     each restart.
 
     TODO: handle same iteration number better, but how?
