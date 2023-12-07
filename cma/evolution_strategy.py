@@ -1801,7 +1801,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.callbackstop = ()
         "    return values of callbacks, used like ``if any(callbackstop)``"
         self.fit = _BlancClass()
-        self.fit.fit = []  # not really necessary
+        self.fit.fit = None  # objective function values sorted
+        self.fit.bndpen = None  # boundary penalty values
+        self.fit.fit_plus_pen = None # obj fct values + bndpen (not sorted)
+        self.fit.idx = None  # sort index from fit_plus_pen
         self.fit.hist = []  # short history of best
         self.fit.histbest = list()  # long history of best
         self.fit.histmedian = list()  # long history of median
@@ -2778,8 +2781,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         fit.bndpen = self.boundary_handler.update(function_values, self)(solutions, self.sent_solutions, self.gp)
         # for testing:
         # fit.bndpen = self.boundary_handler.update(function_values, self)([s.unrepaired for s in solutions])
-        fit.idx = np.argsort(array(fit.bndpen) + array(function_values))
-        fit.fit = array(function_values, copy=False)[fit.idx]
+        fit.fit_plus_pen = np.asarray(fit.bndpen) + function_values
+        fit.idx = np.argsort(fit.fit_plus_pen)
+        fit.fit = sorted(function_values)  # was: array(function_values)[fit.idx] which can falsely trigger tolflatfitness
 
         # update output data TODO: this is obsolete!? However: need communicate current best x-value?
         # old: out['recent_x'] = self.gp.pheno(pop[0])
@@ -2787,7 +2791,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # self.out['recent_f'] = fit.fit[0]
 
         # fitness histories
-        fit.hist.insert(0, fit.fit[0])  # caveat: this may neither be the best nor the best in-bound fitness
+        fit.hist.insert(0, fit.fit[0])  # FIXED caveat: this may neither be the best nor the best in-bound fitness
         fit.median = (fit.fit[len(fit.fit) // 2] if len(fit.fit) % 2
                       else np.mean(fit.fit[len(fit.fit) // 2 - 1: len(fit.fit) // 2 + 1]))
         # if len(self.fit.histbest) < 120+30*N/sp.popsize or  # does not help, as tablet in the beginning is the critical counter-case
