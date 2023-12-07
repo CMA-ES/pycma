@@ -1,6 +1,7 @@
 # pycma &nbsp; &nbsp; &nbsp; &nbsp; 
 [![CircleCI](https://circleci.com/gh/CMA-ES/pycma/tree/master.svg?style=shield)](https://circleci.com/gh/CMA-ES/pycma/tree/master)
 [![Build status](https://ci.appveyor.com/api/projects/status/1rge11pwyt55b26k?svg=true)](https://ci.appveyor.com/project/nikohansen/pycma)
+[![Downloads](https://static.pepy.tech/badge/cma/week)](https://pepy.tech/project/cma)
 [![DOI](https://zenodo.org/badge/68926339.svg)](https://doi.org/10.5281/zenodo.2559634)
 [[BibTeX](https://github.com/CMA-ES/CMA-ES.github.io/blob/master/pycmabibtex.bib)] cite as:
 > Nikolaus Hansen, Youhei Akimoto, and Petr Baudis. CMA-ES/pycma on Github. Zenodo, [DOI:10.5281/zenodo.2559634](https://doi.org/10.5281/zenodo.2559634), February 2019. 
@@ -72,6 +73,26 @@ It may be necessary to replace ``pip`` with ``python -m pip`` and/or prefixing
 either of these with ``sudo``.
 
 ## Version History
+
+* [Release ``3.4.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.4.0)
+  - fix compatibility to `numpy` 2.0 (thanks to [Sait Cakmak](https://github.com/saitcakmak))
+  - improved interface to `noise_handler` argument which accepts `True` as value
+  - improved interface to `ScaleCoordinates`
+  - changed: `'ftarget'` triggers with <= instead of <
+  - various (minor) bug fixes
+  - various (small) improvements of the plots and their usability
+    - display iterations, evaluations and population size and termination
+      criteria in the plots
+    - subtract any recorded x from the plotted x-values by ``x_opt=index``
+  - plots are now versus iteration number instead of evaluations by default
+  - provide legacy `bbobbenchmarks` without downloading
+  - new: `CMADataLogger.zip` allows sharing plotting data more easily by a zip file
+  - new: `tolxstagnation` termination condition for when the incumbent seems stuck
+  - new: collect restart terminations in `cma.evalution_strategy.all_stoppings`
+  - new: `stall_sigma_change_on_divergence_iterations` option to stall
+    `sigma` change when the median fitness is worsening
+  - new: limit active C update for integer variables
+  - new: provide a COCO single function
 
 * [Release ``3.3.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.3.0)
   implements
