@@ -308,7 +308,7 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
         ub = self._ub
         if any(lb >= ub):
             raise ValueError('Lower bounds need to be smaller than upper bounds. They'
-                             ' were not at idx={} where lb={}, ub={}'
+                             ' were not at idx={0} where lb={1}, ub={2}'
                              .format(np.where(lb >= ub)[0], lb, ub))
         # define added values for lower and upper bound
         self._al = np.asarray([min([(ub[i] - lb[i]) / 2, linquad_margin_width(lb[i])])
@@ -739,8 +739,8 @@ class DiagonalDecoding(AdaptiveDecoding):
             """`d` is the parameters dictionary"""
             if not (0 <= d['c1'] < 0.75 and 0 <= d['cmu'] <= 1 and
                     d['c1'] <= d['cc'] <= 1):
-                raise ValueError("On input {},\n"
-                    "the values {}\n"
+                raise ValueError("On input {0},\n"
+                    "the values {1}\n"
                     "do not satisfy\n"
                     "  `0 <= c1 < 0.75 and 0 <= cmu <= 1 and"
                     " c1 <= cc <= 1`".format(str(input_parameters), str(d)))
@@ -821,8 +821,8 @@ class DiagonalDecoding(AdaptiveDecoding):
                         1/0
                     idx2 = facs[idx] > max_z2
                     if any(idx2):
-                        _warnings.warn("clipped exponential update in indices {}\n"
-                                    "from {} to max(|z^2-1| + 1)={}".format(
+                        _warnings.warn("clipped exponential update in indices {0}\n"
+                                    "from {1} to max(|z^2-1| + 1)={2}".format(
                                         np.where(idx)[0][idx2], facs[idx][idx2], max_z2[idx2]))
                         facs[idx][idx2] = max_z2[idx2]
             else:  # previous attempts
@@ -843,7 +843,7 @@ class DiagonalDecoding(AdaptiveDecoding):
                                         (z2_large_pos - 1))
                         if eta > eta_max:
                             facs **= (eta_max / eta)
-                            _warnings.warn("corrected exponential update by {} from {}".format(eta_max/eta, eta))
+                            _warnings.warn("corrected exponential update by {0} from {1}".format(eta_max/eta, eta))
                     elif 1 < 3:
                         raise NotImplementedError("this was never tested")
                         correction = max(log(z2) / log(facs))

@@ -226,7 +226,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except (IOError, OSError):
             print('could not open file ' + fn)
         except Exception as e:
-            warnings.warn("could not save `X0` due to this exception:\n    {}".format(repr(e)))
+            warnings.warn("could not save `X0` due to this exception:\n    {0}".format(repr(e)))
 
         # write headers for output
         fn = self.name_prefix + 'fit.dat'
@@ -359,7 +359,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                     for line in lines if len(line.strip()) and not line.lstrip().startswith(('#', '%'))]
                             lengths = collections.Counter(len(row) for row in data)
                             if len(lengths) > 1:
-                                print("rows in {} have different lengths {}, filling in `np.nan`"
+                                print("rows in {0} have different lengths {1}, filling in `np.nan`"
                                       .format(fn, lengths))  # warnings are filtered out
                                 l = max(lengths)
                                 for row in data:
@@ -683,7 +683,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         def unique_time_stamp(decimals=3):
             "a unique timestamp up to 1/10^decimals seconds"
-            s = '{:.' + str(decimals) + 'f}' + '.' * (decimals == 0)
+            s = '{0:.' + str(decimals) + 'f}' + '.' * (decimals == 0)
             return time.strftime("%Y-%m-%dd%Hh%Mm%Ss") + (
                     s.format(time.time()).split('.')[1])
 
@@ -810,7 +810,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             if not 'stop()' in message:
                 if not message.endswith('\n'):
                     message += '\n'
-                message += "stop()={}".format(self.es.stop())
+                message += "stop()={0}".format(self.es.stop())
             # check whether self.es may be running and we want to negotiate timings
             if not self.es.stop() and self.es.countiter > self.last_skipped_iteration:
                 # print(self.timer_plot.toc, self.relative_allowed_time_for_plotting, self.timer_all.toc)
@@ -1442,7 +1442,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         text(ax[0] + 0.003 * (ax[1] - ax[0]), ax[2] * (ax[3]/ax[2])**0.002,
                     # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
              (message + '\n' if message else '') +
-             'evals/iter={}/{} min($f$)={}'.format(
+             'evals/iter={0}/{1} min($f$)={2}'.format(
                  int(dat.f[-1, 1]), int(dat.f[-1, 0]), repr(minfit))
             )
              #'.f_recent=' + repr(dat.f[-1, 5]))
@@ -1530,9 +1530,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     with open(fn, 'r') as f:
                         x_opt = ast.literal_eval(f.read())
                 except (IOError, OSError):
-                    warnings.warn('could not open file {} to subtract ``X0``'.format(fn))
+                    warnings.warn('could not open file {0} to subtract ``X0``'.format(fn))
                 except Exception as e:
-                    warnings.warn("could not read `X0` due to this exception:\n    {}".format(repr(e)))
+                    warnings.warn("could not read `X0` due to this exception:\n    {0}".format(repr(e)))
             elif x_opt < 0:  # interpret x_opt as index in data
                 x_opt = self.x[x_opt, 5:]
             else:  # interpret x_opt as iteration number

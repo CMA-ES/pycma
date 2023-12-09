@@ -1652,7 +1652,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     if 1 < 3:  # just for catching errors
                         popped.append(i)
                         if i in opts['integer_variables']:
-                            raise ValueError("index {} appeared more than once in `'integer_variables'` option".format(i))
+                            raise ValueError("index {0} appeared more than once in `'integer_variables'` option".format(i))
                     # reduce integer variable indices > i by one
                     for j, idx in enumerate(opts['integer_variables']):
                         if idx > i:
@@ -1660,7 +1660,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if opts['verbose'] >= 0:
                 warnings.warn("Handling integer variables when some variables are fixed."
                             "\n  This code is poorly tested."
-                            "\n  Variables {} are fixed integer variables and discarded"
+                            "\n  Variables {0} are fixed integer variables and discarded"
                             " for integer handling."
                             .format(popped))
         # 1) prepare minstd to be a vector
@@ -1920,8 +1920,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.sigma_vec._init_(self.N)
                 self.sigma_vec.set_i(i, self.sigma_vec.scaling[i] * sb / s)
                 if warn:
-                    warnings.warn("Sampling standard deviation i={} at iteration {}"
-                                  " change by {} to stds[{}]={}"
+                    warnings.warn("Sampling standard deviation i={0} at iteration {1}"
+                                  " change by {2} to stds[{3}]={4}"
                                   .format(i, self.countiter, sb / s, i, self.stds[i]))
 
     def _copy_light(self, sigma=None, inopts=None):
@@ -2759,15 +2759,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if 1 < 3 and (lam > sp.popsize + 2 or lam < sp.popsize - 2 or (
             lam < sp.popsize and lam < 5)):  # see above
             m = "The number of solutions passed to `tell` should"
-            utils.print_warning("{} generally be the same as (or close to) the population size,"
-                                "\n  was: len(solutions)={} != {}=popsize."
+            utils.print_warning("{0} generally be the same as (or close to) the population size,"
+                                "\n  was: len(solutions)={1} != {2}=popsize."
                                 "\n  To suppress this warning execute"
-                                "\nwarnings.filterwarnings('ignore', message='{}.*')"
+                                "\nwarnings.filterwarnings('ignore', message='{3}.*')"
                                 "\n".format(m, len(solutions), sp.popsize, m),
                                 'tell', 'CMAEvolutionStrategy', self.countiter+1)
         if lam < sp.weights.mu:  # rather decrease cmean instead of having mu > lambda//2
             raise ValueError('not enough solutions passed to function tell'
-                             ' (passed solutions={} < mu={})'
+                             ' (passed solutions={0} < mu={1})'
                              .format(lam, sp.weights.mu))
 
         self.countiter += 1  # >= 1 now
@@ -3762,7 +3762,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except AttributeError:
             utils.print_warning('plotting failed, no logger attribute found')
         except:
-            utils.print_warning('plotting failed with: {}'.format(sys.exc_info()),
+            utils.print_warning('plotting failed with: {0}'.format(sys.exc_info()),
                            'plot', 'CMAEvolutionStrategy')
         return self
 
@@ -4902,7 +4902,7 @@ def fmin(objective_function, x0, sigma0,
                         warnings.warn(
                             'Options must have explicit ("process") values in this \n'
                             'usecase. The passed options are likely to lead to an error \n'
-                            'later. Passed options={}'.format(options))
+                            'later. Passed options={0}'.format(options))
                     es.opts.set(options)
                 # ignore further input args and keep original options
             else:  # default case
@@ -5175,7 +5175,7 @@ def fmin_con(objective_function, x0, sigma0,
     ...             options={'termination_callback': lambda es: -1e-8 < sum(es.mean**2) - 1 < 1e-8,
     ...                      'seed':1, 'verbose':-9})
     >>> assert es.best_feasible.f < 1 + 1e-5, es.best_feasible.f
-    >>> ".info attribute dictionary keys: {}".format(sorted(es.best_feasible.info))
+    >>> ".info attribute dictionary keys: {0}".format(sorted(es.best_feasible.info))
     ".info attribute dictionary keys: ['f', 'g', 'g_al', 'x']"
 
     Details: this is a versatile function subject to changes. It is possible to access

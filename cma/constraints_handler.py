@@ -646,7 +646,7 @@ class DequeCDF(_collections.deque):
     >>> d = cma.constraints_handler.DequeCDF(maxlen=22)
     >>> for i in range(5):
     ...     d.append([i])
-    >>> ' '.join(['{:.2}'.format(x) for x in
+    >>> ' '.join(['{0:.2}'.format(x) for x in
     ...                   [d.cdf(0, 0), d.cdf(0, 2), d.cdf(0, 2.1), d.cdf(0, 22.1), d.cdf(0, 4, 2)]])
     '0.1 0.5 0.6 1.0 0.75'
 
@@ -896,7 +896,7 @@ class AugmentedLagrangian(object):
         elif self.algorithm == 2:
             self.set_dufosse2020()
         else:
-            raise ValueError("Algorithm id {} is not recognized".format(self.algorithm))
+            raise ValueError("Algorithm id {0} is not recognized".format(self.algorithm))
     def set_algorithm(self, algorithm=None):
         """if algorithm not `None`, set it and return self,
 
@@ -1219,7 +1219,7 @@ class AugmentedLagrangian(object):
                         self.mu[i] *= self.chi_domega**(-0.25 * (1 -
                             self.count_mu_last_same_changes.update(i, -1).shape_exponent(i)))
                 else:
-                    raise NotImplemented("algorithm number {} is not known".format(self.algorithm))
+                    raise NotImplemented("algorithm number {0} is not known".format(self.algorithm))
             self.count += 1
         assert np.all((self.lam >= 0) + self.isequality)
         self.f, self.g = f, g  # self(g) == 0 if mu=lam=0
@@ -1469,7 +1469,7 @@ class ConstrainedFitnessAL:
         # warn when no feasible solution was found
         if self.best_feas.x is None or self.finding_feasible:
             _warnings.warn("ConstrainedFitnessAL.find_feasible: "
-                           " No {}feasible solution found, stop() == {}".format(
+                           " No {0}feasible solution found, stop() == {1}".format(
                                "new " if self.best_feas.x is not None else "", es.stop()))
         assert self.best_feas.x is not None or self.finding_feasible, (self.best_feas, self.finding_feasible)
         return self.best_feas.x
@@ -1510,7 +1510,7 @@ class ConstrainedFitnessAL:
               When method is not best, it should work without even call self(xfavorite).
         """
         if not len(self.F) == len(self.G) == len(self.F_plus_sum_al_G):
-            _warnings.warn("len(F, G, F_plus_sum_al_G) = ({}, {}, {}) differ."
+            _warnings.warn("len(F, G, F_plus_sum_al_G) = ({0}, {1}, {2}) differ."
                            "This is probably a bug!".format(
                            len(self.F), len(self.G), len(self.F_plus_sum_al_G)))
         if len(self.G) == 0:  # TODO: we could first self(es.result.xfavorite) and should be fine

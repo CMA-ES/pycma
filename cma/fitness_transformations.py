@@ -430,7 +430,7 @@ class ScaleCoordinates(ComposedFunction):
             if upper is not None:
                 raise ValueError('Either `multipliers` or `upper` argument must be None')
             if from_lower_upper not in (None, (0, 1)):
-                warnings.warn("from_lower_upper={} ignored because multipliers={} were given"
+                warnings.warn("from_lower_upper={0} ignored because multipliers={1} were given"
                               .format(from_lower_upper, multipliers))
             self.multiplier = np.asarray(self.multiplier, dtype=float)
             if zero is None and lower is not None:
@@ -450,9 +450,9 @@ class ScaleCoordinates(ComposedFunction):
             if len(idx):
                 raise ValueError('`upper` value(s) must be stricly larger than'
                                     ' `lower` value(s); values were:'
-                                 '\n upper={}'
-                                 '\n lower={}'
-                                 '\n offending indices = {}'
+                                 '\n upper={0}'
+                                 '\n lower={1}'
+                                 '\n offending indices = {2}'
                                  .format(self.upper, self.lower, list(idx)))
             self.lower, self.upper = align(self.lower, self.upper)
 
@@ -462,17 +462,17 @@ class ScaleCoordinates(ComposedFunction):
             zero_from_upper = self.from_lower_upper[1] - self.multiplier**-1 * self.upper
             if not _Mh.vequals_approximately(self.zero, zero_from_upper):
                 warnings.warn('zero computed from upper and lower differ'
-                              '\n from upper={}'
-                              '\n from lower={}'
+                              '\n from upper={0}'
+                              '\n from lower={1}'
                               '\n This may be a bug or due to small numerical deviations'
                               .format(zero_from_upper, self.zero))
         if zero is not None:
             self.zero = np.asarray(zero, dtype=float)
             if lower is not None:
-                warnings.warn("lower={} is ignored because zero={} was given"
+                warnings.warn("lower={0} is ignored because zero={1} was given"
                               .format(lower, zero))
             if upper is not None:
-                warnings.warn("upper={} is ignored because zero={} was given"
+                warnings.warn("upper={0} is ignored because zero={1} was given"
                               .format(upper, zero))
 
     def scale_and_offset(self, x):

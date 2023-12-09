@@ -246,7 +246,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             p = es.path_for_sigma_update(p)  # subspace depending on the state
         except AttributeError:
             if 11 < 3 and len(es.opts['integer_variables']):
-                m = ("Missing ``path_for_sigma_update`` attribute in {}."
+                m = ("Missing ``path_for_sigma_update`` attribute in {0}."
                     "\n This is usually not a problem unless integer mutations are used."
                     "".format(type(es)))
                 _warnings.warn(m)

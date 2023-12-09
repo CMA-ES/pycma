@@ -82,7 +82,7 @@ def moving_average(x, w=7):
     else:  # exponential smoothing
         if w == int(w):
             _warnings.warn("using exponential smoothing with time"
-                           " horizon {}. \nUse `int` type to get the"
+                           " horizon {0}. \nUse `int` type to get the"
                            " rolling average.".format(w))
         v = 1 - 1 / w
         return np.asarray([sum([v**j * x[i-j] for j in range(i + 1)])
@@ -581,7 +581,7 @@ class MathHelperFunctions(object):
         >>> import cma
         >>> hus = cma.utilities.math.Mh.huber2(np.asarray([
         ...     -1, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8, 2]), 0.5)
-        >>> ' '.join(['{:.2}'.format(n) for n in hus])
+        >>> ' '.join(['{0:.2}'.format(n) for n in hus])
         '1.0 0.8 0.6 0.41 0.29 0.25 0.29 0.41 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0'
 
     """

@@ -37,8 +37,8 @@ class GaussSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
         """
         D, B = np.linalg.eigh(H)
         if any(D < 0):
-            warnings.warn("The Hessian has {} negative eigenvalues:\n"
-                          "{}\n"
+            warnings.warn("The Hessian has {0} negative eigenvalues:\n"
+                          "{1}\n"
                           "Hence, no (new) Hessian is set as spectrum reference."
                           "".format(sum(D < 0), D))
             return

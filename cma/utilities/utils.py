@@ -362,7 +362,7 @@ def print_message(msg, method_name=None, class_name=None, iteration=None,
 def format_message(msg, es=None, spaces=6):
     """put line breaks and trailing white spaces"""
     if es:
-        msg = msg + ' [iteration={}]'.format(es.countiter)
+        msg = msg + ' [iteration={0}]'.format(es.countiter)
     j = 0
     s = "\n\n" + spaces * " "
     for i, c in enumerate(msg):
@@ -1030,7 +1030,7 @@ class ShowInFolder:  # was ShowInline
         self.path =  ShowInFolder.folder_prefix + name
         """output folder path"""
         self.type = type
-        self.format_string = "{:04d}."
+        self.format_string = "{0:04d}."
         """filename format string"""
         self.kwargs = kwargs
         """kwargs to ``plt.savefig``"""
@@ -1057,7 +1057,7 @@ class ShowInFolder:  # was ShowInline
             if not os.path.exists(self.path):
                 if self.number != 0:
                     warnings.warn(self.path + " not found"
-                                  " even though number={} (which should ever happen)."
+                                  " even though number={0} (which should ever happen)."
                                   .format(self.number))
                 os.mkdir(self.path)
             if name is None:
@@ -1083,7 +1083,7 @@ class ShowInFolder:  # was ShowInline
             import IPython.display
             return IPython.display.Image(self._last_saved, width=width, **kwargs_show)
         except:
-            print("{} could not be displayed".format(self._last_saved))
+            print("{0} could not be displayed".format(self._last_saved))
 
     def open_path(self):
         os.system('open ' + self.path)
