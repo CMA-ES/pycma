@@ -484,8 +484,12 @@ class DerivedDictBase(abc.MutableMapping):
         # abc.MutableMapping.__init__(self)
         super(DerivedDictBase, self).__init__()
         # super(SolutionDict, self).__init__()  # the same
-        self.data = collections.OrderedDict()
-        self.data.update(collections.OrderedDict(*args, **kwargs))
+        try:
+            self.data = collections.OrderedDict()
+            self.data.update(collections.OrderedDict(*args, **kwargs))
+        except Exception:
+            self.data = dict()
+            self.data.update(dict(*args, **kwargs))
     def __len__(self):
         return len(self.data)
     def __contains__(self, key):
