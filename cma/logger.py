@@ -1409,10 +1409,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 cc[cc < 0] = -1 / cc[cc < 0]
                 return cc
             _x = _monotone_abscissa(dat.corrspec[:, iabscissa], iabscissa)
-            semilogy(_x, c_odds(dat.corrspec[:, 2]), 'c', label='$min (c + 1) / (c - 1)$')
-            semilogy(_x, c_odds(dat.corrspec[:, 5]), 'c', label='$max (c + 1) / (c - 1)$')
-            text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 2]])), '$\\max (c + 1) / (c - 1)$')
-            text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 5]])), '$-{\\min}^{-1} (c + 1)\dots$')
+            semilogy(_x, c_odds(dat.corrspec[:, 2]), 'c', label=r'$\min (c + 1) / (c - 1)$')
+            semilogy(_x, c_odds(dat.corrspec[:, 5]), 'c', label=r'$\max (c + 1) / (c - 1)$')
+            text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 2]])), r'$\max (c + 1) / (c - 1)$')
+            text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 5]])), r'$-{\min}^{-1} (c + 1)\dots$')
         
 
         # title('abs(f) (blue), f-min(f) (cyan), Sigma (green), Axis Ratio (red)')
