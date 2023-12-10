@@ -39,21 +39,27 @@ recommended).
 
 Install
 =======
-To use the module, the folder ``cma`` only needs to be visible in the
-python path, e.g. in the current working directory.
 
-To install the module from pipy, type::
+To install the package from `PyPI`_ with `pip`_, type::
 
     pip install cma
 
 from the command line.
 
-To install the module from a ``cma`` folder::
+To install the package from a ``cma`` folder::
 
     pip install -e cma
 
 To upgrade the currently installed version use additionally the ``-U``
 option.
+
+To use the package `from source`_, only the source folder ``cma`` needs to
+be visible in the python path, e.g. in the current working directory.
+
+
+.. _PyPI: https://pypi.org/project/cma
+.. _pip: https://pip.pypa.io
+.. _from source: https://github.com/CMA-ES/pycma
 
 Testing
 =======
@@ -81,11 +87,11 @@ From a python shell::
     help(cma.CMAOptions)
     cma.CMAOptions('tol')  # display 'tolerance' termination options
     cma.CMAOptions('verb') # display verbosity options
-    res = cma.fmin(cma.ff.tablet, 15 * [1], 1)
+    x, es = cma.fmin2(cma.ff.tablet, 15 * [1], 1)
     es = cma.CMAEvolutionStrategy(15 * [1], 1).optimize(cma.ff.tablet)
     help(es.result)
-    res[0], es.result[0]  # best evaluated solution
-    res[5], es.result[5]  # mean solution, presumably better with noise
+    x, es.result[0]  # best evaluated solution
+    es.result[5]  # mean solution, presumably better with noise
 
 :See also: `fmin` (), `CMAOptions`, `CMAEvolutionStrategy`
 
