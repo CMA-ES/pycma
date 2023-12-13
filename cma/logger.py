@@ -449,7 +449,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
             bestf = es.fit.fit[0]
             worstf = es.fit.fit[-1]
             medianf = es.fit.fit[len(es.fit.fit) // 2]
-            iqrangef = np.diff(_mathutils.Mh.prctile(es.fit.fit, [25, 75], sorted_=True))
+            iqrangef = np.diff(_mathutils.Mh.prctile(
+                es.fit.fit, [25, 75], sorted_=True))[0]
         except:
             if iteration > 0:  # first call without f-values is OK
                 raise
