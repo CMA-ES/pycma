@@ -133,6 +133,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         #            name_prefix = name_prefix.opts.eval('verb_filenameprefix')
         if name_prefix is None:
             name_prefix = CMADataLogger.default_prefix
+        if os.path.isfile(name_prefix) and name_prefix.endswith('.tar.gz'):
+            raise NotImplementedError("sorry, you need to unzip the file manually"
+                                      " and pass the folder name")
         self.name_prefix = os.path.abspath(os.path.join(*os.path.split(name_prefix)))
         if name_prefix is not None and name_prefix.endswith((os.sep, '/')):
             self.name_prefix = self.name_prefix + os.sep
@@ -669,6 +672,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         This function does in essence just ``tar -czf filename.tar.gz folder``
         where ``folder`` defaults to the current plot data folder and
         ``filename`` is created to be unique.
+
+        TODO: we may want to be able to add a time stamp to the folder name
+        too, to prevent conficts later?
         """
         # extract: zipfile.ZipFile(filename, "r").extractall(dirname) ?
         #          tarfile.open(filename, "r").extractall()
