@@ -1952,7 +1952,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         opts = dict(self.inopts)
         if inopts is not None:
             opts.update(inopts)
-        es = type(self)(self.mean[:], sigma, opts)
+        es = type(self)(self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
+                        sigma, opts)
         es.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec.scaling)
         try: es.sm.C = self.sm.C.copy()
         except: warnings.warn("self.sm.C.copy failed")
