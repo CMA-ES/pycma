@@ -1937,14 +1937,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         >>> import cma
         >>> es = cma.CMAEvolutionStrategy(3 * [1], 0.1,
-        ...          {'verbose':-9}).optimize(cma.ff.elli, iterations=10)
+        ...          {'bounds':[0,9], 'verbose':-9}).optimize(cma.ff.elli, iterations=10)
         >>> es2 = es._copy_light()
         >>> assert es2.sigma == es.sigma
         >>> assert sum((es.sm.C - es2.sm.C).flat < 1e-12)
-        >>> es3 = es._copy_light(sigma=10)
-        >>> assert es3.sigma == es3.sigma0 == 10
+        >>> es3 = es._copy_light(sigma=3)
+        >>> assert es3.sigma == es3.sigma0 == 3
+        >>> es.mean[0] = -11
         >>> es4 = es._copy_light(inopts={'CMA_on': False})
         >>> assert es4.sp.c1 == es4.sp.cmu == 0
+        >>> assert es.mean[0] == -11 and es4.mean[0] >= -4.5
 
         """
         if sigma is None:
