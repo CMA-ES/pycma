@@ -1072,8 +1072,8 @@ class _CMAEvolutionStrategyResult(tuple):
             self.best.get() + (  # (x, f, evals) triple
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
-            self.stds))  #
+            self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
+            self.stds))  # 
 
 class CMAEvolutionStrategy(interfaces.OOOptimizer):
     """CMA-ES stochastic optimizer class with ask-and-tell interface.
@@ -3266,7 +3266,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             evals,
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
+            self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
             self.stds,
             self.stop()
         )
@@ -4918,7 +4918,7 @@ def fmin(objective_function, x0, sigma0,
                         or es.opts['CMA_elitist'] == 'initial'
                         or (es.opts['CMA_elitist'] and
                                     eval_initial_x is None)):
-                    x = es.gp.pheno(es.mean,
+                    x = es.gp.pheno(es.mean, copy=True,
                                     into_bounds=es.boundary_handler.repair,
                                     archive=es.sent_solutions)
                     es.f0 = objective_function(x, *args)
@@ -5024,7 +5024,7 @@ def fmin(objective_function, x0, sigma0,
 
             # end while not es.stop
             if opts['eval_final_mean'] and callable(objective_function):
-                mean_pheno = es.gp.pheno(es.mean,
+                mean_pheno = es.gp.pheno(es.mean, copy=True,
                                          into_bounds=es.boundary_handler.repair,
                                          archive=es.sent_solutions)
                 fmean = objective_function(mean_pheno, *args)
