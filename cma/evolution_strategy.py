@@ -2082,8 +2082,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         boundary_repair = self.boundary_handler.repair
                     elif isinstance(self.boundary_handler,
                                     BoundPenalty):
-                        fpenalty = lambda x: self.boundary_handler.__call__(
-                            x, _SolutionDict({tuple(x): {'geno': x}}), self.gp)
+                        def fpenalty(x):
+                            return self.boundary_handler.__call__(
+                                x, _SolutionDict({tuple(x): {'geno': x}}), self.gp)
                         gradpen = grad_numerical_sym(
                             xmean, fpenalty)
                     elif self.boundary_handler is None or \
@@ -2095,10 +2096,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             "unknown boundary handling method" +
                             str(self.boundary_handler) +
                             " when using gradf")
-                    gradgp = grad_numerical_of_coordinate_map(
-                        xmean,
-                        lambda x: self.gp.pheno(x, copy=True,
-                                into_bounds=boundary_repair))
+                    def _gp_for_num_grad(x):
+                        return self.gp.pheno(x, into_bounds=boundary_repair)
+                    gradgp = grad_numerical_of_coordinate_map(xmean, _gp_for_num_grad)
                     grad_at_mean = grad_at_mean * gradgp + gradpen
 
                 # TODO: frozen variables brake the code (e.g. at grad of map)
