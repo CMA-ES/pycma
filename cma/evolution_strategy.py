@@ -3997,7 +3997,7 @@ class _CMAStopDict(dict):
 
         # fitness: generic criterion, user defined w/o default
         self._addstop('ftarget',
-                      es.best.f < opts['ftarget'])
+                      es.best.f <= opts['ftarget'])
         # maxiter, maxfevals: generic criteria
         self._addstop('maxfevals',
                       es.countevals - 1 >= opts['maxfevals'])
