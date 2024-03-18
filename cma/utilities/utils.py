@@ -605,7 +605,11 @@ class DataDict(collections.defaultdict):
     def __init__(self, filename='_data.py'):
         self.filename = filename
         collections.defaultdict.__init__(self, list)
-        self.load()
+        if os.path.exists(self.filename):
+            self.load()
+        else:
+            print('creating file {}'.format(self.filename))
+            self.save()
 
     def load(self):
         """element-wise append/merge data of loaded `dict` to self,
@@ -623,7 +627,7 @@ class DataDict(collections.defaultdict):
     def update(self, dict_):
         """append data of entries in `dict_` to entries in self"""
         for k in dict_:
-            self[k] += dd[k]  # self is a dict of lists
+            self[k] += dict_[k]  # self is a dict of lists
         return self
 
     def save(self):
