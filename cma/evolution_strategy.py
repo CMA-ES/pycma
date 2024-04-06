@@ -418,6 +418,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_active='True  # negative update, conducted after the original update',
 #    CMA_activefac='1  # learning rate multiplier for active update',
     CMA_active_injected='0  #v weight multiplier for negative weights of injected solutions',
+    CMA_active_limit_int_std='inf  # limit coordinate std of solutions in negative covariance matrix update',
     CMA_cmean='1  # learning rate for the mean value',
     CMA_const_trace='False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
     CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix,'\
@@ -2637,6 +2638,39 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         assert len(res) >= number - len(self._indices_of_selective_mirrors)
         return res
 
+    def limit_integer_relative_deltas(self, dX, threshold=None,
+                                      recombination_weight_condition=None):
+        """limit absolute values of int-coordinates in vector list `dX`
+
+         relative to the current sample standard deviations and by default
+         only when the respective recombination weight is negative.
+
+        ``dX == pop_sorted - mold`` where ``pop_sorted`` is a genotype.
+
+        ``threshold=2.3`` by default.
+        
+        A 2.3-sigma threshold affects 2 x 1.1% of the unmodified
+        (nonsorted) normal samples.
+        """
+        if threshold is None:  # TODO: how interpret negative thresholds?
+            threshold = 2.3
+        if not self.opts['integer_variables'] or not np.isfinite(threshold):
+            return dX
+        if recombination_weight_condition is None:
+            def recombination_weight_condition(w):
+                return w < 0
+        elif recombination_weight_condition is True:
+            def recombination_weight_condition(w):
+                return True
+        stds = self.sigma * self.sigma_vec.scaling * np.sqrt(self.sm.variances)
+        for w, dx in zip(self.sp.weights, dX):
+            if recombination_weight_condition(w):
+                for i in self.opts['integer_variables']:
+                    if np.abs(dx[i]) > threshold * stds[i]:  # ==> |dx[i]| > 0
+                        # print('fixing dx={} sigma={}'.format(dx[i], stds[i]))
+                        dx[i] *= threshold * stds[i] / np.abs(dx[i])
+        return dX
+
     # ____________________________________________________________
     def tell(self, solutions, function_values, check_points=None,
              copy=False):
@@ -2988,7 +3022,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             pass  # without CSA we may not need the mean_shift
 
         # covariance matrix adaptation/udpate
-        pop_zero = pop - mold
+        pop_zero = self.limit_integer_relative_deltas(
+                            pop - mold, self.opts['CMA_active_limit_int_std'])
         if c1a + cmu > 0:
             # TODO: make sure cc is 1 / N**0.5 rather than 1 / N
             # TODO: simplify code: split the c1 and cmu update and call self.sm.update twice
