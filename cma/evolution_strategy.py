@@ -461,7 +461,7 @@ def cma_default_options_(  # to get keyword completion back
     eval_final_mean='True  # evaluate the final mean, which is a favorite return candidate',
     fixed_variables='None  # dictionary with index-value pairs like {0:1.1, 2:0.1} that are not optimized',
     ftarget='-inf  #v target function value, minimization',
-    integer_variables='[]  # index list, invokes basic integer handling: prevent std dev to become too small in the given variables',
+    integer_variables='[]  # index list, invokes basic integer handling by setting minstd of integer variables, but only if it was zero (default)',
     is_feasible='is_feasible  #v a function that computes feasibility, by default lambda x, f: f not in (None, np.nan)',
     maxfevals='inf  #v maximum number of function evaluations',
     maxiter='100 + 150 * (N+3)**2 // popsize**0.5  #v maximum number of iterations',
@@ -1640,7 +1640,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     "Use class `cma.integer.CMAIntMixed` or function "
                     "`cma.integer.fmin_int` instead.")
                 warnings.warn(s, category=DeprecationWarning)  # TODO: doesn't show up
-            except ImportError: pass
+            except ImportError:
+                pass
+            opts['integer_variables'] = list(opts['integer_variables'])
 
         # iiinteger handling, currently very basic:
         # CAVEAT: integer indices may give unexpected results if fixed_variables is used
@@ -1660,7 +1662,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             opts['integer_variables'][j] -= 1
             if opts['verbose'] >= 0:
                 warnings.warn("Handling integer variables when some variables are fixed."
-                            "\n  This code is poorly tested."
+                            "\n  This code is poorly tested and fails for negative indices."
                             "\n  Variables {0} are fixed integer variables and discarded"
                             " for integer handling."
                             .format(popped))
@@ -1671,13 +1673,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # 2) set minstd to 1 / (2 Nint + 1),
         #    the setting 2 / (2 Nint + 1) already prevents convergence
         for i in opts['integer_variables']:
-            if -N <= i < N:
-                opts['minstd'][i] = max((opts['minstd'][i],
-                    1 / (2 * len(opts['integer_variables']) + 1)))
+            if -N <= i < N:  # when i < 0, the index computes to N + i
+                if opts['minstd'][i] == 0:  # negative values prevent setting minstd
+                    # opts['minstd'][i] = 1 / (2 * len(opts['integer_variables']) + 1)
+                    opts['minstd'][i] = min((0.2, self.sp.weights.mueff / N))
             else:
                 utils.print_warning(
-                    """integer index %d not in range of dimension %d""" %
+                    """dropping integer index %d as it is not in range of dimension %d""" %
                         (i, N))
+                opts['integer_variables'].pop(opts['integer_variables'].index(i))
 
         # initialization of state variables
         self.countiter = 0
@@ -3133,6 +3137,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self._stds_into_limits()
 
+        # setting limits not coordinate wise works quite badly, fixed in late 2022
         if 11 < 3:  # old min/maxstd code
             if any(self.sigma * self.sigma_vec.scaling * self.dC**0.5 <
                         np.asarray(self.opts['minstd'])):
