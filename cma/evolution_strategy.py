@@ -1680,6 +1680,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # initialization of state variables
         self.countiter = 0
+        self._isotropic_mean_shift_iteration = -1
         self.countevals = max((0, opts['verb_append'])) \
             if not isinstance(opts['verb_append'], bool) else 0
         self.pc = np.zeros(N)
@@ -2981,6 +2982,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     (cc2 * (2 - cc2) * self.sp.weights.mueff)**0.5 / self.sigma
                         / cmean) * (self.mean - mold)
 
+        try:
+            self.isotropic_mean_shift  # compute before sigma_vec or C are updated
+        except AttributeError:
+            pass  # without CSA we may not need the mean_shift
+
         # covariance matrix adaptation/udpate
         pop_zero = pop - mold
         if c1a + cmu > 0:
@@ -3684,15 +3690,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         infinity for mueff -> infty. Hence it must be used with great
         care for large mueff.
         """
-        z = self.sm.transform_inverse((self.mean - self.mean_old) /
-                                      self.sigma_vec.scaling)
-        # TODO:
-        # works unless a re-parametrisation has been done, and otherwise?
-        # assert Mh.vequals_approximately(z, np.dot(es.B, (1. / es.D) *
-        #         np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec)))
-        z /= self.sigma * self.sp.cmean
-        z *= self.sp.weights.mueff**0.5
-        return z
+        if self._isotropic_mean_shift_iteration != self.countiter:
+            self._isotropic_mean_shift = self.sm.transform_inverse(
+                    (self.mean - self.mean_old) / self.sigma_vec.scaling)
+            self._isotropic_mean_shift *= (self.sp.weights.mueff**0.5 / self.sigma
+                                           / self.sp.cmean)
+            self._isotropic_mean_shift_iteration = self.countiter
+            # TODO:
+            # works unless a re-parametrisation has been done, and otherwise also?
+            # assert Mh.vequals_approximately(self._isotropic_mean_shift,
+            #         np.dot(es.B, (1. / es.D) *
+            #         np.dot(es.B.T, (es.mean - es.mean_old) / es.sigma_vec)))
+        return self._isotropic_mean_shift
 
     def disp_annotation(self):
         """print annotation line for `disp` ()"""
