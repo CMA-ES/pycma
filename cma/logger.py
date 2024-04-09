@@ -895,7 +895,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         subplot(2, 2 + addcols, 2)
         if plot_mean:
-            self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
+            self.plot_mean(iabscissa, x_opt, xsemilog=False if plot_mean=='linear' else xsemilog, xnormalize=xnormalize)
         else:
             self.plot_xrecent(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         pyplot.xlabel('')
