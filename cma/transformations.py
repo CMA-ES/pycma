@@ -1029,7 +1029,7 @@ class GenoPheno(object):
         input_type = type(x)
         if into_bounds is None:
             into_bounds = (lambda x, copy=False:
-                                x if not copy else np.asarray(x, copy=copy))
+                                x if not copy else array(x, copy=True))
         if self.isidentity:
             y = into_bounds(x) # was into_bounds(x, False) before (bug before v0.96.22)
         else:
