@@ -39,7 +39,7 @@ class ConstRandnShift(object):
                 shift = np.random.randn(len(x))
                 np.random.set_state(rstate)
             x_opt = self._xopt.setdefault(len(x), self.stddev * shift)
-        return array(x, copy=False) - x_opt
+        return np.asarray(x) - x_opt
     def get(self, dimension):
         """return shift applied to ``zeros(dimension)``
 
@@ -64,7 +64,7 @@ class Rotation(object):
     >>> R = cma.transformations.Rotation()
     >>> R2 = cma.transformations.Rotation() # another rotation
     >>> x = np.array((1,2,3))
-    >>> list(np.round(R(R(x), inverse=1), 9))
+    >>> np.round(R(R(x), inverse=1), 9).tolist()
     [1.0, 2.0, 3.0]
 
     :See also: `Rotated`
@@ -80,7 +80,7 @@ class Rotation(object):
         """Rotates the input array `x` with a fixed rotation matrix
            (``self.dicMatrices[len(x)]``)
         """
-        x = np.array(x, copy=False)
+        x = np.asarray(x)
         N = x.shape[0]  # can be an array or matrix, TODO: accept also a list of arrays?
         if N not in self.dicMatrices:  # create new N-basis once and for all
             rstate = np.random.get_state()
@@ -218,7 +218,7 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
 
     In contrast to ``sin(.)``, the transformation is robust to
     "arbitrary" large values for boundaries, e.g. a lower bound of
-    ``-1e99`` or upper bound of ``np.Inf`` or bound ``None``.
+    ``-1e99`` or upper bound of ``np.inf`` or bound ``None``.
 
     Examples
     ========
@@ -257,10 +257,10 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     [[1, 2], [1, 11], [1, 11]]
     >>> tf([1.5, 1.5, 1.5])
     [1.5, 1.5, 1.5]
-    >>> list(np.round(tf([1.52, -2.2, -0.2, 2, 4, 10.4]), 9))
+    >>> np.round(tf([1.52, -2.2, -0.2, 2, 4, 10.4]), 9).tolist()
     [1.52, 4.0, 2.0, 2.0, 4.0, 10.4]
     >>> res = np.round(tf._au, 2)
-    >>> assert list(res[:4]) == [ 0.15, 0.6, 0.6, 0.6], list(res[:4])
+    >>> assert res[:4].tolist() == [ 0.15, 0.6, 0.6, 0.6], res[:4].tolist()
     >>> res = [round(x, 2) for x in tf.shift_or_mirror_into_invertible_domain([1.52, -12.2, -0.2, 2, 4, 10.4])]
     >>> assert res == [1.52, 9.2, 2.0, 2.0, 4.0, 10.4], res
     >>> tmp = tf([1])  # call with lower dimension
@@ -271,7 +271,7 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
     [[1, 2], [1, 11], [1, 11]]
     >>> tf([1.5, 1.5, 1.5])
     [1.5, 1.5, 1.5]
-    >>> list(np.round(tf([1.52, -2.2, -0.2, 2, 4, 10.4]), 9))
+    >>> np.round(tf([1.52, -2.2, -0.2, 2, 4, 10.4]), 9).tolist()
     [1.52, 4.1, 2.1, 2.0, 4.0, 10.4]
     >>> res = np.round(tf._au, 2)
     >>> assert list(res[:4]) == [ 0.1, 0.55, 0.55, 0.55], list(res[:4])
@@ -296,14 +296,14 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
         if length is None:
             length = len(self.bounds)
         max_i = min((len(self.bounds) - 1, length - 1))
-        self._lb = array([self.bounds[min((i, max_i))][0]
+        self._lb = np.asarray([self.bounds[min((i, max_i))][0]
                           if self.bounds[min((i, max_i))][0] is not None
-                          else -np.Inf
-                          for i in range(length)], copy=False)
-        self._ub = array([self.bounds[min((i, max_i))][1]
+                          else -np.inf
+                          for i in range(length)])
+        self._ub = np.asarray([self.bounds[min((i, max_i))][1]
                           if self.bounds[min((i, max_i))][1] is not None
-                          else np.Inf
-                          for i in range(length)], copy=False)
+                          else np.inf
+                          for i in range(length)])
         lb = self._lb
         ub = self._ub
         if any(lb >= ub):
@@ -311,10 +311,10 @@ class BoxConstraintsLinQuadTransformation(BoxConstraintsTransformationBase):
                              ' were not at idx={} where lb={}, ub={}'
                              .format(np.where(lb >= ub)[0], lb, ub))
         # define added values for lower and upper bound
-        self._al = array([min([(ub[i] - lb[i]) / 2, linquad_margin_width(lb[i])])
-                             if isfinite(lb[i]) else 1 for i in rglen(lb)], copy=False)
-        self._au = array([min([(ub[i] - lb[i]) / 2, linquad_margin_width(ub[i])])
-                             if isfinite(ub[i]) else 1 for i in rglen(ub)], copy=False)
+        self._al = np.asarray([min([(ub[i] - lb[i]) / 2, linquad_margin_width(lb[i])])
+                             if isfinite(lb[i]) else 1 for i in rglen(lb)])
+        self._au = np.asarray([min([(ub[i] - lb[i]) / 2, linquad_margin_width(ub[i])])
+                             if isfinite(ub[i]) else 1 for i in rglen(ub)])
 
     def __call__(self, solution_genotype, copy=True):
         # about four times faster version of array([self._transform_i(x, i) for i, x in enumerate(solution_genotype)])
@@ -737,7 +737,7 @@ class DiagonalDecoding(AdaptiveDecoding):
         self._parameters[input_parameters] = {'c1': c1, 'cmu': cmu, 'cc': cc}
         def check_values(d, input_parameters=None):
             """`d` is the parameters dictionary"""
-            if not (0 <= d['c1'] < 0.75 and 0 <= d['cmu'] <= 1 and 
+            if not (0 <= d['c1'] < 0.75 and 0 <= d['cmu'] <= 1 and
                     d['c1'] <= d['cc'] <= 1):
                 raise ValueError("On input {},\n"
                     "the values {}\n"
@@ -746,7 +746,7 @@ class DiagonalDecoding(AdaptiveDecoding):
                     " c1 <= cc <= 1`".format(str(input_parameters), str(d)))
         check_values(self._parameters[input_parameters], input_parameters)
         return self._parameters[input_parameters]
-        
+
     def _init_(self, int_or_vector):
         """init scaling (only) when not yet done"""
         if not self.is_identity or not np.size(self.scaling) == 1:
@@ -805,7 +805,7 @@ class DiagonalDecoding(AdaptiveDecoding):
 
         # z2=0, w=-1, d=log(2) => exp(d w (0 - 1)) = 2 = 1 + w (0 - 1)
         # z2=2, w=1, d=log(2) => exp(d w (2 - 1)) = 2 = 1 + w (2 - 1)
-        
+
         if 1 < 3:  # bound increment to observed value
             if 1 < 3:
                 idx = facs > 1
@@ -1029,7 +1029,7 @@ class GenoPheno(object):
         input_type = type(x)
         if into_bounds is None:
             into_bounds = (lambda x, copy=False:
-                                x if not copy else array(x, copy=copy))
+                                x if not copy else np.asarray(x, copy=copy))
         if self.isidentity:
             y = into_bounds(x) # was into_bounds(x, False) before (bug before v0.96.22)
         else:
@@ -1039,7 +1039,7 @@ class GenoPheno(object):
                 y = list(x)  # is a copy
                 for i in sorted(self.fixed_values.keys()):
                     y.insert(i, self.fixed_values[i])
-                y = array(y, copy=False)
+                y = np.asarray(y)
             copy = False
 
             if not is_one(self.scales):  # just for efficiency
@@ -1049,7 +1049,7 @@ class GenoPheno(object):
                 y += self.typical_x
 
             if self.tf_pheno is not None:
-                y = array(self.tf_pheno(y), copy=False)
+                y = np.asarray(self.tf_pheno(y))
 
             y = into_bounds(y, copy)  # copy is False
 
@@ -1058,7 +1058,7 @@ class GenoPheno(object):
                     y[i] = k
 
         if input_type is np.ndarray:
-            y = array(y, copy=False)
+            y = np.asarray(y)
         if archive is not None:
             archive.insert(y, geno=x, iteration=iteration)
         return y
@@ -1140,6 +1140,5 @@ class GenoPheno(object):
         # repair injected solutions
         x = repair_and_flag_change(self, repair, x, copy)
         if input_type is np.ndarray:
-            x = array(x, copy=False)
+            x = np.asarray(x)
         return x
-

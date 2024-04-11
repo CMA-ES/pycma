@@ -189,9 +189,9 @@ class EvalParallel2(object):
     """A class and context manager for parallel evaluations.
 
     This class is based on the ``Pool`` class of the `multiprocessing` module.
-    
+
     The interface in v2 changed, such that the fitness function can be
-    given once in the constructor. Hence the number of processes has 
+    given once in the constructor. Hence the number of processes has
     become the second (optional) argument of `__init__` and the function
     has become the second and optional argument of `__call__`.
 
@@ -226,7 +226,7 @@ class EvalParallel2(object):
     >>> # class usage, don't forget to call terminate
     >>> ep = EvalParallel2(cma.fitness_functions.elli, 4)
     >>> ep([[1,2], [3,4], [4, 5]])  # doctest:+ELLIPSIS
-    [4000000.944...
+    [np.float64(4000000.944...
     >>> ep.terminate()
     ...
     >>> # use with `with` statement (context manager)
@@ -793,17 +793,17 @@ class NoiseHandler(object):
         if choice == 1:
             # take n_first first and reev - n_first best of the remaining
             n_first = lam_reev - lam_reev // 2
-            sort_idx = np.argsort(np.array(fit, copy=False)[n_first:]) + n_first
-            return np.array(list(range(0, n_first)) +
-                            list(sort_idx[0:lam_reev - n_first]), copy=False)
+            sort_idx = np.argsort(np.asarray(fit)[n_first:]) + n_first
+            return np.asarray(list(range(0, n_first)) +
+                            list(sort_idx[0:lam_reev - n_first]))
         elif choice == 2:
-            idx_sorted = np.argsort(np.array(fit, copy=False))
+            idx_sorted = np.argsort(np.asarray(fit))
             # take lam_reev equally spaced, starting with best
             linsp = np.linspace(0, len(fit) - len(fit) / lam_reev, lam_reev)
             return idx_sorted[[int(i) for i in linsp]]
         # take the ``lam_reeval`` best from the first ``2 * lam_reeval + 2`` values.
         elif choice == 3:
-            return np.argsort(np.array(fit, copy=False)[:2 * (lam_reev + 1)])[:lam_reev]
+            return np.argsort(np.asarray(fit)[:2 * (lam_reev + 1)])[:lam_reev]
         else:
             raise ValueError('unrecognized choice value %d for noise reev'
                              % choice)
@@ -999,4 +999,3 @@ class Sections(object):
         s = pickle.load(open(name + '.pkl', 'rb'))
         self.res = s.res  # disregard the class
         return self
-

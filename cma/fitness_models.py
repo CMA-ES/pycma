@@ -472,10 +472,10 @@ class LQModel(object):
     >>> # fm.Logger = Logger
 
     For results see:
-    
+
     Hansen (2019). A Global Surrogate Model for CMA-ES. In Genetic and Evolutionary
     Computation Conference (GECCO 2019), Proceedings, ACM.
-    
+
     lq-CMA-ES at http://lq-cma.gforge.inria.fr/ppdata-archives/pap-gecco2019/figure5/
 
     """
@@ -810,14 +810,14 @@ class LQModel(object):
             # let _hash be idempotent: _hash = _hash o _hash
             return x
         elif isinstance(x, np.ndarray):
-            try: 
+            try:
                 return hash(x.tobytes())  # fails with numpy < 1.9
             except AttributeError:
                 return hash(bytes(x))  # hash(tuple(x)) would be faster when x.size < 1e4
         else:
             try:
                 return hash(x)
-            except TypeError: 
+            except TypeError:
                 # Data type must be immutable, transform into tuple first
                 return hash(tuple(x))
 
@@ -942,4 +942,3 @@ class LQModel(object):
     def eigenvalues(self):
         """eigenvalues of the Hessian of the model"""
         return sorted(np.linalg.eigvals(self.hessian))
-

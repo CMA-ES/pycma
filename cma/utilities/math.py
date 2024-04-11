@@ -106,7 +106,7 @@ def Hessian(f, x0, eps=1e-6):
 
 def geometric_sd(vals, **kwargs):
     """return geometric standard deviation of `vals`.
-    
+
     The gsd is invariant under linear scaling and independent
     of the choice of the log-exp base.
 
@@ -493,7 +493,7 @@ class MathHelperFunctions(object):
         if len(idx):
             a[idx], b[idx] = -1 * a[idx], -1 * b[idx]
         return (np.all(a - eps < b) and np.all(b < a + eps)
-                ) or (np.all((1 - eps) * a < b) and np.all(b < (1 + eps) * a))
+                ).item() or (np.all((1 - eps) * a < b) and np.all(b < (1 + eps) * a)).item()
     @staticmethod
     def expms(A, eig=np.linalg.eigh):
         """matrix exponential for a symmetric matrix"""

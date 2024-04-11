@@ -146,7 +146,7 @@ class ComposedFunction(Function, list):
 
     - The parallelizing call with a list of solutions of the `Function`
       class is not inherited. The inheritence from `Function` is rather
-      declarative than funtional and could be omitted. 
+      declarative than funtional and could be omitted.
 
     """
     def __init__(self, list_of_functions, list_of_inverses=None):
@@ -352,14 +352,14 @@ class ScaleCoordinates(ComposedFunction):
     >>> import numpy as np
     >>> import cma
     >>> fun = cma.ScaleCoordinates(cma.ff.sphere, upper=[30, 1])
-    >>> fun([1, 1]) == 30**2 + 1**2
+    >>> fun([1, 1]).item() == 30**2 + 1**2
     True
-    >>> list(fun.transform([1, 1])), list(fun.transform([0.2, 0.2]))
+    >>> fun.transform([1, 1]).tolist(), fun.transform([0.2, 0.2]).tolist()
     ([30.0, 1.0], [6.0, 0.2])
-    >>> list(fun.inverse(fun.transform([0.1, 0.3])))
+    >>> fun.inverse(fun.transform([0.1, 0.3])).tolist()
     [0.1, 0.3]
     >>> fun = cma.ScaleCoordinates(cma.ff.sphere, upper=[31, 3], lower=[1, 2])
-    >>> -1e-9 < fun([1, -1]) - (31**2 + 1**2) < 1e-9
+    >>> -1e-9 < fun([1, -1]).item() - (31**2 + 1**2) < 1e-9
     True
     >>> f = cma.ScaleCoordinates(cma.ff.sphere, [100, 1])
     >>> assert f[0] == cma.ff.sphere  # first element of f-composition
@@ -369,7 +369,7 @@ class ScaleCoordinates(ComposedFunction):
     >>> assert np.all(f.inverse(f.scale_and_offset([1, 2, 3, 4])) ==
     ...               np.asarray([1, 2, 3, 4]))
     >>> f = cma.ScaleCoordinates(f, [-2, 7], [2, 3, 4]) # last is recycled
-    >>> f([5, 6]) == sum(x**2 for x in [100 * -2 * (5 - 2), 7 * (6 - 3)])
+    >>> f([5, 6]).item() == sum(x**2 for x in [100 * -2 * (5 - 2), 7 * (6 - 3)])
     True
 
     See also these [Practical Hints](https://cma-es.github.io/cmaes_sourcecode_page.html#practical)
@@ -593,7 +593,7 @@ class SomeNaNFitness(Function):
     def __call__(self, x, *args):
         Function.__call__(self, x, *args)
         if np.random.rand(1) <= self.p:
-            return np.NaN
+            return np.nan
         else:
             return self.fitness_function(x, *args)
 
@@ -639,8 +639,8 @@ class IntegerMixedFunction(ComposedFunction):
     ``1 / (2 * len(integer_variable_indices) + 1)``, in which case in
     an independent model at least 33% (1 integer variable) -> 39% (many
     integer variables) of the solutions should have an integer mutation
-    on average. Option ``integer_variables`` of `cma.CMAOptions` 
-    implements this simple measure. 
+    on average. Option ``integer_variables`` of `cma.CMAOptions`
+    implements this simple measure.
     """
     def __init__(self, function, integer_variable_indices, operator=np.floor, copy_arg=True):
         """apply operator(x[i]) for i in integer_variable_indices before to call function(x)"""

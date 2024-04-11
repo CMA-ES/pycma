@@ -150,15 +150,15 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         if es.opts['CSA_clip_length_value'] is not None:
             try:
                 if len(es.opts['CSA_clip_length_value']) == 0:
-                    es.opts['CSA_clip_length_value'] = [-np.Inf, np.Inf]
+                    es.opts['CSA_clip_length_value'] = [-np.inf, np.inf]
                 elif len(es.opts['CSA_clip_length_value']) == 1:
-                    es.opts['CSA_clip_length_value'] = [-np.Inf, es.opts['CSA_clip_length_value'][0]]
+                    es.opts['CSA_clip_length_value'] = [-np.inf, es.opts['CSA_clip_length_value'][0]]
                 elif len(es.opts['CSA_clip_length_value']) == 2:
                     es.opts['CSA_clip_length_value'] = np.sort(es.opts['CSA_clip_length_value'])
                 else:
                     raise ValueError('option CSA_clip_length_value should be a number of len(.) in [1,2]')
             except TypeError:  # len(...) failed
-                es.opts['CSA_clip_length_value'] = [-np.Inf, es.opts['CSA_clip_length_value']]
+                es.opts['CSA_clip_length_value'] = [-np.inf, es.opts['CSA_clip_length_value']]
             es.opts['CSA_clip_length_value'] = list(np.sort(es.opts['CSA_clip_length_value']))
             if es.opts['CSA_clip_length_value'][0] > 0 or es.opts['CSA_clip_length_value'][1] < 0:
                 raise ValueError('option CSA_clip_length_value must be a single positive or a negative and a positive number')
@@ -495,4 +495,3 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
                                         ' (sigma=%f)' % es.sigma,
                                         'check_consistency', 'CMAAdaptSigmaTPA',
                                         es.countiter)
-

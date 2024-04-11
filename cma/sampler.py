@@ -883,4 +883,3 @@ class GaussDiagonalSampler(GaussSampler):
         `d` is the Euclidean distance, because C = I.
         """
         return sum(np.asarray(x)**2 / self.C)**0.5
-
