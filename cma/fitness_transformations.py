@@ -352,14 +352,14 @@ class ScaleCoordinates(ComposedFunction):
     >>> import numpy as np
     >>> import cma
     >>> fun = cma.ScaleCoordinates(cma.ff.sphere, upper=[30, 1])
-    >>> fun([1, 1]).item() == 30**2 + 1**2
+    >>> bool(fun([1, 1]) == 30**2 + 1**2)
     True
     >>> fun.transform([1, 1]).tolist(), fun.transform([0.2, 0.2]).tolist()
     ([30.0, 1.0], [6.0, 0.2])
     >>> fun.inverse(fun.transform([0.1, 0.3])).tolist()
     [0.1, 0.3]
     >>> fun = cma.ScaleCoordinates(cma.ff.sphere, upper=[31, 3], lower=[1, 2])
-    >>> -1e-9 < fun([1, -1]).item() - (31**2 + 1**2) < 1e-9
+    >>> bool(-1e-9 < fun([1, -1]) - (31**2 + 1**2) < 1e-9)
     True
     >>> f = cma.ScaleCoordinates(cma.ff.sphere, [100, 1])
     >>> assert f[0] == cma.ff.sphere  # first element of f-composition
@@ -369,7 +369,7 @@ class ScaleCoordinates(ComposedFunction):
     >>> assert np.all(f.inverse(f.scale_and_offset([1, 2, 3, 4])) ==
     ...               np.asarray([1, 2, 3, 4]))
     >>> f = cma.ScaleCoordinates(f, [-2, 7], [2, 3, 4]) # last is recycled
-    >>> f([5, 6]).item() == sum(x**2 for x in [100 * -2 * (5 - 2), 7 * (6 - 3)])
+    >>> bool(f([5, 6]) == sum(x**2 for x in [100 * -2 * (5 - 2), 7 * (6 - 3)]))
     True
 
     See also these [Practical Hints](https://cma-es.github.io/cmaes_sourcecode_page.html#practical)

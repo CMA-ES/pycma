@@ -492,8 +492,8 @@ class MathHelperFunctions(object):
         idx = np.nonzero(a < 0)[0]  # find
         if len(idx):
             a[idx], b[idx] = -1 * a[idx], -1 * b[idx]
-        return (np.all(a - eps < b) and np.all(b < a + eps)
-                ).item() or (np.all((1 - eps) * a < b) and np.all(b < (1 + eps) * a)).item()
+        return bool((np.all(a - eps < b) and np.all(b < a + eps))  # avoid np.bool_
+                    or (np.all((1 - eps) * a < b) and np.all(b < (1 + eps) * a)))
     @staticmethod
     def expms(A, eig=np.linalg.eigh):
         """matrix exponential for a symmetric matrix"""

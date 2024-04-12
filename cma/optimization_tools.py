@@ -225,7 +225,7 @@ class EvalParallel2(object):
     ...         res = eval_all([[1,2], [3,4]])
     >>> # class usage, don't forget to call terminate
     >>> ep = EvalParallel2(cma.fitness_functions.elli, 4)
-    >>> [v.item() if isinstance(v, np.float64) else v for v in ep([[1,2], [3,4], [4, 5]])]  # doctest:+ELLIPSIS
+    >>> [float(v) for v in ep([[1,2], [3,4], [4, 5]])]  # doctest:+ELLIPSIS
     [4000000.944...
     >>> ep.terminate()
     ...
