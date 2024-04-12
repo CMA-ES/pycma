@@ -32,9 +32,9 @@ in particular `CMAOptions`, `CMAEvolutionStrategy`, and `fmin2`
 # TODO: keep best ten solutions
 # TODO: implement constraints handling
 # TODO: eigh(): thorough testing would not hurt
-# TODO: (partly done) apply style guide 
-# WON'T FIX ANYTIME SOON (done within fmin): implement bipop in a separate 
-#       algorithm as meta portfolio algorithm of IPOP and a local restart 
+# TODO: (partly done) apply style guide
+# WON'T FIX ANYTIME SOON (done within fmin): implement bipop in a separate
+#       algorithm as meta portfolio algorithm of IPOP and a local restart
 #       option to be implemented
 #       in fmin (e.g. option restart_mode in [IPOP, local])
 # DONE: extend function unitdoctest, or use unittest?
@@ -264,7 +264,7 @@ class MetaParameters(object):
         self.cc_multiplier = 1.0  ## [~0.01, ~20] l
         self.cs_multiplier = 1.0 ## [~0.01, ~10] l  # learning rate for cs
         self.CSA_dampfac = 1.0  ## [~0.01, ~10]
-        self.CMA_dampsvec_fac = None  ## [~0.01, ~100]  # def=np.Inf or 0.5, not clear whether this is a log parameter
+        self.CMA_dampsvec_fac = None  ## [~0.01, ~100]  # def=np.inf or 0.5, not clear whether this is a log parameter
         self.CMA_dampsvec_fade = 0.1  ## [0, ~2]
 
         # exponents for learning rates
@@ -438,7 +438,7 @@ def cma_default_options_(  # to get keyword completion back
     CMA_rankmu='1.0  # multiplier for rank-mu update learning rate of covariance matrix',
     CMA_rankone='1.0  # multiplier for rank-one update learning rate of covariance matrix',
     CMA_recombination_weights='None  # a list, see class RecombinationWeights, overwrites CMA_mu and popsize options',
-    CMA_dampsvec_fac='np.Inf  # tentative and subject to changes, 0.5 would be a "default" damping for sigma vector update',
+    CMA_dampsvec_fac='np.inf  # tentative and subject to changes, 0.5 would be a "default" damping for sigma vector update',
     CMA_dampsvec_fade='0.1  # tentative fading out parameter for sigma vector update',
     CMA_teststds='None  # factors for non-isotropic initial distr. of C, mainly for test purpose, see CMA_stds for production',
     CMA_stds='None  # multipliers for sigma0 in each coordinate (not represented in C), or use `cma.ScaleCoordinates` instead',
@@ -461,7 +461,7 @@ def cma_default_options_(  # to get keyword completion back
     fixed_variables='None  # dictionary with index-value pairs like {0:1.1, 2:0.1} that are not optimized',
     ftarget='-inf  #v target function value, minimization',
     integer_variables='[]  # index list, invokes basic integer handling: prevent std dev to become too small in the given variables',
-    is_feasible='is_feasible  #v a function that computes feasibility, by default lambda x, f: f not in (None, np.NaN)',
+    is_feasible='is_feasible  #v a function that computes feasibility, by default lambda x, f: f not in (None, np.nan)',
     maxfevals='inf  #v maximum number of function evaluations',
     maxiter='100 + 150 * (N+3)**2 // popsize**0.5  #v maximum number of iterations',
     mean_shift_line_samples='False #v sample two new solutions colinear to previous mean shift',
@@ -543,7 +543,7 @@ def safe_str(s):
     return purecma.safe_str(s.split('#')[0],
                             dict([k, k] for k in
                                  ['True', 'False', 'None',
-                                 'N', 'dim', 'popsize', 'int', 'np.Inf', 'inf',
+                                 'N', 'dim', 'popsize', 'int', 'np.inf', 'inf',
                                  'np.log', 'np.random.randn', 'time',
                                  # 'cma_signals.in', 'outcmaes/',
                                  'BoundTransform', 'is_feasible', 'np.linalg.eigh',
@@ -629,7 +629,7 @@ class CMAOptions(dict):
         to date.
 
         The string ' #v ' in the default value indicates a versatile
-        option that can be changed any time, however a string will not 
+        option that can be changed any time, however a string will not
         necessarily be evaluated again.
 
         """
@@ -1073,7 +1073,7 @@ class _CMAEvolutionStrategyResult(tuple):
             self.countevals,
             self.countiter,
             self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair),
-            self.stds))  # 
+            self.stds))  #
 
 class CMAEvolutionStrategy(interfaces.OOOptimizer):
     """CMA-ES stochastic optimizer class with ask-and-tell interface.
@@ -1213,9 +1213,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...     fit, X = [], []
     ...     while len(X) < es.popsize:
     ...         curr_fit = None
-    ...         while curr_fit in (None, np.NaN):
+    ...         while curr_fit in (None, np.nan):
     ...             x = es.ask(1)[0]
-    ...             curr_fit = cma.ff.somenan(x, cma.ff.elli) # might return np.NaN
+    ...             curr_fit = cma.ff.somenan(x, cma.ff.elli) # might return np.nan
     ...         X.append(x)
     ...         fit.append(curr_fit)
     ...     es.tell(X, fit)
@@ -1567,7 +1567,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # self.mean = self.gp.geno(array(self.x0, copy=True), copy_if_changed=False)
         self.N = len(self.mean)
         assert N == self.N
-        # self.fmean = np.NaN  # TODO name should change? prints nan in output files (OK with matlab&octave)
+        # self.fmean = np.nan  # TODO name should change? prints nan in output files (OK with matlab&octave)
         # self.fmean_noise_free = 0.  # for output only
 
         self.sp = _CMAParameters(N, opts, verbose=opts['verbose'] > 0)
@@ -1926,12 +1926,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
-        
+
         `sigma` overwrites the original initial `sigma`.
         `inopts` allows to overwrite any of the original options.
 
         This copy may not work as expected depending on the used sampler.
-        
+
         Copy mean and sample distribution parameters and input options. Do
         not copy evolution paths, termination status or other state variables.
 
@@ -1961,8 +1961,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except: warnings.warn("self.sm.C.copy failed")
         es.sm.update_now(-1)  # make B and D consistent with C
         es._updateBDfromSM()
-        return es    
-    
+        return es
+
     # ____________________________________________________________
     # ____________________________________________________________
     def ask(self, number=None, xmean=None, sigma_fac=1,
@@ -2446,7 +2446,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         -------
         While ``not self.is_feasible(x, func(x))`` new solutions are
         sampled. By default
-        ``self.is_feasible == cma.feasible == lambda x, f: f not in (None, np.NaN)``.
+        ``self.is_feasible == cma.feasible == lambda x, f: f not in (None, np.nan)``.
         The argument to `func` can be freely modified within `func`.
 
         Depending on the ``CMA_mirrors`` option, some solutions are not
@@ -2493,7 +2493,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         is_feasible = self.opts['is_feasible']
 
         # do the work
-        fit = []  # or np.NaN * np.empty(number)
+        fit = []  # or np.nan * np.empty(number)
         X_first = self.ask(popsize, xmean=xmean, gradf=gradf, args=args)
         if xmean is None:
             xmean = self.mean  # might have changed in self.ask
@@ -2595,7 +2595,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.mean_shift_samples:
             ary = [self.mean - self.mean_old]
             ary.append(self.mean_old - self.mean)  # another copy!
-            if np.alltrue(ary[-1] == 0.0):
+            if np.all(ary[-1] == 0.0):
                 utils.print_warning('zero mean shift encountered',
                                '_prepare_injection_directions',
                                'CMAEvolutionStrategy', self.countiter)
@@ -2878,7 +2878,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 x_elit = self.mean0.copy()
                 # self.clip_or_fit_solutions([x_elit], [0]) # just calls repair_genotype
                 self.random_rescale_to_mahalanobis(x_elit)
-                pop = array([x_elit] + list(pop), copy=False)
+                pop = np.asarray([x_elit] + list(pop))
                 utils.print_message('initial solution injected %f<%f' %
                                     (self.f0, fit.fit[0]),
                                'tell', 'CMAEvolutionStrategy',
@@ -3144,8 +3144,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     copy_if_changed=False), copy=False)
         if _new_injections:
             self.pop_injection_directions = self._prepare_injection_directions()
-            if (self.opts['verbose'] > 4 and self.countiter < 3 and 
-                not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) and 
+            if (self.opts['verbose'] > 4 and self.countiter < 3 and
+                not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) and
                 len(self.pop_injection_directions)):
                 utils.print_message('   %d directions prepared for injection %s' %
                                     (len(self.pop_injection_directions),
@@ -3221,7 +3221,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if len(solution) != self.N:
                 raise ValueError('method `inject` needs a list or array'
                     + (' each el with dimension (`len`) %d' % self.N))
-            solution = array(solution, copy=False, dtype=float)
+            solution = np.asarray(solution, dtype=float)
             if force:
                 self.pop_injection_solutions.append(solution)
             else:
@@ -3342,8 +3342,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ``N**0.5 + 2 * N / (N + 2)``, but the specific repair
         mechanism may change in future.
         """
-        x = array(x, copy=False)
-        mold = array(self.mean, copy=False)
+        x = np.asarray(x)
+        mold = np.asarray(self.mean)
         if 1 < 3:  # hard clip at upper_length
             upper_length = self.N**0.5 + 2 * self.N / (self.N + 2)
             # should become an Option, but how? e.g. [0, 2, 2]
@@ -3795,7 +3795,7 @@ class _StopTolXStagnation:
     def set_params(self, param_values, names=(
                     'delta', 'time_delta_offset', 'time_delta_frac', 'time_delta_expo')):
         """`param_values` is a `list` conforming to ``CMAOptions['tolxstagnation']``.
-        
+
         Do nothing if ``param_values in (None, True)``, set ``delta = -1``
         if ``param_values is False``.
 
@@ -3830,7 +3830,7 @@ class _StopTolXStagnation:
         return self
     @property
     def time_threshold(self):
-        return (self.time_delta_offset + 
+        return (self.time_delta_offset +
                 self.time_delta_frac * self.count**self.time_delta_expo)
     @property
     def stop(self):
@@ -4014,8 +4014,8 @@ class _CMAStopDict(dict):
                           es.timer.elapsed > opts['timeout'],
                           es.timer.elapsed if self._get_value else None)
         except AttributeError:
-            if es.countiter <= 0: 
-                pass 
+            if es.countiter <= 0:
+                pass
             # else: raise
 
         if 11 < 3 and 2 * l < len(es.fit.histbest):  # TODO: this might go wrong, because the nb of written columns changes
@@ -4113,12 +4113,12 @@ class _CMAParameters(object):
     {'CMA_on': True,
      'N': 20,
      'c1': 0.00437235...,
-     'c1_sep': 0.0343279...,
+     'c1_sep': ...0.0343279...,
      'cc': 0.171767...,
      'cc_sep': 0.252594...,
      'cmean': array(1...,
      'cmu': 0.00921656...,
-     'cmu_sep': 0.0565385...,
+     'cmu_sep': ...0.0565385...,
      'lam_mirr': 0,
      'mu': 6,
      'popsize': 12,
@@ -5268,7 +5268,7 @@ def fmin_con(objective_function, x0, sigma0,
         def f_post(x):
             return sum(gi ** 2 for gi in g(x) if gi > 0) + sum(
                        hi ** 2 for hi in h(x) if hi ** 2 > post_optimization ** 2)
-            
+
         kwargs_post = kwargs.copy()
         kwargs_post.setdefault('options', {})['ftarget'] = 0
 

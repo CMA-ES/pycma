@@ -1,17 +1,17 @@
 # This file can change versatile options while running CMA-ES.
 #
-# To take effect, the option 'signals_filename' of the `cma.CMAOptions` 
-# argument to `cma.fmin` or `cma.CMAEvolutionStrategy` must be set to 
+# To take effect, the option 'signals_filename' of the `cma.CMAOptions`
+# argument to `cma.fmin` or `cma.CMAEvolutionStrategy` must be set to
 # 'cma_signals.in', i.e. the name of this file (set to `None` or '' if
-# no file should be checked). 
-# 
-# To be effective, this file must contain valid Python code, namely 
+# no file should be checked).
+#
+# To be effective, this file must contain valid Python code, namely
 # a single Python expression, namely a `dict`. The opening brace
 # must be in the first column. Keys are strings, values of filenames
 # must be strings.
 #
 # Outcomment the desired option to change (the options list could be outdated):
-# 
+#
 {  # 'CMA_elitist': 'False  #v or "initial" or True, elitism likely impairs global search performance',
    # 'CMA_sample_on_sphere_surface': 'False  #v all mutation vectors have the same length, currently (with new_sampling) not in effect',
    # 'CSA_dampfac': '1  #v positive multiplier for step-size damping, 0.3 is close to optimal on the sphere',
@@ -19,7 +19,7 @@
    # 'CSA_clip_length_value': 'None  #v untested, [0, 0] means disregarding length completely',
    # 'CSA_squared': 'False  #v use squared length for sigma-adaptation ',
    # 'ftarget': '-inf  #v target function value, minimization',
-   # 'is_feasible': 'is_feasible  #v a function that computes feasibility, by default lambda x, f: f not in (None, np.NaN)',
+   # 'is_feasible': 'is_feasible  #v a function that computes feasibility, by default lambda x, f: f not in (None, np.nan)',
    # 'maxfevals': 'inf  #v maximum number of function evaluations',
    # 'maxiter': '100 + 50 * (N+3)**2 // popsize**0.5  #v maximum number of iterations',
    # 'mean_shift_line_samples': 'False #v sample two new solutions colinear to previous mean shift',
@@ -43,4 +43,3 @@
    # 'verb_plot': '0  #v in fmin(): plot() is called every verb_plot iteration',
    # 'verb_time': 'True  #v output timings on console',
 }
-

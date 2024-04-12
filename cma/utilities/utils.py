@@ -540,9 +540,9 @@ class SolutionDict(DerivedDictBase):
             # Do not hash key again
             return x
         elif isinstance(x, np.ndarray):
-            try: 
+            try:
                 return hash(x.tobytes())
-            except AttributeError: 
+            except AttributeError:
                 if x.size < 1e4:  # based on timing results
                     return hash(tuple(x))
                 else:
@@ -550,7 +550,7 @@ class SolutionDict(DerivedDictBase):
         else:
             try:
                 return hash(x)
-            except TypeError: 
+            except TypeError:
                 # Data type must be immutable, transform into tuple first
                 return hash(tuple(x))
     def __contains__(self, key):
@@ -998,7 +998,7 @@ class ListOfCallables(list):
 
 class ShowInFolder:  # was ShowInline
     """callable instance to save and show figures from `matplotlib`.
-    
+
     Saves figures to a folder ``'figs-...'`` with incremental filenames
     allowing to conveniently view and compare these figures.
 
@@ -1010,7 +1010,7 @@ class ShowInFolder:  # was ShowInline
 
         >> import cma, matplotlib.pyplot as plt
         >> show = cma.utilities.utils.ShowInline('01')  # use './figs-01' folder
-        >> 
+        >>
         >> plt.plot([1,2,3])
         >> show()  # save current plot with a unique name in figs-01 folder
         >>         # and switch focus to the folder
@@ -1087,4 +1087,3 @@ class ShowInFolder:  # was ShowInline
 
     def open_path(self):
         os.system('open ' + self.path)
-

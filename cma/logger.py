@@ -680,7 +680,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # extract: zipfile.ZipFile(filename, "r").extractall(dirname) ?
         #          tarfile.open(filename, "r").extractall()
         import tarfile
-        
+
         def unique_time_stamp(decimals=3):
             "a unique timestamp up to 1/10^decimals seconds"
             s = '{:.' + str(decimals) + 'f}' + '.' * (decimals == 0)
@@ -1140,7 +1140,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         return self
     def plot_sigvec(self, iabscissa=0, idx=None):
         """plot (outer) scaling from diagonal decoding.
-        
+
         ``iabscissa=1`` plots vs function evaluations
 
         `idx` picks variables to plot if len(idx) < N, otherwise it picks
@@ -1305,9 +1305,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 dat.f[0, i] = dat.f[1, i]
         minfit = np.nanmin(dat.f[:, 5])
         dfit1 = dat.f[:, 5] - minfit  # why not using idx?
-        dfit1[dfit1 < 1e-98] = np.NaN
+        dfit1[dfit1 < 1e-98] = np.nan
         dfit2 = dat.f[:, 5] - dat.f[-1, 5]
-        dfit2[dfit2 < 1e-28] = np.NaN
+        dfit2[dfit2 < 1e-28] = np.nan
 
         self._enter_plotting()
         _x = _monotone_abscissa(dat.f[:, iabscissa], iabscissa)
@@ -1322,7 +1322,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # (larger indices): additional fitness data, for example constraints values
         if dat.f.shape[1] > 9:
             # dd = abs(dat.f[:,7:]) + 10*foffset
-            # dd = _where(dat.f[:,7:]==0, np.NaN, dd) # cannot be
+            # dd = _where(dat.f[:,7:]==0, np.nan, dd) # cannot be
             semilogy(_x, np.abs(dat.f[:, 8:]) + 10 * foffset, 'y')
             # hold(True)
 
@@ -1467,7 +1467,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             semilogy(_x, c_odds(dat.corrspec[:, 5]), 'c', label=r'$\max (c + 1) / (c - 1)$')
             text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 2]])), r'$\max (c + 1) / (c - 1)$')
             text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 5]])), r'$-{\min}^{-1} (c + 1)\dots$')
-        
+
 
         # title('abs(f) (blue), f-min(f) (cyan), Sigma (green), Axis Ratio (red)')
         # title(r'blue:$\mathrm{abs}(f)$, cyan:$f - \min(f)$, green:$\sigma$, red:axis ratio',
@@ -1627,7 +1627,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         title('Object Variables (' +
                 (remark + ', ' if remark is not None else '') +
                 str(dat_x.shape[1] - 5) + '-D, popsize=' +
-                ((str(int(popsi)) if popsi is not None else 'NA') + 
+                ((str(int(popsi)) if popsi is not None else 'NA') +
                   ('|' + str(np.round(mpopsi, 1)) if mpopsi != popsi else '')
                 )
                 + ')')
@@ -2212,7 +2212,7 @@ class Logger(object):
         try:
             from matplotlib import pyplot as plt
         except ImportError: pass
-        if not callable(plot):  # this may allow to use this method as callback 
+        if not callable(plot):  # this may allow to use this method as callback
             from matplotlib.pyplot import plot
         self.load()
         n = len(self.data)  # number of data rows
@@ -2268,7 +2268,7 @@ def smartlogygrid(**kwargs):
         return
     if lims[1] / lims[0] < 1e5:
         plt.grid(True, which='minor')
-    _fix_lower_xlim_and_clipping()    
+    _fix_lower_xlim_and_clipping()
 
 def custom_default_matplotlib():
     """reduce wasted margin area from 19.0% to 4.0% and make both grids default and

@@ -108,12 +108,12 @@ class BoundaryHandlerBase(object):
         sign_ = 2 * ib - 1
         assert sign_**2 == 1
         if self.bounds is None or self.bounds[ib] is None:
-            return np.array(dimension * [sign_ * np.Inf])
+            return np.array(dimension * [sign_ * np.inf])
         res = []
         for i in range(dimension):
             res.append(self.bounds[ib][min([i, len(self.bounds[ib]) - 1])])
             if res[-1] is None:
-                res[-1] = sign_ * np.Inf
+                res[-1] = sign_ * np.inf
         return np.array(res)
 
     def has_bounds(self):
@@ -328,7 +328,7 @@ class BoundPenalty(BoundaryHandlerBase):
     >>> if res[1] >= 13.76: print(res)  # should never happen
 
     Reference: Hansen et al 2009, A Method for Handling Uncertainty...
-    IEEE TEC, with addendum, see 
+    IEEE TEC, with addendum, see
     https://ieeexplore.ieee.org/abstract/document/4634579
     https://hal.inria.fr/inria-00276216/file/TEC2008.pdf
 
@@ -411,7 +411,7 @@ class BoundPenalty(BoundaryHandlerBase):
             gamma = list(self.gamma)  # fails if self.gamma is a scalar
             for i in sorted(gp.fixed_values):  # fails if fixed_values is None
                 gamma.insert(i, 0.0)
-            gamma = np.array(gamma, copy=False)
+            gamma = np.asarray(gamma)
         except TypeError:
             gamma = self.gamma
         pen = []
@@ -737,7 +737,7 @@ class CountLastSameChanges:
         if force or self.chi_exponent_threshold is None:  # threshold for number of consecutive changes
             # self.chi_exponent_threshold = 5 + self.dimension**0.5  # previous value, probably too small in >- 20-D
             # self.chi_exponent_threshold = 5 + self.dimension**0.75  # sweeps in aug-lag4-mu-update.ipynv
-            self.chi_exponent_threshold = 2 + self.dimension 
+            self.chi_exponent_threshold = 2 + self.dimension
         if force or self.chi_exponent_factor is None:  # factor used in shape_exponent
             # self.chi_exponent_factor = 3 / dimension**0.5 # previous value
             # self.chi_exponent_factor = 1 * dimension**0.25 / self.chi_exponent_threshold  # steepness of ramp up
@@ -835,7 +835,7 @@ class AugmentedLagrangian(object):
     More testing based on the simpler `ConstrainedFitnessAL` interface:
 
     >>> import cma
-    >>> for algorithm, evals in zip((0, 1, 2, 3), (2000, 2200, 1500, 1800)): 
+    >>> for algorithm, evals in zip((0, 1, 2, 3), (2000, 2200, 1500, 1800)):
     ...     alf = cma.ConstrainedFitnessAL(cma.ff.sphere, lambda x: [x[0] + 1], 3,
     ...                                    find_feasible_first=True)
     ...     _ = alf.al.set_algorithm(algorithm)
@@ -1302,7 +1302,7 @@ class ConstrainedFitnessAL:
     (g_i > 0) x g_i^2`` and omits ``f + sum_i lam_i g_i`` altogether.
     Whenever a feasible solution is found, the `finding_feasible` flag is
     reset to `False`.
-    
+
     `find_feasible(es)` sets ``finding_feasible = True`` and uses
     `es.optimize` to optimize `self.__call__`. This works well with
     `CMAEvolutionStrategy` but may easily fail with solvers that do not
@@ -1576,4 +1576,3 @@ class ConstrainedFitnessAL:
                                  ]
         except:
             pass
-

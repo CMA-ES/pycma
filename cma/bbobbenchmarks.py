@@ -69,7 +69,7 @@ This does not work with ``python -OO``::
     <BLANKLINE>
 
 >>> f3 = bn.F3(13)  # instantiate instance 13 of function f3
->>> f3([0, 1, 2]) # short-cut for f3.evaluate([0, 1, 2]) # doctest:+ELLIPSIS
+>>> f3([0, 1, 2]).item() # short-cut for f3.evaluate([0, 1, 2]) # doctest:+ELLIPSIS
 59.8733529...
 >>> print(bn.instantiate(5)[1])  # returns function instance and optimal f-value
 51.53
@@ -395,7 +395,7 @@ class AbstractTestFunction(object):
 
             >>> from cma import bbobbenchmarks as bn
             >>> f3 = bn.F3(13) # instantiate function 3 on instance 13
-            >>> 59.8733529 < f3([0, 1, 2]) < 59.87335292 # call f3, same as f3.evaluate([0, 1, 2])
+            >>> 59.8733529 < f3([0, 1, 2]).item() < 59.87335292 # call f3, same as f3.evaluate([0, 1, 2])
             True
 
         """

@@ -95,9 +95,9 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         else:
             return fun(x)
     def somenan(self, x, fun, p=0.1):
-        """returns sometimes np.NaN, otherwise fun(x)"""
+        """returns sometimes np.nan, otherwise fun(x)"""
         if np.random.rand(1) < p:
-            return np.NaN
+            return np.nan
         else:
             return fun(x)
 
@@ -130,9 +130,9 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def pnorm(self, x, p=0.5):
         return sum(np.abs(x)**p)**(1./p)
     def grad_sphere(self, x, *args):
-        return 2*array(x, copy=False)
+        return 2*np.asarray(x)
     def grad_to_one(self, x, *args):
-        return array(x, copy=False) - 1
+        return np.asarray(x) - 1
     def sphere_pos(self, x):
         """Sphere (squared norm) test objective function"""
         # return np.random.rand(1)[0]**0 * sum(x**2) + 1 * np.random.rand(1)[0]
@@ -179,17 +179,17 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         """Sphere (squared norm) test objective function constraint to the corner"""
         nconstr = len(x) - 0
         if any(x[:nconstr] < 1):
-            return np.NaN
+            return np.nan
         return sum(x**2) - nconstr
     def cornerelli(self, x):
         """ """
         if any(x < 1):
-            return np.NaN
+            return np.nan
         return self.elli(x) - self.elli(np.ones(len(x)))
     def cornerellirot(self, x):
         """ """
         if any(x < 1):
-            return np.NaN
+            return np.nan
         return self.ellirot(x)
     def normalSkew(self, f):
         N = np.random.randn(1)[0]**2
@@ -309,7 +309,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def grad_elli(self, x, *args):
         cond = 1e6
         N = len(x)
-        return 2 * cond**(np.arange(N) / (N - 1.)) * array(x, copy=False)
+        return 2 * cond**(np.arange(N) / (N - 1.)) * np.asarray(x)
     def fun_as_arg(self, x, *args):
         """``fun_as_arg(x, fun, *more_args)`` calls ``fun(x, *more_args)``.
 
@@ -471,7 +471,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def lincon(self, x, theta=0.01):
         """ridge like linear function with one linear constraint"""
         if x[0] < 0:
-            return np.NaN
+            return np.nan
         return theta * x[1] + x[0]
     def rosen_nesterov(self, x, rho=100):
         """needs exponential number of steps in a non-increasing
@@ -536,7 +536,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         to the global optimum >= 1. That is, the global optimum is
         surrounded by 3^n - 1 local optima that have the better values the
         further they are away from the global optimum.
-        
+
         Conclusion: it is a rather suspicious sign if an algorithm finds the global
         optimum of this function in larger dimension.
 
@@ -565,7 +565,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         """return sum_i(0 if (1 <= x[i] < 2) else 2**i)**(1/n)"""
         s = sum([0 if 1 <= val < 2 else 2**i for i, val in enumerate(x)])
         return s**(1/len(x)) + (s == 0) * foffset
-    
+
     def _fetch_bbob_fcts(self):
         """Fetch GECCO BBOB 2009 functions from WWW and set as `self.BBOB`.
 
