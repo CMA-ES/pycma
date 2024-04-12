@@ -3445,9 +3445,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         >>> for dd in [0, 1]:
         ...     es = cma.CMA(2 * [1], 0.1, {'CMA_diagonal_decoding' : dd, 'verbose':-9})
         ...     es = es.optimize(cma.ff.elli, iterations=4)
-        ...     es.alleviate_conditioning(1.1)  # check that alleviation_conditioning "works"
+        ...     es.alleviate_conditioning(1.01)  # check that alleviation_conditioning "works"
         ...     assert all(es.sigma_vec.scaling == [1, 1]), es.sigma_vec.scaling
-        ...     assert es.sm.condition_number < 1.01, es.sm.C
+        ...     assert es.sm.condition_number <= 1.01, es.sm.C
 
         Details: the action applies only if `self.gp.isidentity`. Then,
         the covariance matrix `C` is set (back) to identity and a
