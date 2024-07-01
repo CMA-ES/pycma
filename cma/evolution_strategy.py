@@ -4710,9 +4710,9 @@ def fmin(objective_function, x0, sigma0,
     ``eval_initial_x=None``
         evaluate initial solution, for ``None`` only with elitist option
     ``noise_handler=None``
-        a ``NoiseHandler`` class or instance or ``None``. Example:
-        ``cma.fmin(f, 6 * [1], 1, noise_handler=cma.NoiseHandler(6))``
-        see ``help(cma.NoiseHandler)``.
+        must be `True` or a `cma.NoiseHandler` class or instance to invoke
+        noise handling. The latter gives control over the specific settings
+        for the noise handling, see ``help(cma.NoiseHandler)``.
     ``noise_change_sigma_exponent=1``
         exponent for the sigma increment provided by the noise handler for
         additional noise treatment. 0 means no sigma change.
@@ -5009,6 +5009,8 @@ def fmin(objective_function, x0, sigma0,
             if noise_handler:
                 if isinstance(noise_handler, type):
                     noisehandler = noise_handler(es.N)
+                elif noise_handler is True:
+                    noisehandler = ot.NoiseHandler(es.N)
                 else:
                     noisehandler = noise_handler
                 noise_handling = True
