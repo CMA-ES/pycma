@@ -481,7 +481,7 @@ class BinaryEvolutionPath(EvolutionPath):
     def raw_binary_s(self):
         """return one of two possible values with expectation of zero.
 
-        the maximum for the larger value is 1 - 0.15865525393145707 for tc\to\infty.
+        the maximum for the larger value is 1 - 0.15865525393145707 for tc to infty.
         """
         # p * (I - p) + (1 - p) * (0 - p) = p - p^2  - p + p^2 = 0
         return (np.abs(self.values) > 1) - self.probability_larger_than_one_from_binary

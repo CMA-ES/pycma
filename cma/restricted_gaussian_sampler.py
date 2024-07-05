@@ -12,8 +12,7 @@ Usage examples, VD-CMA:
     ...     }))
     >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=6), iterations=None)
     >>> assert es.result.fbest <= 1e-8
-    >>> print(es.result.evaluations)  # was: 6372 6480
-    6480
+    >>> assert es.result.evaluations <= 6480, es.result.evaluations  # was: == 6372 6480 6144
 
 It is recommended to always use `extend_cma_options()` to set the options
 appropriately, even when no other options are passed through.
@@ -33,8 +32,7 @@ The use case for VkD-CMA looks identical:
     ...     }))
     >>> es = es.optimize(cma.fitness_transformations.Rotated(cma.ff.cigar, seed=3), iterations=None)
     >>> assert es.result.fbest <= 1e-8
-    >>> print(es.result.evaluations)
-    6204
+    >>> assert es.result.evaluations < 6210, es.result.evaluations  # was == 6204
 
 
 TODO: correct the interface of __init__, remove unnecessaries
