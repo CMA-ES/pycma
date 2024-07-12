@@ -5,35 +5,24 @@ from math import inf  # used to eval options
 import warnings as _warnings
 import numpy as np
 from . import constraints_handler
+from . import utilities
 from .utilities import utils
 from .logger import CMADataLogger
 from .recombination_weights import RecombinationWeights
 
+integer_std_lower_bound_factor1 = 1
+'''factor used in `integer_std_lower_bound` as multiplier to ``mueff/N``'''
+integer_std_lower_bound_factor2 = 1
+'''factor used in `integer_std_lower_bound` as multiplier to
+   `integer_std_lower_bound_limit_when_mu_is_large`'''
+integer_std_lower_bound_limit = 0.2
+
+integer_active_limit_std = inf
+'''limit coordinate stds of solutions in C update, by default off, may go away'''
+integer_active_limit_recombination_weight_condition = None
+'''None or True or a function float->bool, None -> limit only negative updates'''
 
 default_restart_number_if_not_zero = 9
-def amend_restarts_parameter(restarts):
-    """return a `dict` with ``'maxrestarts'`` and ``'maxfevals'`` as keys.
-
-    `restarts` is a parameter to ``cma.fmin*``, see `cma.fmin`.
-    """
-    if restarts is True:
-        restarts = {'maxrestarts': default_restart_number_if_not_zero}
-    elif not restarts:
-        restarts = {'maxrestarts': 0}
-    if not isinstance(restarts, dict):  # kinda assume that restart is an int
-        restarts = {'maxrestarts': restarts}
-    restarts.setdefault('maxrestarts', default_restart_number_if_not_zero)
-    restarts.setdefault('maxfevals', np.inf)
-    return restarts
-
-def is_feasible(x, f):
-    """default to check feasibility of f-values.
-
-    Used for rejection sampling in method `ask_and_eval`.
-
-    :See also: CMAOptions, ``CMAOptions('feas')``.
-    """
-    return f is not None and not utils.is_nan(f)
 
 def cma_default_options_(  # to get keyword completion back
     # the follow string arguments are evaluated if they do not contain "filename"
@@ -41,7 +30,6 @@ def cma_default_options_(  # to get keyword completion back
     CMA_active='True  # negative update, conducted after the original update',
     #  CMA_activefac='1  # learning rate multiplier for active update',
     CMA_active_injected='0  #v weight multiplier for negative weights of injected solutions',
-    CMA_active_limit_int_std='inf  # limit coordinate std of solutions in negative covariance matrix update',
     CMA_cmean='1  # learning rate for the mean value',
     CMA_const_trace='False  # normalize trace, 1, True, "arithm", "geom", "aeig", "geig" are valid',
     CMA_diagonal='0*100*N/popsize**0.5  # nb of iterations with diagonal covariance matrix,'\
@@ -152,6 +140,64 @@ cma_default_options = cma_default_options_()  # will later be reassigned as CMAO
 cma_versatile_options = tuple(sorted(k for (k, v) in cma_default_options.items()
                                      if v.find(' #v ') > 0))
 cma_allowed_options_keys = dict([s.lower(), s] for s in cma_default_options)
+
+def integer_std_lower_bound(N, mueff, N_int=None, binary=False):
+    """can be reassigned/overwritten like a global "parameter setting"
+
+    This function returns the minimum of three bounds, an absolute bound
+    (default 0.2), mueff / N, and a bound computed from the normal quantile
+    (when the mean is assumed to be in the domain middle) which takes
+    ``ptarget=integer_lower_bound_target_probability(N, N_int)`` (which
+    should be roughly 1/N) as input. This bound becomes < 0.2 only when
+    ptarget < 1/152 (==> < -2.5-sigma).
+    """
+    ptarget = integer_lower_bound_target_probability(N, N_int if N_int else N)
+    ppf = utilities.math.normal_ppf(ptarget / (1 if binary else 2))  # AKA sigma(ptail)
+    return min((integer_std_lower_bound_limit,
+                integer_std_lower_bound_factor1 * mueff / N,  # TODO: this is too small for 100D-leadingones, add (1+tanh(N_int / N)) / 2 ?
+                integer_std_lower_bound_factor2 * 0.5 / -ppf  # p=1/152.85 -> sigma=0.2
+               ))
+
+def integer_lower_bound_target_probability(N, N_int):
+    """target probability for an integer mutation assuming a centered mean
+
+    and no boundaries (two-tailed).
+
+    ``2 / (N + N_int)`` should keep at least 37% of the solutions unaffected.
+
+    Details: from ``ptarget`` we can compute ``sigma = 1 / PPF(ptarget/2) /
+    2`` where ``PPF`` is the quantile function of the standard normal
+    distribution and the first ``2`` accounts for two-sided sampling of the
+    tails and the second ``2`` is needed because the distance to the value
+    domain bound is 1/2.
+    """
+    if N_int > N:
+        raise ValueError("{0}=N_int > N = {1} is not a valid cases".format(N_int, N))
+    return 2 / (2 + N + N_int)  # ad hoc setting, not validated
+
+def amend_restarts_parameter(restarts):
+    """return a `dict` with ``'maxrestarts'`` and ``'maxfevals'`` as keys.
+
+    `restarts` is a parameter to ``cma.fmin*``, see `cma.fmin`.
+    """
+    if restarts is True:
+        restarts = {'maxrestarts': default_restart_number_if_not_zero}
+    elif not restarts:
+        restarts = {'maxrestarts': 0}
+    if not isinstance(restarts, dict):  # kinda assume that restart is an int
+        restarts = {'maxrestarts': restarts}
+    restarts.setdefault('maxrestarts', default_restart_number_if_not_zero)
+    restarts.setdefault('maxfevals', np.inf)
+    return restarts
+
+def is_feasible(x, f):
+    """default to check feasibility of f-values.
+
+    Used for rejection sampling in method `ask_and_eval`.
+
+    :See also: CMAOptions, ``CMAOptions('feas')``.
+    """
+    return f is not None and not utils.is_nan(f)
 
 def safe_str(s):
     """return a string safe to `eval` or raise an exception.
@@ -497,7 +543,7 @@ class CMAOptions(dict):
 
         try:
             val = self[key]
-        except:
+        except Exception:
             return self.match(key)
 
         if loc is None:
@@ -589,6 +635,107 @@ class CMAOptions(dict):
             if match in s.lower():
                 res[k] = self[k]
         return CMAOptions(res)
+
+    def amend_integer_options(self, dimension, inopts):
+        """amend options when integer variables are indicated
+        """
+        try:
+            self['integer_variables'] = list(self['integer_variables'])
+        except Exception:
+            if self['integer_variables']:
+                raise
+            self['integer_variables'] = []
+
+        if self['integer_variables']:
+            self.amend_integer_variables(dimension)
+        if not self['integer_variables']:  # may have changed
+            return
+
+        if len(self['integer_variables']) > dimension:
+            raise ValueError("{0} = dimension < len(options['integer_variables']) = {1}"
+                             " is not a valid setting"
+                             .format(dimension, len(self['integer_variables'])))
+
+        if self['conditioncov_alleviate']:
+            if len(self['conditioncov_alleviate']) == 1:
+                self['conditioncov_alleviate'] = [self['conditioncov_alleviate'][0], 0]
+            self['conditioncov_alleviate'][-1] = 0
+        if inopts.get('popsize', None) in (None, cma_default_options['popsize']):
+            self['popsize'] = 6 + 3 * (np.log(dimension) +  # for the time being, why not sqrt(N)?
+                                       np.log(len(self['integer_variables']) + 0/2))
+
+        # number of early tol-triggers before success on the 2D sphere with one int-variable:
+        # code: es = cma.CMA([2, 0.1], 0.22, {'integer_variables': [0],...
+        #
+        # activated tol criterion: percentage (number of triggers observed)
+        # -----------------------
+        #   tolfunhist:  12% (96)
+        #   tolfun:       9% (72)
+        # tolflatfit=1:   9% (93)
+        # tolflatfit=3:   9.5% (57)
+        # tolflatfit=10:  4.7% (28)
+        # tolflatfit=30:  0.5% (3)
+
+        if inopts.get('tolflatfitness', None) in (
+                    None, cma_default_options['tolflatfitness']):
+            self['tolflatfitness'] = 3 + 30 * (
+                len(self['integer_variables']) / dimension)
+        if len(self['integer_variables']) == dimension:
+            if inopts.get('tolfun', None) in (None, cma_default_options['tolfun']):
+                self['tolfun'] = 0
+            if inopts.get('tolfunhist', None) in (None, cma_default_options['tolfunhist']):
+                self['tolfunhist'] = 0
+
+    def amend_integer_variables(self, dimension):
+        """removed fixed variables from the integer variable index values"""
+        if not self['fixed_variables']:
+            return
+        # CAVEAT: this has not be thoroughly tested
+        # transform integer indices to genotype
+        popped = []  # just for the record
+        for i in reversed(range(dimension)):
+            if i in self['fixed_variables']:
+                self['integer_variables'].remove(i)
+                if 1 < 3:  # just for catching errors
+                    popped.append(i)
+                    if i in self['integer_variables']:
+                        raise ValueError("index {0} appeared more than once in `'integer_variables'` option".format(i))
+                # reduce integer variable indices > i by one
+                for j, idx in enumerate(self['integer_variables']):
+                    if idx > i:
+                        self['integer_variables'][j] -= 1
+        if self['verbose'] >= 0:
+            _warnings.warn("Handling integer variables when some variables are fixed."
+                        "\n  This code is poorly tested and may fail for negative indices."
+                        "\n  Variables {0} are fixed integer variables but are"
+                        " now dropped and discarded for integer handling."
+                        .format(popped))
+
+    def set_integer_min_std(self, N, mueff):
+        """set lower std bounds for integer variables.
+
+        Uses the above defined `integer_std_lower_bound` function which can
+        be reassigned.
+        """
+        if not self['integer_variables']:
+            return
+        # 1) prepare minstd to be a vector
+        if np.isscalar(self['minstd']) and self['minstd'] == 0:
+            self['minstd'] = self['minstd'] * np.ones(N)
+        # 2) set minstd to 0.7 mueff / N, was: 1 / (2 Nint + 1)
+        #    the setting 2 / (2 Nint + 1) already prevents convergence
+        if not np.isscalar(self['minstd']):
+            for i in self['integer_variables']:
+                if -N <= i < N:  # when i < 0, the index computes to N + i
+                    if self['minstd'][i] == 0:  # don't change negative values too
+                        # self['minstd'][i] = 1 / (2 * len(self['integer_variables']) + 1)
+                        self['minstd'][i] = integer_std_lower_bound(
+                                N, mueff, len(self['integer_variables']))
+                else:
+                    utils.print_warning(
+                        "dropping integer index %d as it is not in range of dimension %d"
+                            % (i, N))
+                    self['integer_variables'].pop(self['integer_variables'].index(i))
 
     @property
     def to_namedtuple(self):
@@ -834,7 +981,7 @@ class CMAParameters(object):
         if verbose:
             if not sp.CMA_on:
                 print('covariance matrix adaptation turned off')
-            if opts['CMA_mu'] != None:
+            if opts['CMA_mu'] is not None:
                 print('mu = %d' % (sp.weights.mu))
 
         # return self  # the constructor returns itself

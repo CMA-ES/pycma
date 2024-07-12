@@ -205,6 +205,7 @@ from .options_parameters import CMAOptions, cma_default_options
 from . import constraints_handler as _constraints_handler
 from cma import fitness_models as _fitness_models
 from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
+from .integer_centering import IntegerCentering
 from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
@@ -230,6 +231,10 @@ def _callable_to_list(c):
     elif callable(c):
         return [c]
     return c
+
+def _pass(*args, **kwargs):
+    """a callable that does nothing and return args[0] in case"""
+    return args[0] if args else None
 
 # use_archives uses collections
 use_archives = sys.version_info[0] >= 3 or sys.version_info[1] >= 6
@@ -913,6 +918,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # self.fmean = np.nan  # TODO name should change? prints nan in output files (OK with matlab&octave)
         # self.fmean_noise_free = 0.  # for output only
 
+        opts.amend_integer_options(N, inopts)
         self.sp = options_parameters.CMAParameters(N, opts, verbose=opts['verbose'] > 0)
         self.sp0 = self.sp  # looks useless, as it is not a copy
 
@@ -974,7 +980,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         opts['minstd'] = eval_vector(opts['minstd'], opts, N, 0)
         opts['maxstd'] = eval_vector(opts['maxstd'], opts, N, np.inf)
 
-        if 1 < 3 and len(opts['integer_variables']):
+        # iiinteger handling currently as LB-IC, see cma.integer_centering:
+        if len(opts['integer_variables']):
+            opts.set_integer_min_std(N, self.sp.weights.mueff)
+            self.integer_centering = IntegerCentering(self)  # read opts['integer_variables'] and use boundary handler
+        else:
+            self.integer_centering = _pass  # do nothing by default
+
+        if 11 < 3 and len(opts['integer_variables']):
             try:
                 from . import integer
                 s = utils.format_message(
@@ -984,46 +997,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 warnings.warn(s, category=DeprecationWarning)  # TODO: doesn't show up
             except ImportError:
                 pass
-            opts['integer_variables'] = list(opts['integer_variables'])
-
-        # iiinteger handling, currently very basic:
-        # CAVEAT: integer indices may give unexpected results if fixed_variables is used
-        if len(opts['integer_variables']) and opts['fixed_variables']:
-            # transform integer indices to genotype
-            popped = []  # just for the record
-            for i in reversed(range(self.N)):
-                if i in opts['fixed_variables']:
-                    opts['integer_variables'].remove(i)
-                    if 1 < 3:  # just for catching errors
-                        popped.append(i)
-                        if i in opts['integer_variables']:
-                            raise ValueError("index {0} appeared more than once in `'integer_variables'` option".format(i))
-                    # reduce integer variable indices > i by one
-                    for j, idx in enumerate(opts['integer_variables']):
-                        if idx > i:
-                            opts['integer_variables'][j] -= 1
-            if opts['verbose'] >= 0:
-                warnings.warn("Handling integer variables when some variables are fixed."
-                            "\n  This code is poorly tested and fails for negative indices."
-                            "\n  Variables {0} are fixed integer variables and discarded"
-                            " for integer handling."
-                            .format(popped))
-        # 1) prepare minstd to be a vector
-        if (len(opts['integer_variables']) and
-                np.isscalar(opts['minstd'])):
-            opts['minstd'] = opts['minstd'] * np.ones(N)
-        # 2) set minstd to 1 / (2 Nint + 1),
-        #    the setting 2 / (2 Nint + 1) already prevents convergence
-        for i in opts['integer_variables']:
-            if -N <= i < N:  # when i < 0, the index computes to N + i
-                if opts['minstd'][i] == 0:  # negative values prevent setting minstd
-                    # opts['minstd'][i] = 1 / (2 * len(opts['integer_variables']) + 1)
-                    opts['minstd'][i] = min((0.2, self.sp.weights.mueff / N))
-            else:
-                utils.print_warning(
-                    """dropping integer index %d as it is not in range of dimension %d""" %
-                        (i, N))
-                opts['integer_variables'].pop(opts['integer_variables'].index(i))
 
         # initialization of state variables
         self.countiter = 0
@@ -2005,10 +1978,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     def limit_integer_relative_deltas(self, dX, threshold=None,
                                       recombination_weight_condition=None):
-        """limit absolute values of int-coordinates in vector list `dX`
+        """versatile: limit absolute values of int-coordinates in vector list `dX`
 
          relative to the current sample standard deviations and by default
          only when the respective recombination weight is negative.
+
+        This function is currently not in effect (called with threshold=inf)
+        and not guarantied to stay as is.
 
         ``dX == pop_sorted - mold`` where ``pop_sorted`` is a genotype.
 
@@ -2017,10 +1993,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         A 2.3-sigma threshold affects 2 x 1.1% of the unmodified
         (nonsorted) normal samples.
         """
-        if threshold is None:  # TODO: how interpret negative thresholds?
-            threshold = 2.3
         if not self.opts['integer_variables'] or not np.isfinite(threshold):
             return dX
+        if threshold is None:  # TODO: how interpret negative thresholds?
+            threshold = 2.3
         if recombination_weight_condition is None:
             def recombination_weight_condition(w):
                 return w < 0
@@ -2300,6 +2276,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             pop = np.asarray([xp[0]] + list(pop))
 
         self.pop_sorted = pop
+        self.integer_centering(pop[:sp.weights.mu], self.mean)
+
         # compute new mean
         self.mean = np.dot(sp.weights.positive_weights, pop[:sp.weights.mu])
         if sp.cmean != 1:
@@ -2390,8 +2368,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             pass  # without CSA we may not need the mean_shift
 
         # covariance matrix adaptation/udpate
-        pop_zero = self.limit_integer_relative_deltas(
-                            pop - mold, self.opts['CMA_active_limit_int_std'])
+        pop_zero = self.limit_integer_relative_deltas(  # does by default nothing
+                        pop - mold,
+                        options_parameters.integer_active_limit_std,
+                        options_parameters.integer_active_limit_recombination_weight_condition)
         if c1a + cmu > 0:
             # TODO: make sure cc is 1 / N**0.5 rather than 1 / N
             # TODO: simplify code: split the c1 and cmu update and call self.sm.update twice
@@ -2429,16 +2409,22 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             sampler_weights[i + 1] *= self.opts['CMA_active_injected']
                         if sampler_weights_dd[i + 1] < 0:
                             sampler_weights_dd[i + 1] *= self.opts['CMA_active_injected']
-            for s in list(self._injected_solutions_archive):
-                if self._injected_solutions_archive[s]['iteration'] < self.countiter - 2:
-                    warnings.warn("""orphanated injected solution %s
-                        This could be a bug in the calling order/logics or due to
-                        a too small popsize used in `ask()` or when only using
-                        `ask(1)` repeatedly. Please check carefully.
-                        In case this is desired, the warning can be surpressed with
-                        ``warnings.simplefilter("ignore", cma.evolution_strategy.InjectionWarning)``
-                        """ % str(self._injected_solutions_archive.pop(s)),
-                        InjectionWarning)
+            for k, s in list(self._injected_solutions_archive.items()):
+                if s['iteration'] < self.countiter - 2:
+                    # warn unless TPA injections were messed up by integer centering
+                    if (not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA)
+                            # self.integer_centering and
+                            # self.integer_centering is not _pass and
+                        or not isinstance(self.integer_centering, IntegerCentering)
+                        or s['index'] > 1):
+                        warnings.warn("""orphanated injected solution %s
+                            This could be a bug in the calling order/logics or due to
+                            a too small popsize used in `ask()` or when only using
+                            `ask(1)` repeatedly. Please check carefully.
+                            In case this is desired, the warning can be surpressed with
+                            ``warnings.simplefilter("ignore", cma.evolution_strategy.InjectionWarning)``
+                            """ % str(s), InjectionWarning)
+                    self._injected_solutions_archive.pop(k)
             assert len(sampler_weights) == len(pop_zero) + 1
             if flg_diagonal:
                 self.sigma_vec.update(

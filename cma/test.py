@@ -42,6 +42,7 @@ files_for_doctest = ['bbobbenchmarks.py',
                      'fitness_functions.py',
                      'fitness_models.py',
                      'fitness_transformations.py',
+                     'integer_centering.py',
                      'interfaces.py',
                      'logger.py',
                      'optimization_tools.py',
@@ -262,18 +263,13 @@ def various_doctests():
     Integer handling:
 
     >>> import warnings
-    >>> idx = [0, 1, 5, -1]
-    >>> f = cma.s.ft.IntegerMixedFunction(cma.ff.elli, idx)
-    >>> with warnings.catch_warnings(record=True) as warns:
-    ...     es = cma.CMAEvolutionStrategy(4 * [5], 10, dict(
-    ...                   ftarget=1e-9, seed=5,
-    ...                   integer_variables=idx
-    ...                ))  # doctest:+ELLIPSIS
-    (4_w,8)-...
-    >>> assert isinstance(warns[-1].message, UserWarning)  # depending
-    >>> es.optimize(f)  # doctest:+ELLIPSIS
-    Iterat #Fevals   function value ...
-    >>> assert 'ftarget' in es.stop() and es.result[3] < 1800
+    >>> idx = [0, 1, -1]
+    >>> f = cma.s.ft.IntegerMixedFunction2(cma.ff.elli, idx)
+    >>> for more_opts in [{}, {'AdaptSigma': cma.sigma_adaptation.CMAAdaptSigmaTPA}]:
+    ...     opts = dict(ftarget=1e-9, seed=5, verbose=-9, integer_variables=idx)
+    ...     opts.update(more_opts)
+    ...     es = cma.CMAEvolutionStrategy(4 * [5], 10, opts).optimize(f)
+    ...     assert 'ftarget' in es.stop() and es.result[3] < 1800
     >>> # mixing integer and fixed variables
     >>> es = cma.CMA(5 * [1], 1, {'verbose':-9, 'integer_variables':[1,2,4],
     ...                           'fixed_variables':{1:0}})
