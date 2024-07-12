@@ -1315,7 +1315,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(_x, abs(dat.f[:, [6, 7]]) + foffset, '-k')
             # hold(True)
-        if dat.f.shape[1] > 8:
+        if dat.f.shape[1] > 8:  # interquartile f-range
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(_x, abs(dat.f[:, [8]]) + foffset, 'grey', linewidth=0.7)  # darkorange is nice
 

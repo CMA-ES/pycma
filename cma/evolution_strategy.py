@@ -2939,8 +2939,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self.pop_sorted = pop
         # compute new mean
-        self.mean = mold + self.sp.cmean * \
-                    (np.sum(np.asarray(sp.weights.positive_weights) * pop[0:sp.weights.mu].T, 1) - mold)
+        self.mean = np.dot(sp.weights.positive_weights, pop[:sp.weights.mu])
+        if sp.cmean != 1:
+            self.mean *= sp.cmean
+            self.mean += (1 - sp.cmean) * mold
 
         # check Delta m (this is not default, but could become at some point)
         # CAVE: upper_length=sqrt(2)+2 is too restrictive, test upper_length = sqrt(2*N) thoroughly.
@@ -3459,22 +3461,24 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         As a result, `C` is a correlation matrix, i.e., all diagonal
         entries of `C` are `1`.
         """
-        if condition and np.isfinite(condition) and np.max(self.dC) / np.min(self.dC) > condition:
-            # allows for much larger condition numbers, if axis-parallel
-            if hasattr(self, 'sm') and isinstance(self.sm, sampler.GaussFullSampler):
-                old_coordinate_condition = np.max(self.dC) / np.min(self.dC)
-                old_condition = self.sm.condition_number
-                factors = self.sm.to_correlation_matrix()
-                self.sigma_vec *= factors
-                self.pc /= factors
-                # self.pc2 /= factors
-                self._updateBDfromSM(self.sm)
-                utils.print_message('\ncondition in coordinate system exceeded'
-                                    ' %.1e, rescaled to %.1e, '
-                                    '\ncondition changed from %.1e to %.1e'
-                                      % (old_coordinate_condition, np.max(self.dC) / np.min(self.dC),
-                                         old_condition, self.sm.condition_number),
-                                    iteration=self.countiter)
+        if (not condition or not np.isfinite(condition)
+                or np.max(self.dC) / np.min(self.dC) < condition):
+            return
+        # allows for much larger condition numbers, if axis-parallel
+        if hasattr(self, 'sm') and isinstance(self.sm, sampler.GaussFullSampler):
+            old_coordinate_condition = np.max(self.dC) / np.min(self.dC)
+            old_condition = self.sm.condition_number
+            factors = self.sm.to_correlation_matrix()
+            self.sigma_vec *= factors
+            self.pc /= factors
+            # self.pc2 /= factors
+            self._updateBDfromSM(self.sm)
+            utils.print_message('\ncondition in coordinate system exceeded'
+                                ' %.1e, rescaled to %.1e, '
+                                '\ncondition changed from %.1e to %.1e'
+                    % (old_coordinate_condition, np.max(self.dC) / np.min(self.dC),
+                       old_condition, self.sm.condition_number),
+                    iteration=self.countiter)
 
     def _tfp(self, x):
         return np.dot(self.gp._tf_matrix, x)
@@ -5366,7 +5370,7 @@ def fmin_con2(objective_function, x0, sigma0,
     `find_feasible_...` arguments toggle to search for a feasible solution
     before and after the constrained problem is optimized. Because this can
     not work with equality constraints, where the feasible domain has zero
-    volume, find-feasible are off by default.
+    volume, find-feasible arguments are `False` by default.
 
     `kwargs_confit` are keyword arguments to instantiate
     `constraints_handler.ConstrainedFitnessAL` which is optimized and
