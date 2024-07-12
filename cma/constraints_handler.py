@@ -419,7 +419,7 @@ class BoundPenalty(BoundaryHandlerBase):
             # CAVE: this does not work with already repaired values!!
             # CPU(N,lam,iter=20,200,100)?: 3s of 10s, np.array(xi): 1s
             # remark: one deep copy can be prevented by xold = xi first
-            xpheno = gp.pheno(archive[xi]['geno'])
+            xpheno = xi if gp.isidentity else gp.pheno(archive[xi]['geno'])
             # necessary, because xi was repaired to be in bounds
             xinbounds = self.repair(xpheno)
             # could be omitted (with unpredictable effect in case of external repair)
