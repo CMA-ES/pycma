@@ -219,6 +219,17 @@ del division, print_function, absolute_import  #, unicode_literals, with_stateme
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
 
+def _callable_to_list(c):
+    """A `callable` is wrapped and `None` defaults to the empty list.
+
+    All other values, in particular `False`, remain unmodified on return.
+    """
+    if c is None:
+        return []
+    elif callable(c):
+        return [c]
+    return c
+
 # use_archives uses collections
 use_archives = sys.version_info[0] >= 3 or sys.version_info[1] >= 6
 # use_archives = False  # on False some unit tests fail
@@ -4585,7 +4596,8 @@ def fmin2(objective_function, x0, sigma0,
          noise_change_sigma_exponent=1,
          noise_kappa_exponent=0,  # TODO: add max kappa value as parameter
          bipop=False,
-         callback=None):
+         callback=None,
+         init_callback=None):
     """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``,
 
     and with the same in input arguments as `fmin`. Hence a typical
@@ -4633,7 +4645,8 @@ def fmin2(objective_function, x0, sigma0,
          noise_change_sigma_exponent,
          noise_kappa_exponent,
          bipop,
-         callback)
+         callback,
+         init_callback)
     return res[0], res[-2]
 
 
@@ -4651,7 +4664,8 @@ def fmin(objective_function, x0, sigma0,
          noise_change_sigma_exponent=1,
          noise_kappa_exponent=0,  # TODO: add max kappa value as parameter
          bipop=False,
-         callback=None):
+         callback=None,
+         init_callback=None):
     """functional interface to the stochastic optimizer CMA-ES
     for non-convex function minimization.
 
@@ -4762,6 +4776,16 @@ def fmin(objective_function, x0, sigma0,
         `callable` or list of callables called at the end of each
         iteration with the current `CMAEvolutionStrategy` instance
         as argument.
+    ``init_callback=None``
+        `callable` or list of callables called at the end of initialization
+        of the `CMAEvolutionStrategy` instance with this instance as
+        argument (like `callback`). This allows to reassign attributes
+        without a corresponding `CMAOption`. For example,
+        ``es.integer_centering = lambda *args: None`` disables integer
+        centering (which is enabled by default when ``integer_variables``
+        are given in the `options`) or ``es.integer_centering =
+        cma.integer_centering.IntCentering(es, correct_bias=False)``
+        disables its bias correction.
 
     Optional Arguments
     ==================
@@ -4899,10 +4923,7 @@ def fmin(objective_function, x0, sigma0,
         # checked that no options.ftarget =
         opts = CMAOptions(options.copy()).complement()
 
-        if callback is None:
-            callback = []
-        elif callable(callback):
-            callback = [callback]
+        callback = _callable_to_list(callback)
 
         # BIPOP-related variables:
         runs_with_small = 0
@@ -5043,6 +5064,9 @@ def fmin(objective_function, x0, sigma0,
                 noisehandler = ot.NoiseHandler(es.N, 0)  # switched off
                 noise_handling = False
             es.noise_handler = noisehandler
+
+            for f in _callable_to_list(init_callback):
+                f is None or f(es)
 
             # the problem: this assumes that good solutions cannot take longer than bad ones:
             # with EvalInParallel(objective_function, 2, is_feasible=opts['is_feasible']) as eval_in_parallel:
