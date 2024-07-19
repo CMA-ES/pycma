@@ -3829,9 +3829,17 @@ def fmin(objective_function, x0, sigma0,
         ``gradf is not None``.
     ``restarts=0``
         number of restarts with increasing population size, see also
-        parameter ``incpopsize``, implementing the IPOP-CMA-ES restart
-        strategy, see also parameter ``bipop``; to restart from
-        different points (recommended), pass ``x0`` as a string.
+        parameter ``incpopsize``. For the time being (this may change in
+        future) ``restarts`` can also be a `dict` where the keys
+        ``maxrestarts=9`` and ``maxfevals=np.inf`` are interpreted. An
+        empty `dict` is interpreted as ``restarts=0``. An IPOP-CMA-ES
+        restart is invoked if ``restarts > 0`` or ``restarts['maxrestarts']
+        > 0`` and if ``current_evals < min((restarts['maxfevals'],
+        options['maxfevals']))`` and neither the ``'ftarget'`` nor the
+        ``termination_callback`` option was triggered;
+        ``restarts['maxfevals']`` does not terminate *during* the run or
+        restart; to restart from different points (recommended), pass
+        ``x0`` as a `callable`; see also parameter ``bipop``.
     ``restart_from_best=False``
         which point to restart from
     ``incpopsize=2``
@@ -3870,9 +3878,9 @@ def fmin(objective_function, x0, sigma0,
         `bipop` x max(1, budget_large). For the `bipop` parameter to
         actually conduct restarts also with the larger population size,
         select a non-zero number of (IPOP) restarts; the recommended
-        setting is ``restarts<=9`` and `x0` passed as a string using
-        `numpy.rand` to generate initial solutions. Small-population
-        restarts do not count into this total restart count.
+        setting is ``restarts <= 9`` and `x0` passed as a `callable`
+        that generates randomized initial solutions. Small-population
+        restarts do not count into the total restart count.
     ``callback=None``
         `callable` or list of callables called at the end of each
         iteration with the current `CMAEvolutionStrategy` instance
@@ -4131,6 +4139,8 @@ def fmin(objective_function, x0, sigma0,
                 fmin_opts.eval(k, loc={'N': es.N,
                                        'popsize': opts['popsize']},
                                correct_key=False)
+            fmin_opts['restarts'] = options_parameters.amend_restarts_parameter(
+                    fmin_opts['restarts'])
 
             es.logger.append = opts['verb_append'] or es.countiter > 0 or irun > 0
             # es.logger is "the same" logger, because the "identity"
@@ -4259,8 +4269,11 @@ def fmin(objective_function, x0, sigma0,
             # if irun > fmin_opts['restarts'] or 'ftarget' in es.stop() \
             # if irun > restarts or 'ftarget' in es.stop() \
             all_stoppings.append(dict(es.stop(check=False)))  # keeping the order
-            if irun - runs_with_small > fmin_opts['restarts'] or 'ftarget' in es.stop() \
-                    or 'maxfevals' in es.stop(check=False) or 'callback' in es.stop(check=False):
+            if (irun - runs_with_small > fmin_opts['restarts']['maxrestarts']
+                    or es.countevals >= fmin_opts['restarts']['maxfevals']
+                    or 'ftarget' in es.stop()
+                    or 'maxfevals' in es.stop(check=False)
+                    or 'callback' in es.stop(check=False)):
                 break
             opts['verb_append'] = es.countevals
             opts['popsize'] = fmin_opts['incpopsize'] * es.sp.popsize  # TODO: use rather options?
