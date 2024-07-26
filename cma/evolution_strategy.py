@@ -1946,7 +1946,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ...          {'bounds':[0,9], 'verbose':-9}).optimize(cma.ff.elli, iterations=10)
         >>> es2 = es._copy_light()
         >>> assert es2.sigma == es.sigma
-        >>> assert sum((es.sm.C - es2.sm.C).flat < 1e-12)
+        >>> assert not sum((es.sm.C - es2.sm.C).flat > 1e-12), (es.sm.C, es2.sm.C)
+        >>> assert not sum((es.sm.C - es2.sm.C).flat < -1e-12), (es.sm.C, es2.sm.C)
         >>> es3 = es._copy_light(sigma=3)
         >>> assert es3.sigma == es3.sigma0 == 3
         >>> es.mean[0] = -11
@@ -1960,14 +1961,32 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         opts = dict(self.inopts)
         if inopts is not None:
             opts.update(inopts)
-        es = type(self)(self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
+        es = type(self)(self.gp.pheno(self.mean[:],
+                                      into_bounds=self.boundary_handler.repair),
                         sigma, opts)
-        es.sigma_vec = transformations.DiagonalDecoding(self.sigma_vec.scaling)
-        try: es.sm.C = self.sm.C.copy()
-        except: warnings.warn("self.sm.C.copy failed")
-        es.sm.update_now(-1)  # make B and D consistent with C
-        es._updateBDfromSM()
+        es._set_C_from(self)
         return es
+
+    def _set_C_from(self, es, scaling=True):
+        """set the current covariance matrix from another class instance.
+
+        If `scaling`, also set the diagonal decoding scaling from `es.sigma_vec`.
+
+        This method may not work as expected unless the default sampler is
+        used.
+        """
+        if es.N != self.N:
+            warnings.warn("setting C with dimension {0} != {1} (the current "
+                          "dimension). This is likely to fail."
+                          .format(es.N, self.N))
+        if scaling:
+            self.sigma_vec = transformations.DiagonalDecoding(es.sigma_vec.scaling)
+        try:
+            self.sm.C = es.sm.C.copy()
+        except Exception:
+            warnings.warn("`self.sm.C = es.sm.C.copy()` failed")
+        self.sm.update_now(-1)  # make B and D consistent with C
+        self._updateBDfromSM()
 
     # ____________________________________________________________
     # ____________________________________________________________
