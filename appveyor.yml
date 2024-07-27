@@ -1,7 +1,11 @@
 build: false
 
+image:
+  - Visual Studio 2019
+  
 environment:
   matrix:
+    - TOXENV: py311
     - PYTHON_VERSION: 3.6
       MINICONDA: C:\Miniconda36
     - PYTHON_VERSION: 2.7
@@ -27,6 +31,7 @@ init:
 install:
   # - cmd: conda install -y conda=4.6.12  # scipy setuptools six pytest
   - cmd: python --version
+  - cmd: python -m pip install tox
   - cmd: pip install numpy  # scipy setuptools six pytest
   # - cmd: pip install matplotlib  # scipy setuptools six pytest
   # - cmd: conda install -y matplotlib numpy  # scipy setuptools six pytest  # conda install numpy works only with Python 3.6

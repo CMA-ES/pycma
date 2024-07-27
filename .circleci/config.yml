@@ -8,7 +8,7 @@ jobs:
     docker:
       # specify the version you desire here
       # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
-      - image: cimg/python:3.12
+      - image: cimg/python:3.11
       
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -30,21 +30,21 @@ jobs:
       - run:
           name: install dependencies
           command: |
-            python -m venv venv
-            . venv/bin/activate
+            python -m venv testenv
+            source testenv/bin/activate
             pip install numpy
             pip install matplotlib
 
       - save_cache:
           paths:
-            - ./venv
+            - ./testenv
           key: v1-dependencies-{{ checksum "setup.py" }}
 
       # run tests!
       - run:
           name: run tests
           command: |
-            . venv/bin/activate
+            source testenv/bin/activate
             python -m cma.test
 
       - store_artifacts:
