@@ -34,40 +34,55 @@ Useful links:
 
 * [FAQs and HowTos (under development)](https://github.com/CMA-ES/pycma/issues?q=is:issue+label:FAQ).
 
-## Installation of the [(almost) latest release](https://pypi.python.org/pypi/cma)
+## Installation of the [latest release](https://pypi.python.org/pypi/cma)
 
-Type
+In a system shell, type
 
+```sh
     python -m pip install cma
+```
 
-in a system shell to install the [latest _release_](https://pypi.python.org/pypi/cma)
-from the [Python Package Index (PyPI)](https://pypi.python.org/pypi) (which may be 
-behind the lastest release tag on Github). The release link also provides more installation hints and a quick start guide.
+to install the [latest release](https://pypi.python.org/pypi/cma)
+from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The [release link](https://pypi.python.org/pypi/cma) also provides more installation hints and a quick start guide.
 
+```sh
     conda install --channel cma-es cma
+```
 
-installs from the conda cloud channel `cma-es`.
+installs from the conda cloud channel `cma-es`. CAVEAT: this distribution is currently not updated!
 
-## Installation of the current master branch
+## Installation from Github
 
-The quick way (requires git to be installed):
+The quick way (this requires [`git`](https://git-scm.com) to be installed): to install the code from, for example, the `master` branch, copy-paste
 
+```sh
     pip install git+https://github.com/CMA-ES/pycma.git@master
+```
 
-The long version: download and unzip the code (see green button above) or
-``git clone https://github.com/CMA-ES/pycma.git`` and
+The long way:
 
-- either, copy (or move) the ``cma`` source code folder into a folder visible to Python, 
-  namely a folder which is in the Python path (e.g. the current folder). Then, 
-  ``import cma`` works without any further installation.
+- get the package
 
-- or, install the ``cma`` package by typing within the folder, where the ``cma`` source 
-  code folder is visible,
+  - either download and unzip the code by clicking the green button above
+  - or, with [`git`](https://git-scm.com) installed, type ``git clone https://github.com/CMA-ES/pycma.git``
 
-      pip install -e cma
+- "install" the package
 
-  Moving the ``cma`` folder away from its location would invalidate this
-  installation.
+  - either copy (or move) the ``cma`` source code folder into a folder which is in the
+    [Python path](https://docs.python.org/3/library/sys.html#sys.path) (e.g. the current folder)
+
+  - or modify the [Python path](https://docs.python.org/3/library/sys.html#sys.path) to point
+    to the folder where the ``cma`` package folder can be found.
+    In both cases, ``import cma`` works without any further installation.
+
+  - or install the ``cma`` package by typing
+
+    ```sh
+        pip install -e cma
+    ```
+    in the folder where the ``cma`` package folder can be found.
+    Moving the ``cma`` folder away from its location invalidates this
+    installation.
 
 It may be necessary to replace ``pip`` with ``python -m pip`` and/or prefixing
 either of these with ``sudo``.
@@ -77,8 +92,9 @@ either of these with ``sudo``.
 * [Release ``3.4.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.4.0)
   - fix compatibility to `numpy` 2.0 (thanks to [Sait Cakmak](https://github.com/saitcakmak))
   - improved interface to `noise_handler` argument which accepts `True` as value
-  - improved interface to `ScaleCoordinates`
+  - improved interface to `ScaleCoordinates` now also with lower and upper value mapping to [0, 1], see [issue #210](https://github.com/CMA-ES/pycma/issues/210)
   - changed: `'ftarget'` triggers with <= instead of <
+  - assign `surrogate` attribute (for the record) when calling `fmin_lq_surr`
   - various (minor) bug fixes
   - various (small) improvements of the plots and their usability
     - display iterations, evaluations and population size and termination
