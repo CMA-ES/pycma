@@ -4452,21 +4452,13 @@ def fmin_lq_surr(objective_function, x0, sigma0, options=None, **kwargs):
     def inject_xopt(es):
         es.inject([surrogate.model.xopt])  # not strictly necessary
     def callback_in_kwargs(kwargs):
-        """handle kwargs['callback']"""
-        if 'callback' in kwargs:
-            cb = kwargs['callback']
-            if cb is None:
-                cb = []
-            if not isinstance(cb, (list, tuple)):
-                cb = [cb]  # cb could be [False] now
-            try: cb.remove(False)
-            except ValueError:
-                if inject_xopt not in cb:
-                    cb.append(inject_xopt)
-                    kwargs['callback'] = cb
-            else: kwargs['callback'] = cb  # False was removed
-        else:  # by default set inject_xopt as callback
-            kwargs['callback'] = [inject_xopt]
+        """append `inject_xopt` to kwargs['callback']"""
+        cb = _callable_to_list(kwargs.get('callback', None))
+        if cb is False:
+            kwargs['callback'] = []
+        elif inject_xopt not in cb:  # don't inject twice
+            cb.append(inject_xopt)
+            kwargs['callback'] = cb
         return kwargs
 
     _, es = fmin2(None, x0, sigma0, options=options, parallel_objective=surrogate,
