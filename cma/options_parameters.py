@@ -10,6 +10,22 @@ from .logger import CMADataLogger
 from .recombination_weights import RecombinationWeights
 
 
+default_restart_number_if_not_zero = 9
+def amend_restarts_parameter(restarts):
+    """return a `dict` with ``'maxrestarts'`` and ``'maxfevals'`` as keys.
+
+    `restarts` is a parameter to ``cma.fmin*``, see `cma.fmin`.
+    """
+    if restarts is True:
+        restarts = {'maxrestarts': default_restart_number_if_not_zero}
+    elif not restarts:
+        restarts = {'maxrestarts': 0}
+    if not isinstance(restarts, dict):  # kinda assume that restart is an int
+        restarts = {'maxrestarts': restarts}
+    restarts.setdefault('maxrestarts', default_restart_number_if_not_zero)
+    restarts.setdefault('maxfevals', np.inf)
+    return restarts
+
 def is_feasible(x, f):
     """default to check feasibility of f-values.
 
