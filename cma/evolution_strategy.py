@@ -3628,7 +3628,8 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
     if options is None:
         options = {}
     best = ot.BestSolution2()
-    for irun in range(1 + restarts):
+    restarts = options_parameters.amend_restarts_parameter(restarts)
+    for irun in range(1 + restarts['maxrestarts']):
         if irun == 0 or not keep_model:
             surrogate = _fitness_models.SurrogatePopulation(objective_function)
         if irun > 0:  # increase popsize
@@ -3661,7 +3662,8 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
         if es.opts['verb_disp'] > 0:
             es.result_pretty(irun, time.asctime(time.localtime()),
                              best.f)
-        if ('ftarget' in es.stop(check=False) or
+        if (es.countevals >= restarts['maxfevals'] or
+            'ftarget' in es.stop(check=False) or
             'maxfevals' in es.stop(check=False) or
             'callback' in es.stop(check=False)):
             break
