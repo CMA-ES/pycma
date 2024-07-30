@@ -116,18 +116,25 @@ class BoundaryHandlerBase(object):
                 res[-1] = sign_ * np.inf
         return np.array(res)
 
-    def has_bounds(self):
+    def has_bounds(self, which='both'):
         """return `True` if any variable is bounded"""
+        valid_whichs = (None, 'both', 'lower', 'upper')
+        if which not in valid_whichs:
+            raise ValueError("`which` parameter must be in {0} but was ={1}"
+                                .format(valid_whichs, which))
         bounds = self.bounds
         if bounds is None or bounds in (False, [], ()) or (
                 bounds[0] is None and bounds[1] is None):
             return False
         for ib, bound in enumerate(bounds):
-            if bound is not None:
-                sign_ = 2 * ib - 1
-                for bound_i in bound:
-                    if bound_i is not None and sign_ * bound_i < np.inf:
-                        return True
+            if bound is None or (
+                ib == 0 and which == 'upper') or (
+                ib == 1 and which == 'lower'):
+                continue
+            sign_ = 2 * ib - 1
+            for bound_i in bound:
+                if bound_i is not None and sign_ * bound_i < np.inf:
+                    return True
         return False
 
     def is_in_bounds(self, x):
