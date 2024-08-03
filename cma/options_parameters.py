@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """Parameters and Options for CMA-ES.
 """
-import time  # to eval
-from math import inf  # to eval
+from math import inf  # used to eval options
 import warnings as _warnings
 import numpy as np
 from . import constraints_handler
@@ -490,7 +489,7 @@ class CMAOptions(dict):
         try:
             if utils.is_str(val):
                 val = val.split('#')[0].strip()  # remove comments
-                if key.find('filename') < 0:
+                if key.find('filename') < 0 and not (key == 'seed' and val.startswith('time')):
                         # and key.find('mindx') < 0:
                     val = eval(safe_str(val), global_env, loc)
             # invoke default
@@ -500,7 +499,7 @@ class CMAOptions(dict):
                 val = eval(safe_str(default), global_env, loc)
         except Exception as e:
             if not str(e).startswith('"initial"'):
-                _warnings.warn(e)
+                _warnings.warn(str(e))
             pass  # slighly optimistic: the previous is bug-free
         return val
 

@@ -826,7 +826,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.opts = opts
         if not utils.is_nan(opts['seed']):
             if self.opts['randn'] is np.random.randn:
-                if not opts['seed'] or opts['seed'] is time:
+                if not opts['seed'] or opts['seed'] is time or str(opts['seed']).startswith('time'):
                     np.random.seed()
                     six_decimals = (time.time() - 1e6 * (time.time() // 1e6))
                     opts['seed'] = int(1e5 * np.random.rand() + six_decimals
