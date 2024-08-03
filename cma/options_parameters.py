@@ -4,9 +4,9 @@
 from math import inf  # used to eval options
 import warnings as _warnings
 import numpy as np
+from . import constraints_handler
 from .utilities import utils
 from .logger import CMADataLogger
-from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
 from .recombination_weights import RecombinationWeights
 
 
@@ -31,6 +31,13 @@ def is_feasible(x, f):
     :See also: CMAOptions, ``CMAOptions('feas')``.
     """
     return f is not None and not utils.is_nan(f)
+
+options_environment = {
+        'BoundNone': constraints_handler.BoundNone,
+        'BoundPenalty': constraints_handler.BoundPenalty,
+        'BoundTransform': constraints_handler.BoundTransform,
+        'AugmentedLagrangian': constraints_handler.AugmentedLagrangian,
+    }
 
 def cma_default_options_(  # to get keyword completion back
     # the follow string arguments are evaluated if they do not contain "filename"
@@ -484,6 +491,9 @@ class CMAOptions(dict):
         :See: `eval()`, `evalall()`
 
         """
+        global_env = dict(globals())
+        global_env.update(options_environment)
+
         try:
             val = self[key]
         except:
@@ -496,12 +506,12 @@ class CMAOptions(dict):
                 val = val.split('#')[0].strip()  # remove comments
                 if key.find('filename') < 0 and not (key == 'seed' and val.startswith('time')):
                         # and key.find('mindx') < 0:
-                    val = eval(safe_str(val), globals(), loc)
+                    val = eval(safe_str(val), global_env, loc)
             # invoke default
             # TODO: val in ... fails with array type, because it is applied element wise!
             # elif val in (None,(),[],{}) and default is not None:
             elif val is None and default is not None:
-                val = eval(safe_str(default), globals(), loc)
+                val = eval(safe_str(default), global_env, loc)
         except Exception as e:
             if not str(e).startswith('"initial"'):
                 _warnings.warn(str(e))
@@ -599,12 +609,12 @@ class CMAOptions(dict):
             a = s.split(' ')
 
             # print s in chunks
-            l = ''  # start entire to the left
+            line = ''  # start entire to the left
             while a:
-                while a and len(l) + len(a[0]) < linebreak:
-                    l += ' ' + a.pop(0)
-                print(l)
-                l = '        '  # tab for subsequent lines
+                while a and len(line) + len(a[0]) < linebreak:
+                    line += ' ' + a.pop(0)
+                print(line)
+                line = '        '  # tab for subsequent lines
 
 cma_default_options = CMAOptions(cma_default_options_())
 
