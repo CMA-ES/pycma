@@ -114,6 +114,110 @@ def geometric_sd(vals, **kwargs):
     """
     return np.exp(np.std(np.log(vals), **kwargs))
 
+def normal_ppf(p):
+    """return an approximation of the inverse cdf value of a standard normal distribution,
+
+    assuming 0 < p <= 1/2. This is the "sigma" for which the tail
+    distribution has probability `p` (AKA quantile or percentile point
+    function).
+
+    For ``p=1/2`` we have ``sigma = 0``. The approximation ``0.79 + 1.49 x
+    sqrt(-log(p)) + alpha x sqrt(p)``, where alpha=0.637... is such that
+    p=1/2 maps to sigma=0, has a sigma error within [-0.02, 0.029] for ``p
+    >= 1e-12`` and for ``p >= 1e-22`` with an additional correction as
+    applied. The error is less than 0.0121 for all p <= 0.1. The relative
+    sigma error for p->1/2 and hence sigma->0 is < 0.11.
+
+    The input `p` may be an `np.array`.
+
+    The following is the Python code to assess the accuracy::
+
+        %pylab
+        import scipy
+        from scipy import stats
+        import cma
+
+        normal_ppf = cma.utilities.math.normal_ppf
+
+        pp = np.logspace(-15, np.log10(0.5), 5400)  # target tail probabilities
+
+        if 1 < 3:  # sigma vs p
+            figure(53)
+            gcf().clear()
+            grid(True, which='both')
+            xlabel('tail probability')
+            ylabel('sigma')
+            semilogx(pp, normal_ppf(pp), label='approximation')
+            semilogx(pp, scipy.stats.norm.ppf(pp), label='true')
+            legend()
+            # semilogx(pp, -sqrt(7 * log(1/pp/4 + pp)) / 2)
+            # semilogx(pp, -scipy.stats.norm.ppf(pp/2))
+            # semilogx(pp, sqrt(7 * log((1/pp + pp) / 2)) / 2)
+        if 1 < 3:  # Delta sigma vs p
+            figure(54)
+            gcf().clear()
+            grid(True, which='both')
+            xlabel('tail probability')
+            ylabel('sigma difference (error)')
+            semilogx(pp, normal_ppf(pp) - scipy.stats.norm.ppf(pp),
+                    label='absolute')
+            abs_error = max(np.abs(normal_ppf(pp) - scipy.stats.norm.ppf(pp)))
+            semilogx(pp, (normal_ppf(pp) - scipy.stats.norm.ppf(pp)) / np.maximum(1e-12, -scipy.stats.norm.ppf(pp)),
+                    label='relative')
+            rel_error = max((normal_ppf(pp) - scipy.stats.norm.ppf(pp))
+                              / np.maximum(1e-12, -scipy.stats.norm.ppf(pp)))
+            ylim(-max(np.abs(ylim())), max(np.abs(ylim())))
+            text(xlim()[0], ylim()[0] * 0.98,
+                ' the largest absolute and relative errors are {} and {}'
+                .format(np.round(abs_error, 6), np.round(rel_error, 6)))
+            legend()
+        if 11 < 3:
+            figure(55)
+            gcf().clear()
+            grid(True, which='both')
+            xlabel('tail probability')
+            ylabel('sigma ratio')
+            semilogx(pp, normal_ppf(pp) / scipy.stats.norm.ppf(pp))
+        if 11 < 3:
+            figure(56)
+            gcf().clear()
+            ylabel('probability ratio')
+            xlabel('sigma')
+            plot(stats.norm.ppf(pp), stats.norm.cdf(normal_ppf(pp)) / pp)
+            grid(True, which='both')
+        if 1 < 3:  # true p of sigma vs p input
+            figure(56)
+            gcf().clear()
+            ylabel('true probability ratio')
+            xlabel('tail probability (input)')
+            semilogx(pp, pp / stats.norm.cdf(normal_ppf(pp)))
+            grid(True, which='both')
+
+    The approximation is by construction exact for p=1/2. For small
+    probabilities (sigma < -7), the probability is quite sensitive: roughly
+    speaking, a Delta sigma of 0.05 / 0.25 / 1 changes the probability by a
+    factor of 1.4 / 3 / 50, respectively.
+
+    """
+    if np.any(p > 1/2) or np.any(p <= 0):
+        raise ValueError("0 < p <= 1/2 is required but p was {0}".format(p))
+    def val(p):
+        """a sigma approximation with an error in ]-0.013, 0.008[ for 1e-12 <= p <= 1e-4 where sigma < -3.5
+        """
+        return 0.79 - 1.49 * np.sqrt(-np.log(p))
+        # return 0.7 - 1.47 * np.sqrt(-np.log(p))
+        # return 0.825 - 1.5 * np.sqrt(-np.log(p))
+
+    # correction for p > 1e-4 which is by construction exact for p = 1/2:
+    fac = - val(1/2) / (1/2)**0.5  # == 0.6371122192733119
+    return val(p * np.maximum(1, -np.log(p) / 29)  # increase for small p while staying below the true sigma
+              ) + fac * p**0.5  # add correction for 1e-5 < p <= 1/2
+    # was (worse):
+    # return -np.sqrt(1.75 * np.log(
+    #             np.maximum(1, -np.log(p) / 9)   # correction for sigma < -3.66
+    #             * np.maximum(1, -np.log(p) / 14.5)  # correction for sigma < -4.9
+    #             / p / 4 + p))
+
 class UpdatingAverage(object):
     """use instead of a `list` when too many values must be averaged"""
     def __init__(self):
