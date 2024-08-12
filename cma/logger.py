@@ -1057,7 +1057,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         verticalalignment='center')
             return self  # nothing interesting to plot
         self._enter_plotting()
-        color = iter(pyplot.cm.get_cmap('plasma_r')(
+        color = iter(pyplot.get_cmap('plasma_r')(
                     np.linspace(0.35, 1, dat.D.shape[1] - 5)))
         _x = _monotone_abscissa(dat.D[:, iabscissa], iabscissa)
         for i in range(5, dat.D.shape[1]):
@@ -1262,7 +1262,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 labels += ['(1 + c) / (1 - c) of (0,25,75,100)-prctile']
         pyplot.legend(labels, framealpha=0.3)
         # semilogy(x, y, '-c')
-        color = iter(pyplot.cm.get_cmap('plasma_r')(np.linspace(0.35, 1,
+        color = iter(pyplot.get_cmap('plasma_r')(np.linspace(0.35, 1,
                                                     y.shape[1])))
         for i in range(y.shape[1]):
             semilogy(x, y[:, i], '-', color=next(color), zorder=1)
@@ -2230,7 +2230,7 @@ class Logger(object):
             plot(range(1, n + 1), data,
                  label=self.labels[0] if self.labels else None)
         else:
-            color = iter(plt.cm.get_cmap('plasma')(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
+            color = iter(plt.get_cmap('plasma')(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
             idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
             if len(idx_labels) > 1:
                 idx_labels[-1] = m - 1  # last label goes to the line m - 1
