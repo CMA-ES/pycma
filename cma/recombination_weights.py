@@ -203,6 +203,35 @@ class RecombinationWeights(list):
             return self[:self.mu] + (lambda_ - self.lambda_) * [0] + self[self.mu:]
         return self
 
+    def trim_middle(self, lambda_):
+        """return weight list of len `lambda_` from the extreme weights.
+
+        This obeys the constraint ``sign(w[i]) == sign((lambda_-1)/2 - i)``
+        if the original weights do.
+
+        >>> import cma
+        >>> for lam in [2, 3, 5, 11, 33]:
+        ...     w = cma.recombination_weights.RecombinationWeights(lam)
+        ...     for i in range(1, len(w) + 2):
+        ...         w2 = w.trim_middle(i)
+        ...         assert len(w2) == i, (len(w2), i)
+        ...         if i > 1:
+        ...             assert w2[0] == w[0], (w2, w)
+        ...             assert w2[-1] == w[-1], (w2, w)
+        ...             i_middle = (i - 1) / 2
+        ...             assert i > len(w) or (
+        ...                  w2[int(i_middle - .1)] * w2[int(i_middle + 1.1)] < 0), (
+        ...                        lam, i, i_middle)
+
+        """
+        if lambda_ >= self.lambda_:
+            return self(lambda_)
+        if lambda_ < 2:  # somewhat a hack, FIXME
+            return int(lambda_) * [0.]  # maybe this should be 1.?
+        mu_ = int(lambda_ / 2)
+        assert mu_ > 0
+        return self[:mu_] + (lambda_ > 2 * mu_) * [0.] + self[-mu_:]
+
     def set_attributes_from_weights(self, weights=None, do_asserts=True):
         """make the class attribute values consistent with weights, in
         case after (re-)setting the weights from input parameter ``weights``,
