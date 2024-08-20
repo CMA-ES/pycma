@@ -611,8 +611,9 @@ class _F_0(object):
         self.x_opt = np.loadtxt('._bbob_problem_best_parameter.txt')
         self.x_add = self.x_opt
         self.f_opt = self.fun(self.x_opt)
+        self.f_add = -self.f_opt
     def __call__(self, x):
-        return self.fun(self.x_add + x) - self.f_opt
+        return self.fun(self.x_add + x) + self.f_add
     @property
     def lower_bounds(self):
         return self.fun.lower_bounds - self.x_add
@@ -624,6 +625,9 @@ class _F_0(object):
         return self.fun.initial_solution - self.x_add
     def initial_solution_proposal(self, restart_number=None):
         return self.fun.initial_solution_proposal(restart_number) - self.x_add
+    @property
+    def final_target_hit(self):
+        return self.fun.final_target_hit
 
 
 ff = FitnessFunctions()
