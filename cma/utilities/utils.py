@@ -608,7 +608,7 @@ class DataDict(collections.defaultdict):
         if os.path.exists(self.filename):
             self.load()
         else:
-            print('creating file {}'.format(self.filename))
+            print('creating file {0}'.format(self.filename))
             self.save()
 
     def load(self):
