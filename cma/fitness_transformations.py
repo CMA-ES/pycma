@@ -628,8 +628,57 @@ class NoisyFitness(Function):
             f += self.abs_noise(len(x))
         return f
 
+class IntegerMixedFunction2(ComposedFunction):
+    """compose fitness function with some integer variables using `np.round` by default.
+
+    >>> import numpy as np
+    >>> import cma
+    >>> f = cma.s.ft.IntegerMixedFunction2(cma.ff.elli, [0, 3, 5])
+    >>> assert f([-0.2, 2]) == f([0.4, 2]) != f([0.8, 2])
+    >>> f = cma.s.ft.IntegerMixedFunction2(cma.ff.elli, [0])
+    >>> assert f([-0.2, 2]) == f(np.array([0.4, 2])) != f(np.array([0.8, 2]))
+
+    Related: Option ``'integer_variables'`` of `cma.CMAOptions` sets
+    ``'minstd'`` of integer variables, see
+    `cma.options_parameters.integer_std_lower_bound` and rounds the better
+    solutions, see `cma.integer_centering`.
+    """
+    def __init__(self, function, integer_variable_indices, operator=np.round, copy=True):
+        """apply operator(x[i]) for i in integer_variable_indices before to call function(x).
+
+        If `copy`, return a copy iff a value is changed.
+        """
+        ComposedFunction.__init__(self, [function, self._flatten])
+        self.integer_variable_indices = integer_variable_indices
+        self.operator = operator
+        self.copy = copy
+    def _flatten2(self, x):
+        values = x[self.integer_variable_indices]
+        new_values = np.round(values)
+        if not np.all(new_values == values):
+            if self.copy:
+                x = np.array(x, copy=True)
+            x[self.integer_variable_indices] = new_values
+        return x
+    def _flatten(self, x):
+        if isinstance(x, np.ndarray):
+            return self._flatten2(x)  # hopefully faster
+        copied = False
+        for i in sorted(self.integer_variable_indices):
+            if i < -len(x):
+                continue
+            if i >= len(x):
+                break
+            m = self.operator(x[i])
+            if x[i] != m:
+                if not copied and self.copy:
+                    x = np.array(x, copy=True)
+                    copied = True
+                x[i] = m
+        return x
+
 class IntegerMixedFunction(ComposedFunction):
-    """compose fitness function with some integer variables.
+    """DEPRECATED compose fitness function with some integer variables using `np.floor` by default.
 
     >>> import cma
     >>> f = cma.s.ft.IntegerMixedFunction(cma.ff.elli, [0, 3, 6])
@@ -649,7 +698,10 @@ class IntegerMixedFunction(ComposedFunction):
         self.operator = operator
         self.copy_arg = copy_arg
     def _flatten(self, x):
-        x = np.array(x, copy=self.copy_arg)
+        if self.copy_arg:
+            x = np.array(x, copy=True)
+        else:
+            x = np.asarray(x)
         for i in sorted(self.integer_variable_indices):
             if i < -len(x):
                 continue
