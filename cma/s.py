@@ -5,6 +5,8 @@ Provides various aliases from within the `cma` package, to be reached like
 ``cma.s....``
 
 Don't use for stable code.
+
+This is not actively maintained.
 """
 import warnings as _warnings
 try: from matplotlib import pyplot as _pyplot  # like this it doesn't show up in the interface
