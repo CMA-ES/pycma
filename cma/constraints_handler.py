@@ -4,7 +4,8 @@
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 # __package__ = 'cma'
 import warnings as _warnings
-import collections as _collections, functools as _functools
+import collections as _collections
+import functools as _functools
 import numpy as np
 from numpy import logical_and as _and, logical_or as _or, logical_not as _not
 from .utilities.utils import rglen, is_
@@ -477,8 +478,8 @@ class BoundPenalty(BoundaryHandlerBase):
 
         # ## Store/update a history of delta fitness value
         fvals = sorted(function_values)
-        l = 1 + len(fvals)
-        val = fvals[3 * l // 4] - fvals[l // 4]  # exact interquartile range apart interpolation
+        _l = 1 + len(fvals)
+        val = fvals[3 * _l // 4] - fvals[_l // 4]  # exact interquartile range apart interpolation
         val = val / np.mean(varis)  # new: val is normalized with sigma of the same iteration
         # insert val in history
         if np.isfinite(val) and val > 0:
@@ -563,8 +564,10 @@ class ConstrainedSolutionsArchive(object):
         self.count += 1
         if self.archive is not None:
             gagg = self.aggregator(g)
-            try: self.archive.add([f, gagg], info=info)
-            except TypeError: self.archive.add([f, gagg])  # previous interface
+            try:
+                self.archive.add([f, gagg], info=info)
+            except TypeError:
+                self.archive.add([f, gagg])  # previous interface
             while len(self.archive) > self.maxlen:
                 if self.archive[1][1] > 0:  # keep at least one infeasible solution
                     self.archive.remove(self.archive[0])
@@ -948,8 +951,10 @@ class AugmentedLagrangian(object):
         return len(self.lam)
     @property
     def is_initialized(self):
-        try: return all(self._initialized)
-        except TypeError: return bool(self._initialized)
+        try:
+            return all(self._initialized)
+        except TypeError:
+            return bool(self._initialized)
     @property
     def count_initialized(self):
         """number of constraints with initialized coefficients"""
@@ -957,8 +962,10 @@ class AugmentedLagrangian(object):
     @property
     def feasibility_ratios(self):
         """or bias for equality constraints, versatile interface may change"""
-        try: return [np.mean(np.asarray(g) <= 0) for g in np.asarray(self.G).T]
-        except AttributeError: return None
+        try:
+            return [np.mean(np.asarray(g) <= 0) for g in np.asarray(self.G).T]
+        except AttributeError:
+            return None
 
     def set_m(self, m):
         """initialize attributes which depend on the number of constraints.
@@ -1067,8 +1074,10 @@ class AugmentedLagrangian(object):
         Penalties are zero in the optimum and can be negative down to
         ``-lam**2 / mu / 2``.
         """
-        try: self.count_g_in_penalized_domain += self.mu * g > -1 * self.lam
-        except TypeError: pass
+        try:
+            self.count_g_in_penalized_domain += self.mu * g > -1 * self.lam
+        except TypeError:
+            pass
         for i in range(len(g)):
             self.g_all[i].append(g[i])
         if self.lam is None:
@@ -1153,8 +1162,10 @@ class AugmentedLagrangian(object):
         """
         self.g_history.append(g)  # is a deque with maxlen
         if self.lam is None:
-            try: self._count_noupdate += 1
-            except AttributeError: self._count_noupdate = 1
+            try:
+                self._count_noupdate += 1
+            except AttributeError:
+                self._count_noupdate = 1
             if self._count_noupdate % (1 + self._count_noupdate**0.5) < 1:
                 _warnings.warn("no update for %d calls (`lam` and `mu` need "
                                "to be initialized first)" % self._count_noupdate)
@@ -1226,7 +1237,8 @@ class AugmentedLagrangian(object):
                         self.mu[i] *= self.chi_domega**(-0.25 * (1 -
                             self.count_mu_last_same_changes.update(i, -1).shape_exponent(i)))
                 else:
-                    raise NotImplemented("algorithm number {0} is not known".format(self.algorithm))
+                    raise NotImplementedError("algorithm number {0} is not known"
+                                              .format(self.algorithm))
             self.count += 1
         assert np.all((self.lam >= 0) + self.isequality)
         self.f, self.g = f, g  # self(g) == 0 if mu=lam=0
@@ -1581,5 +1593,5 @@ class ConstrainedFitnessAL(object):
             es.more_to_write += [g_pos if g_pos else np.nan,  # nan avoids zero in log plot
                                  10**(n_infeas / 10) if n_infeas < 10 else n_infeas,  # symlog-like
                                  ]
-        except:
+        except Exception:
             pass
