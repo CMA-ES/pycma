@@ -344,10 +344,10 @@ def print_warning(msg, method_name=None, class_name=None, iteration=None,
         if warnings_counter[msg] == maxwarns:
             msg += ' (further warnings will be suppressed)'
     if verbose >= -2:
-        warnings.warn(msg + ' (' +
-              ('class=%s ' % str(class_name) if class_name else '') +
-              ('method=%s ' % str(method_name) if method_name else '') +
-              ('iteration=%s' % str(iteration) if iteration else '') +
+        warnings.warn(msg + ' (time={}'.format(time.asctime()[4:]) +
+              (' class=%s' % str(class_name) if class_name else '') +
+              (' method=%s' % str(method_name) if method_name else '') +
+              (' iteration=%s' % str(iteration) if iteration else '') +
               ')', **kwargs_for_warn)
 def print_message(msg, method_name=None, class_name=None, iteration=None,
                    verbose=None):
