@@ -821,7 +821,7 @@ class DiagonalDecoding(AdaptiveDecoding):
                         1/0
                     idx2 = facs[idx] > max_z2
                     if any(idx2):
-                        _warnings.warn("clipped exponential update in indices {0}\n"
+                        print_warning("clipped exponential update in indices {0}\n"
                                     "from {1} to max(|z^2-1| + 1)={2}".format(
                                         np.where(idx)[0][idx2], facs[idx][idx2], max_z2[idx2]))
                         facs[idx][idx2] = max_z2[idx2]
