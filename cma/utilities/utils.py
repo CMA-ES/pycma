@@ -349,6 +349,30 @@ def print_warning(msg, method_name=None, class_name=None, iteration=None,
               (' method=%s' % str(method_name) if method_name else '') +
               (' iteration=%s' % str(iteration) if iteration else '') +
               ')', **kwargs_for_warn)
+def format_warning(msg, method_name=None, class_name=None, iteration=None,
+                   maxwarns=None):
+    """Poor man's maxwarns: msg must match exactly.
+
+    Copy-paste of `print_warning` to get better location information than
+    `print_warning`. Calling `warnings.warn` here makes the warning
+    location information meaningless, hence we format only a string here.
+    Usage could be like::
+
+        m = utils.format_warning(some_message
+                ); m and warnings.warn(m)
+
+    """
+    if maxwarns is not None:  # we could do the counting irrespectively?
+        warnings_counter[msg] += 1
+        if warnings_counter[msg] > maxwarns:
+            return ''
+        if warnings_counter[msg] == maxwarns:
+            msg += ' (further warnings will be suppressed)'
+    return (msg + ' (time={}'.format(time.asctime()[4:]) +
+            (' class=%s' % str(class_name) if class_name else '') +
+            (' method=%s' % str(method_name) if method_name else '') +
+            (' iteration=%s' % str(iteration) if iteration else '') +
+            ')')
 def print_message(msg, method_name=None, class_name=None, iteration=None,
                    verbose=None):
     if verbose is None:
