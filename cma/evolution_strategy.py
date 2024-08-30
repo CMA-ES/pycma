@@ -1652,11 +1652,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 arinj[0] *= self._random_rescaling_factor_to_mahalanobis_size(arinj[0]) / self.sigma
                 arinj[1] *= (np.sum(arinj[0]**2) / np.sum(arinj[1]**2))**0.5
                 if not Mh.vequals_approximately(arinj[0], -arinj[1]):
-                    utils.print_warning(
-                        "mean_shift_samples, but the first two solutions"
-                        " are not mirrors.",
-                        "ask_geno", "CMAEvolutionStrategy",
-                        self.countiter)
+                    m = utils.format_warning(
+                            "mean_shift_samples, but the first two solutions"
+                            " are not mirrors.",
+                            "ask_geno", "CMAEvolutionStrategy",
+                            self.countiter); m and warnings.warn(m)
                     # arinj[1] /= sum(arinj[0]**2)**0.5 / s1  # revert change
             self.number_of_injections_delivered += len(arinj)
             assert (self.countiter < 2 or not self.mean_shift_samples
@@ -2112,10 +2112,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             try:
                 if np.isscalar(function_values[0][0]):
                     if self.countiter <= 1:
-                        utils.print_warning('''function_values is not a list of scalars,
+                        m = utils.format_warning('''function_values is not a list of scalars,
                         the first element equals %s with non-scalar type %s.
                         Using now ``[v[0] for v in function_values]`` instead (further warnings are suppressed)'''
-                                            % (str(function_values[0]), str(type(function_values[0]))))
+                                            % (str(function_values[0]), str(type(function_values[0])))
+                                ); m and warnings.warn(m)
                     function_values = [val[0] for val in function_values]
                 else:
                     raise ValueError('objective function values must be a list of scalars')

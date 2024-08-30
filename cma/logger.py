@@ -371,8 +371,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     self.persistent_communication_dict.update(
                                 string_=file.readline())
             except IOError:
-                utils.print_warning('reading from file "' + fn + '" failed',
-                               'load', 'CMADataLogger')
+                m = utils.format_warning('reading from file "' + fn + '" failed',
+                        'load', 'CMADataLogger'); m and warnings.warn(m)
                 self.__dict__[self.key_names[i]] = []
             try:
                 # duplicate last row to later fill in annotation

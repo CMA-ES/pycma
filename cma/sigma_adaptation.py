@@ -482,16 +482,16 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
                             dmi_div_dx0i, dm / dx0, 1e-4) or \
                             not Mh.equals_approximately(
                                     dmi_div_dx1i, dm / dx1, 1e-4):
-                        utils.print_warning(
+                        m = utils.format_warning(
                             'TPA: apparent inconsistency with mirrored'
                             ' samples, where dmi_div_dx0i, dm/dx0=%f, %f'
                             ' and dmi_div_dx1i, dm/dx1=%f, %f' % (
                                 dmi_div_dx0i, dm/dx0, dmi_div_dx1i, dm/dx1),
                             'check_consistency',
-                            'CMAAdaptSigmaTPA', es.countiter)
+                            'CMAAdaptSigmaTPA', es.countiter); m and _warnings.warn(m)
                 else:
-                    utils.print_warning('zero delta encountered in TPA which' +
+                    m = utils.format_warning('zero delta encountered in TPA which' +
                                         ' \nshould be very rare and might be a bug' +
                                         ' (sigma=%f)' % es.sigma,
                                         'check_consistency', 'CMAAdaptSigmaTPA',
-                                        es.countiter)
+                                        es.countiter); m and _warnings.warn(m)
