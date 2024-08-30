@@ -75,7 +75,7 @@ Anaconda::
 # from distutils.core import setup
 from setuptools import setup
 from cma import __version__  # assumes that the right module is visible first in path, i.e., cma folder is in current folder
-from cma import __doc__ as long_description
+from cma import __doc__ as long_description  # is overwritten below
 
 # prevent the error when building Windows .exe
 import codecs

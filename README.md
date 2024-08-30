@@ -89,6 +89,11 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``4.0.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.0.0)
+  - majorly improved mixed-integer handling based on a more concise lower bound
+    of variances and on so-called integer centering
+  - moved options and parameters code into a new file
+  - many small-ish fixes and improvements
 * [Release ``3.4.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.4.0)
   - fix compatibility to `numpy` 2.0 (thanks to [Sait Cakmak](https://github.com/saitcakmak))
   - improved interface to `noise_handler` argument which accepts `True` as value
