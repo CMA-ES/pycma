@@ -3064,9 +3064,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # TODO: make sure cc is 1 / N**0.5 rather than 1 / N
             # TODO: simplify code: split the c1 and cmu update and call self.sm.update twice
             #       caveat: for this the decay factor ``c1_times_delta_hsigma - sum(weights)`` should be zero in the second update
-            sampler_weights = [c1a] + [cmu * w for w in sp.weights(len(pop_zero))]
+            _weights = sp.weights(len(pop_zero))
+            sampler_weights = [c1a] + [cmu * w for w in _weights]
             sampler_weights_dd = [dd_params['c1']] + [
-                                  dd_params['cmu'] * w for w in sp.weights(len(pop_zero))]
+                                  dd_params['cmu'] * w for w in _weights]
 
             if len(pop_zero) > len(sp.weights):  # TODO: can be removed
                 _sampler_weights = [c1a] + [cmu * w for w in sp.weights]
