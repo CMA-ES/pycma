@@ -579,7 +579,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return s if s else foffset
 
 
-class _F_0:
+class _F_0(object):
     """return a "normalized" BBOB function, funID=1..24 when suite='bbob'.
 
     The `fun` attribute is the original function which also provides the

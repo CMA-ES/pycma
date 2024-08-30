@@ -536,7 +536,7 @@ def _g_pos_sum(gvals):
     return sum(gi for gi in gvals if gi > 0)
 def _g_pos_squared_sum(gvals):
     return sum(gi**2 for gi in gvals if gi > 0)
-class ConstrainedSolutionsArchive:
+class ConstrainedSolutionsArchive(object):
     """Biobjective Pareto archive to store some Pareto optimal solutions
     for constrained optimization.
 
@@ -717,7 +717,7 @@ def _log_mu(s):
     v = np.log10(np.maximum(s.mu, 1e-9))
     return np.hstack([v, 0])  # add column to get same colors as _log_feas_events
 
-class CountLastSameChanges:
+class CountLastSameChanges(object):
     """An array/list of successive same-sign counts.
 
     ``.same_changes[i]`` counts how often the same sign was successively
@@ -1239,7 +1239,7 @@ class AugmentedLagrangian(object):
 def _get_favorite_solution(es):
     "avoid unpicklable lambda construct"
     return es.ask(1, sigma_fac=0)[0]
-class ConstrainedFitnessAL:
+class ConstrainedFitnessAL(object):
     """Construct an unconstrained objective function from constraints.
 
     This class constructs an unconstrained "fitness" function (to be

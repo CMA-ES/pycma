@@ -1004,7 +1004,7 @@ class ListOfCallables(list):
             return res[0]  # for backwards compatibility when a single callable is used
         return res
 
-class ShowInFolder:  # was ShowInline
+class ShowInFolder(object):  # was ShowInline
     """callable instance to save and show figures from `matplotlib`.
 
     Saves figures to a folder ``'figs-...'`` with incremental filenames

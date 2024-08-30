@@ -172,7 +172,7 @@ class SurrogatePopulation(object):
         self.logger = Logger(self, labels=['tau0', 'tau1', 'evaluated ratio'])
         self.logger_eigenvalues = Logger(self.model, ['eigenvalues'])
 
-    class EvaluationManager:
+    class EvaluationManager(object):
         """Manage incremental evaluation of a population of solutions.
 
         Evaluate solutions, add them to the model and keep track of which

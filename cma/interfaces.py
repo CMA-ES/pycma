@@ -5,7 +5,7 @@ try: from .optimization_tools import EvalParallel2
 except: EvalParallel2 = None
 del absolute_import, division, print_function  #, unicode_literals
 
-class EvalParallel:
+class EvalParallel(object):
     """allow construct ``with EvalParallel(fun) as eval_all:``"""
     def __init__(self, fun, *args, **kwargs):
         self.fun = fun

@@ -3849,7 +3849,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                            'plot', 'CMAEvolutionStrategy')
         return self
 
-class _StopTolXStagnation:
+class _StopTolXStagnation(object):
     """Provide a termination signal depending on how much a vector has changed,
 
     typically applied to the distribution mean over several iterations.
