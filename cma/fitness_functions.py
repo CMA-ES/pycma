@@ -249,31 +249,29 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         l = len(x) // 2
         felli = self.elli(x[:l])
         return felli + 1e-8 * sum(x[l:]**2)
-    def elli(self, x, rot=0, xoffset=0, cond=1e6, actuator_noise=0.0, both=False):
+    def elli(self, x, rot=0, xoffset=0, cond=1e6, actuator_noise=0.0, beta_noise=0, both=False):
         """Ellipsoid test objective function"""
-        x = np.asarray(x)
         if not isscalar(x[0]):  # parallel evaluation
-            return [self.elli(xi, rot) for xi in x]  # could save 20% overall
+            return [self.elli(xx, rot, xoffset, cond, actuator_noise, beta_noise, both) for xx in x]  # could save 20% overall
+        x = np.asarray(x)
+        N = len(x)
         if rot:
             x = rotate(x)
-        N = len(x)
         if actuator_noise:
             x = x + actuator_noise * np.random.randn(N)
 
         ftrue = sum(cond**(np.arange(N) / (N - 1.)) * (x + xoffset)**2) \
-                if N > 1 else (x + xoffset)**2
-
+                if N > 1 else (x[0] + xoffset)**2
+        # felli = ftrue + 1*np.random.randn() / (1e-30 +  # Cauchy noise
+        #                                           np.abs(np.random.randn()))**0
+        if beta_noise == 0:
+            return ftrue  # + np.random.randn()
         alpha = 0.49 + 1. / N
-        beta = 1
-        felli = np.random.rand(1)[0]**beta * ftrue * \
-                max(1, (10.**9 / (ftrue + 1e-99))**(alpha * np.random.rand(1)[0]))
-        # felli = ftrue + 1*np.random.randn(1)[0] / (1e-30 +
-        #                                           np.abs(np.random.randn(1)[0]))**0
+        felli = np.random.rand()**beta_noise * ftrue * \
+                max(1, (10.**9 / (ftrue + 1e-99))**(alpha * np.random.rand()))
         if both:
             return (felli, ftrue)
-        else:
-            # return felli  # possibly noisy value
-            return ftrue  # + np.random.randn()
+        return felli
     def ellihalfrot(self, x, frac=0.5, cond1=1e6, cond2=1e6):
         """return ellirot(x[:N2]) + elli(x[N2:]) where ``N2`` is roughly ``frac*len(x)``"""
         N2 = max((2, int(frac * len(x))))
