@@ -886,6 +886,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 opts['maxstd'] = (self.boundary_handler.get_bounds('upper', self.N_pheno) -
                                   self.boundary_handler.get_bounds('lower', self.N_pheno)
                                   ) * opts['maxstd_boundrange']
+            # fix corner case with integer variables and bounds mod 1 at 0.5
+            self.boundary_handler.amend_bounds_for_integer_variables(
+                    opts['integer_variables'])
 
         # set self.mean to geno(x0)
         tf_geno_backup = self.gp.tf_geno

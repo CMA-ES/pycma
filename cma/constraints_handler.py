@@ -54,6 +54,41 @@ class BoundaryHandlerBase(object):
                                      'therefore no finite feasible solution is available')
             self.bounds = bounds
 
+    def amend_bounds_for_integer_variables(self, integer_indices, at=0.5, offset=1e-9):
+        """set bounds away from ``at=0.5`` such that
+
+        a repaired solution is always rounded into the feasible domain.
+        """
+        if not integer_indices or not self.has_bounds():
+            return
+        def set_bounds(which, idx, integer_indices):
+            """idx is a `bool` index array of ``bound % 1 == 0.5``"""
+            assert which in (0, 1), which
+            if not np.any(idx):
+                return
+            for i in np.nonzero(idx)[0]:
+                if i not in integer_indices:
+                    idx[i] = False
+            if not np.any(idx):
+                return
+            dimension = max((len(self.bounds[which]),
+                             np.max(np.nonzero(idx)[0]) + 1))
+            bounds = self.get_bounds(which, dimension)
+            if len(bounds) < len(idx):
+                idx = idx[:len(bounds)]  # last nonzero entry determined len
+            elif len(bounds) > len(idx):
+                idx = np.hstack([idx, np.zeros(len(bounds) - len(idx), dtype=bool)])
+            bounds[idx] += (1 - 2 * which) * offset * np.maximum(1, np.abs(bounds[idx]))
+            self.bounds[which] = bounds
+            self._bounds_dict = {}
+
+        dimension = max(integer_indices) + 1
+        for which in (0, 1):
+            if not self.has_bounds('upper' if which else 'lower'):
+                continue
+            bounds = self.get_bounds(which, dimension)
+            set_bounds(which, np.mod(bounds, 1) == at, integer_indices)
+
     def __call__(self, solutions, *args, **kwargs):
         """return penalty or list of penalties, by default zero(s).
 
