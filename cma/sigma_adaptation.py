@@ -129,6 +129,8 @@ class CMAAdaptSigmaDistanceProportional(CMAAdaptSigmaBase):
         ``sp.cmean`` of input parameter ``es``
         """
         es.sigma = self.coefficient * es.sp.weights.mueff * _norm(es.mean) / es.N / es.sp.cmean
+
+csa_dampdown_fac = 1  # for the time being a module global variable
 class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
     """CSA cumulative step-size adaptation AKA path length control.
 
@@ -176,6 +178,9 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
                 2 * max((0, ((es.sp.weights.mueff-1) / (es.N+1))**exponent - 1)) +
                 self.cs
                 )
+        if csa_dampdown_fac != 1 and es.opts['verbose'] > 1:
+            print('CSA damping is asymmetric: dampdown = {0} x dampup'
+                   .format(csa_dampdown_fac))
         self.max_delta_log_sigma = 1  # in symmetric use (strict lower bound is -cs/damps anyway)
 
         if self.disregard_length_setting:
@@ -260,6 +265,8 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         else:
             s = _norm(p) / Mh.chiN(N) - 1
         s *= self.cs / self.damps
+        if csa_dampdown_fac != 1 and s < 0:
+            s /= csa_dampdown_fac
         s_clipped = Mh.minmax(s, -self.max_delta_log_sigma, self.max_delta_log_sigma)
         # "error" handling
         if s_clipped != s:
@@ -345,6 +352,10 @@ class CMAAdaptSigmaMedianImprovement(CMAAdaptSigmaBase):
                                         len(es.fit.fit) * [0] + len(self.fit) * [1])[0]
             es.more_to_write.append(10**zkendall)
         self.fit = es.fit.fit
+
+tpa_dampdown_fac = 1  # for the time being a module global variable
+'''is 4 in the restricted CMA of 2024, was tentatively 2,
+   4 mostly doesn't change standard performance much'''
 class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
     """two point adaptation for step-size sigma.
 
@@ -414,15 +425,17 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
         except (KeyError, TypeError):
             pass
 
-        self.sp.dampup = 0.5**0.0 * 1.0 * self.sp.damp  # 0.5 fails to converge on the Rastrigin function
-        self.sp.dampdown = 2.0**0.0 * self.sp.damp
-        if self.sp.dampup != self.sp.dampdown:
-            print('TPA damping is asymmetric')
+        # self.sp.dampup = 0.5**0.0 * 1.0 * self.sp.damp  # 0.5 fails to converge on the Rastrigin function
+        # self.sp.dampdown = 2.0**0.0 * self.sp.damp
+        if tpa_dampdown_fac != 1 and (opts is None or opts.get('verbose', 0) > 1):
+            print('TPA damping is asymmetric: dampdown = {0} x dampup'
+                   .format(tpa_dampdown_fac))
         self.sp.c = 0.3  # rank difference is asymetric and therefore the switch from increase to decrease takes too long
         self.sp.z_exponent = 0.5  # sign(z) * abs(z)**z_exponent, 0.5 seems better with larger popsize, 1 was default
         self.sp.sigma_fac = 1.0  # (obsolete) 0.5 feels better, but no evidence whether it is
         self.sp.relative_to_delta_mean = True  # (obsolete)
         self.s = 0  # the state/summation variable
+        self.s2 = 0  # moving average of squared value, not in use yet
         self.last = None
         if not self.initialized:
             self.initialized = True
@@ -456,10 +469,9 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
             z = np.nonzero(es.fit.idx == 1)[0][0] - np.nonzero(es.fit.idx == 0)[0][0]
             z /= es.popsize - 1  # z in [-1, 1]
         self.s = (1 - self.sp.c) * self.s + self.sp.c * np.sign(z) * np.abs(z)**self.sp.z_exponent
-        if self.s > 0:
-            es.sigma *= np.exp(self.s / self.sp.dampup)
-        else:
-            es.sigma *= np.exp(self.s / self.sp.dampdown)
+        # self.s2 = (1 - self.sp.c) * self.s2 + self.sp.c * np.sign(z) * np.abs(z)**(2*self.sp.z_exponent)
+        es.sigma *= np.exp(self.s / self.sp.damp
+                                  / (tpa_dampdown_fac if self.s < 0 else 1))
         #es.more_to_write.extend([10**z, 10**self.s])
 
     def check_consistency(self, es):
