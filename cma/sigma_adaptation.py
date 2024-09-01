@@ -478,10 +478,15 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
                                     / (es.pop[0][i] - es.mean[i])
                     dmi_div_dx1i = (es.mean_after_tell[i] - es.mean_old[i]) \
                                         / (es.pop[1][i] - es.mean[i])
+                    expected_precision = 1e-11 * max((1, np.abs(es.mean[i]) / es.stds[i],
+                                                         np.abs(es.mean[j]) / es.stds[j]))
+                    # was: expected_precision = 1e-4
                     if not Mh.equals_approximately(
-                            dmi_div_dx0i, dm / dx0, 1e-4) or \
+                            dmi_div_dx0i, dm / dx0, expected_precision) or \
                             not Mh.equals_approximately(
-                                    dmi_div_dx1i, dm / dx1, 1e-4):
+                                    dmi_div_dx1i, dm / dx1, expected_precision):
+                        print()
+                        print(i, expected_precision, es.mean[i])
                         m = utils.format_warning(
                             'TPA: apparent inconsistency with mirrored'
                             ' samples, where dmi_div_dx0i, dm/dx0=%f, %f'
