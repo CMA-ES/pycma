@@ -1524,6 +1524,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         opts['typical_x'],
                         opts['fixed_variables'],
                         opts['transformation'])
+        if not self.gp.isidentity:
+            warnings.warn("genotype-phenotype transformations induced by {0}\n may not"
+                    " be compatible with more recently introduced code features (like integer handling) and are deprecated."
+                    "\nRather use an objective function wrapper instead, see e.g."
+                    "\n`ScaleCoordinates` or `FixVariables` in `cma.fitness_transformations`."
+                    .format("""
+                        opts['scaling_of_variables'],
+                        opts['typical_x'],
+                        opts['fixed_variables'],
+                        opts['transformation'])"""),
+                        DeprecationWarning
+                          )
 
         self.boundary_handler = opts['BoundaryHandler']
         if isinstance(self.boundary_handler, type):
