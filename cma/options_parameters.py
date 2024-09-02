@@ -82,7 +82,7 @@ def cma_default_options_(  # to get keyword completion back
     popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
     popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
     randn='np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
-    scaling_of_variables='None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or CMA_stds). Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`',
+    scaling_of_variables='None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or CMA_stds). WAS: Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`',
     seed='time  # random number seed for `numpy.random`; `None` and `0` equate to `time`,'\
                 ' `np.nan` means "do nothing", see also option "randn"',
     signals_filename='cma_signals.in  # read versatile options from this file (use `None` or `""` for no file)'\
@@ -106,10 +106,11 @@ def cma_default_options_(  # to get keyword completion back
                    'trigger termination if Dmean stays below the threshold over Diter iterations, '
                    'pass `False` or a negative value to turn off tolxstagnation',
     tolx='1e-11  #v termination criterion: tolerance in x-changes',
-    transformation='''None  # deprecated, use cma.fitness_transformations.FitnessTransformation instead.
-            [t0, t1] are two mappings, t0 transforms solutions from CMA-representation to f-representation (tf_pheno),
-            t1 is the (optional) back transformation, see class GenoPheno''',
-    typical_x='None  # used with scaling_of_variables',
+    transformation='None  # deprecated, use a wrapper like those in cma.fitness_transformations instead.',
+    # WAS:
+    # '''   t0, t1] are two mappings, t0 transforms solutions from CMA-representation to f-representation (tf_pheno),
+    #       t1 is the (optional) back transformation, see class GenoPheno''',
+    typical_x='None  # deprecated, use `cma.fitness_transformations.Shifted` instead',
     updatecovwait='None  #v number of iterations without distribution update, name is subject to future changes',  # TODO: rename: iterwaitupdatedistribution?
     verbose='3  #v verbosity e.g. of initial/final message, -1 is very quiet, -9 maximally quiet, may not be fully implemented',
     verb_append='0  # initial evaluation counter, if append, do not overwrite output files',
