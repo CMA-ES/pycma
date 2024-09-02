@@ -373,6 +373,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             except IOError:
                 utils.print_warning('reading from file "' + fn + '" failed',
                                'load', 'CMADataLogger')
+                self.__dict__[self.key_names[i]] = []
             try:
                 # duplicate last row to later fill in annotation
                 # positions for display
@@ -1660,6 +1661,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         """
         newprefix = self.name_prefix + 'down'
         for name in self.file_names:
+            if not os.path.isfile(self.name_prefix + name + '.dat'):
+                warnings.warn('CMADataLogger.downsampling: file {0} not found'
+                              .format(self.name_prefix + name + '.dat'))
+                continue
             with open(newprefix + name + '.dat', 'wt') as f:
                 iline = 0
                 cwritten = 0
