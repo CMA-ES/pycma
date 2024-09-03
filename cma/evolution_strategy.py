@@ -204,7 +204,7 @@ from .utilities import utils
 from .options_parameters import CMAOptions, cma_default_options
 from . import constraints_handler as _constraints_handler
 from cma import fitness_models as _fitness_models
-from .constraints_handler import BoundNone, BoundPenalty, BoundTransform, AugmentedLagrangian
+from .boundary_handler import BoundNone, BoundPenalty, BoundTransform
 from .integer_centering import IntegerCentering
 from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
@@ -4443,7 +4443,7 @@ def fmin_con(objective_function, x0, sigma0,
     global _al  # for debugging, may be removed at some point
     F = []
     G = []
-    _al = AugmentedLagrangian(len(x0))
+    _al = _constraints_handler.AugmentedLagrangian(len(x0))
     _al_set_logging(_al, kwargs)
 
     # _al.chi_domega = 1.1

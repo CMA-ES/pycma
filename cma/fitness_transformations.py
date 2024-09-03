@@ -8,7 +8,7 @@ import time
 from .utilities import utils
 from .utilities.math import Mh as _Mh
 from .transformations import ConstRandnShift, Rotation
-from .constraints_handler import BoundTransform
+from .boundary_handler import BoundTransform
 from .optimization_tools import EvalParallel2  # for backwards compatibility
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals, with_statement
@@ -131,7 +131,7 @@ class ComposedFunction(Function, list):
     A more specific example:
 
     >>> from cma.fitness_transformations import ComposedFunction
-    >>> from cma.constraints_handler import BoundTransform
+    >>> from cma.boundary_handler import BoundTransform
     >>> from cma import ff
     >>> f = ComposedFunction([ff.elli,
     ...                       BoundTransform([[0], [1]]).transform])

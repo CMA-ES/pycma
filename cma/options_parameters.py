@@ -4,7 +4,7 @@
 from math import inf  # used to eval options
 import warnings as _warnings
 import numpy as np
-from . import constraints_handler
+from . import boundary_handler
 from . import utilities
 from .utilities import utils
 from .logger import CMADataLogger
@@ -223,8 +223,9 @@ def safe_str(s):
                                       ).replace('/  /', '//')
 
 options_environment = {
-    name: getattr(constraints_handler, name) for name in
-       ['BoundNone', 'BoundPenalty', 'BoundTransform', 'AugmentedLagrangian']}
+    name: getattr(boundary_handler, name) for name in
+       ['BoundNone', 'BoundPenalty', 'BoundTransform', #'AugmentedLagrangian'
+       ]}
 
 class CMAOptions(dict):
     """a dictionary with the available options and their default values
