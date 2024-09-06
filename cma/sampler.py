@@ -606,7 +606,11 @@ class GaussFullSampler(GaussSampler):
         def inv(x):
             return np.dot(self.B, np.dot(self.B.T, x) / self.D)
         # works only if x is a vector:
-        return inv(x)  # use a for loop to apply to several vectors/matrix
+        # TODO: fixme without bailing!?
+        xinverse = inv(x)
+        if not np.all(np.isfinite(xinverse)):
+            warnings.warn("inv(x={0}) = {1} is not finite".format(x, xinverse))
+        return xinverse  # use a for loop to apply to several vectors/matrix
         # except: return [inv(xi) for xi in x]
         # can't make it work regardless == self.B @ np.diag(self.D**-1) @ self.B.T @ x
         # except: return np.dot(np.dot(self.B, (self.B / self.D).T), x) Doesn't work

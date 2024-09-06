@@ -792,9 +792,15 @@ class DiagonalDecoding(AdaptiveDecoding):
         z2 = np.asarray(vectors)**2  # popsize x dim array
         if 11 < 3 and np.max(z2) > 50:
             print(np.max(z2))
+        if np.any(z2 > 55) or np.any(z2 < -55):  # i.e. > 7**2
+            # we should never observe sigma-values outside of [-7, 7] or so
+            idx = list(np.nonzero(np.logical_or(z2 > 55, z2 < -55))[0])
+            _warnings.warn("indices {0} of z={1} are outside of [-55, 55]"
+                           .format(idx, z2))
         # z2 = 1.96 * np.tanh(np.asarray(vectors) / 1.4)**2  # popsize x dim array
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
+        # TODO: fixme when np.exp overflows
         facs = np.exp((z2_average - sum(weights)) / 2)
             # remark that exp(log(2) * x) = 2**x
             # without log(2) we have that exp(z2 - 1) = z2 iff z2 = 1

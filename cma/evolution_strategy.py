@@ -1239,7 +1239,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 found = s > sb * initial_linalg_fix
             if found:
                 self.sigma_vec._init_(self.N)
-                self.sigma_vec.set_i(i, self.sigma_vec.scaling[i] * sb / s)
+                if s == 0 or not np.isfinite(self.sigma_vec.scaling[i] * sb):
+                    warnings.warn('_stds_into_limits: sigmavec update omitted due to '
+                        'an inadmissible value s={0}, scaling[i]={1}, sb={2}, stds={3}'
+                        .format(s, self.sigma_vec.scaling[i], sb, self.stds))
+                else:
+                    self.sigma_vec.set_i(i, self.sigma_vec.scaling[i] * sb / s)
+                    self.pc2[i] *= sb / s  # fixes issue #264
                 if warn:
                     warnings.warn("Sampling standard deviation i={0} at iteration {1}"
                                   " change by {2} to stds[{3}]={4}"
@@ -1296,10 +1302,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                           .format(es.N, self.N))
         if scaling:
             self.sigma_vec = transformations.DiagonalDecoding(es.sigma_vec.scaling)
+            if np.any(self.pc2 != 0):
+                warnings.warn("self.pc2={0} may not be compatible with changed sigma_vec"
+                              .format(self.pc2))
         try:
             self.sm.C = es.sm.C.copy()
         except Exception:
             warnings.warn("`self.sm.C = es.sm.C.copy()` failed")
+        else:
+            if np.any(self.pc != 0):
+                warnings.warn("self.pc={0} may not be compatible with changed C"
+                              .format(self.pc))
         self.sm.update_now(-1)  # make B and D consistent with C
         self._updateBDfromSM()
 
@@ -2820,7 +2833,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             factors = self.sm.to_correlation_matrix()
             self.sigma_vec *= factors
             self.pc /= factors
-            # self.pc2 /= factors
+            # self.pc2 *= factors  # DD * sqrt(C) didn't change
             self._updateBDfromSM(self.sm)
             utils.print_message('\ncondition in coordinate system exceeded'
                                 ' %.1e, rescaled to %.1e, '
@@ -2866,8 +2879,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             tf_inv = self.sm.to_linear_transformation_inverse()
             tf = self.sm.to_linear_transformation(reset=True)
             self.pc = np.dot(tf_inv, self.pc)
-            # self.pc2 = np.dot(tf_inv, self.pc2)
-            old_C_scales = self.dC**0.5
+            self.pc2 = np.dot(tf_inv, self.pc2 / self.sigma_vec)  # below, sigma_vec goes into gp
             self._updateBDfromSM(self.sm)
         except NotImplementedError:
             utils.print_warning("Not Implemented",
