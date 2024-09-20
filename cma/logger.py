@@ -1319,7 +1319,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if dat.f.shape[1] > 8:  # interquartile f-range
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(_x, abs(dat.f[:, [8]]) + foffset, 'grey', linewidth=0.7)  # darkorange is nice
-
+            text(_x[-2], abs(dat.f[-2, 8]) + foffset, 'IQR(f)', fontsize=fontsize)
         # (larger indices): additional fitness data, for example constraints values
         if dat.f.shape[1] > 9:
             # dd = abs(dat.f[:,7:]) + 10*foffset
@@ -1498,7 +1498,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # pyplot.tight_layout(rect=(0, 0, 0.96, 1))
         pyplot.gcf().canvas.draw()  # update figure immediately
         pyplot.ion()  # prevents that the execution blocks after plotting
-        # pyplot.show()  # in non-interactive mode: block until the figures have been closed
+        try:
+            pyplot.show()  # in non-interactive mode: block until the figures have been closed
+        except Exception:
+            pass
         # https://github.com/efiring/matplotlib/commit/94c5e161d1f3306d90092c986694d3f611cc5609
         # https://stackoverflow.com/questions/6130341/exact-semantics-of-matplotlibs-interactive-mode-ion-ioff
         pyplot.rcParams['font.size'] = self.original_fontsize  # changes font size in current figure which defeats the original purpose
