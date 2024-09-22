@@ -188,13 +188,27 @@ class BoundaryHandlerBase(object):
         return False
 
     def is_in_bounds(self, x):
-        """not yet tested"""
+        """return `True` if `x` is in bounds.
+
+        >>> import numpy as np
+        >>> import cma
+
+        >>> b = cma.boundary_handler.BoundaryHandlerBase(bounds=[[-0.5], 0.2])
+        >>> for n in [2, 4, 9]:
+        ...     x = np.random.randn(n)
+        ...     assert (all(-0.5 <= x) and all(0.2 >= x)) is b.is_in_bounds(x)
+
+        """
         if self.bounds is None:
             return True
         for ib in [0, 1]:
             if self.bounds[ib] is None:
                 continue
             for i in rglen(x):
+                if i == len(self.bounds[ib]) - 1 and (
+                        self.bounds[ib][i] is None or
+                        (-1)**(1 - ib) * self.bounds[ib][i] == np.inf):
+                    break
                 idx = min([i, len(self.bounds[ib]) - 1])
                 if self.bounds[ib][idx] is None:
                     continue
@@ -202,6 +216,48 @@ class BoundaryHandlerBase(object):
                      ib == 1 and x[i] > self.bounds[ib][idx])):
                     return False
         return True
+
+    def into_bounds(self, x, copy=True):
+        """set out-of-bound values on bounds and return `x`.
+
+        Make a copy when `x` is changed and ``copy is True``,
+        otherwise change in place.
+
+        >>> import numpy as np
+        >>> import cma
+
+        >>> b = cma.boundary_handler.BoundaryHandlerBase(bounds=[[0.1], 0.2])
+        >>> assert all(0.1 <= b.into_bounds(np.random.randn(22)))
+        >>> assert all(0.2 >= b.into_bounds(np.random.randn(11)))
+        >>> b = cma.boundary_handler.BoundaryHandlerBase(bounds=[[-0.1], np.inf])
+        >>> assert all(-0.1 <= b.into_bounds(np.random.randn(22)))
+        >>> b = cma.boundary_handler.BoundaryHandlerBase(bounds=[[-0.1], [None]])
+        >>> assert all(-0.1 <= b.into_bounds(np.random.randn(22)))
+        >>> b = cma.boundary_handler.BoundaryHandlerBase(bounds=[-np.inf, 0.1])
+        >>> assert all(0.1 >= b.into_bounds(np.random.randn(22)))
+
+        """
+        if self.bounds is None:
+            return x
+        for ib in [0, 1]:
+            if self.bounds[ib] is None:
+                continue
+            for i in rglen(x):
+                if i == len(self.bounds[ib]) - 1 and (
+                          self.bounds[ib][i] is None or
+                          (-1)**(1 - ib) * self.bounds[ib][i] == np.inf):
+                    break
+                idx = min([i, len(self.bounds[ib]) - 1])
+                if self.bounds[ib][idx] is None:
+                    continue
+                if ((ib == 0 and x[i] >= self.bounds[ib][idx]) or (
+                     ib == 1 and x[i] <= self.bounds[ib][idx])):
+                    continue
+                if copy:
+                    x = np.array(x, copy=True)
+                    copy = False  # copy only once
+                x[i] = self.bounds[ib][idx]
+        return x
 
     def idx_out_of_bounds(self, x):
         """return index list of out-of-bound values in `x`.
