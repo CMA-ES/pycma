@@ -570,6 +570,8 @@ class CMAOptions(dict):
         starting sequence to identify the valid key, ``else None``
 
         """
+        if key.startswith('_'):
+            return key
         matching_keys = []
         key = key.lower()  # this was somewhat slow, so it is speed optimized now
         if key in cma_allowed_options_keys:
@@ -615,6 +617,8 @@ class CMAOptions(dict):
             popsize = self('popsize', defaults['popsize'], loc)
             for k in list(self.keys()):
                 k = self.corrected_key(k)
+                if k.startswith('_'):
+                    continue
                 self.eval(k, defaults[k],
                           {'N':loc['N'], 'popsize':popsize})
         self._lock_setting = True
@@ -693,9 +697,11 @@ class CMAOptions(dict):
         # CAVEAT: this has not be thoroughly tested
         # transform integer indices to genotype
         popped = []  # just for the record
+        self['_pheno_integer_variables'] = list(self['integer_variables'])
         for i in reversed(range(dimension)):
             if i in self['fixed_variables']:
                 self['integer_variables'].remove(i)
+                self['_pheno_integer_variables'].remove(i)
                 if 1 < 3:  # just for catching errors
                     popped.append(i)
                     if i in self['integer_variables']:

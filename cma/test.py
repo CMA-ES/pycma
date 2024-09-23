@@ -271,9 +271,12 @@ def various_doctests():
     ...     es = cma.CMAEvolutionStrategy(4 * [5], 10, opts).optimize(f)
     ...     assert 'ftarget' in es.stop() and es.result[3] < 1800
     >>> # mixing integer and fixed variables
-    >>> es = cma.CMA(5 * [1], 1, {'verbose':-9, 'integer_variables':[1,2,4],
-    ...                           'fixed_variables':{1:0}})
-    >>> assert es.opts['integer_variables'] == [1, 3]
+    >>> with warnings.catch_warnings():
+    ...     warnings.simplefilter("ignore", category=UserWarning)
+    ...     es = cma.CMA(5 * [1], 1, {'verbose':-9, 'integer_variables':[1,2,4],
+    ...                               'fixed_variables':{1:0}})
+    >>> assert es.opts['integer_variables'] == [1, 3], es.opts['integer_variables']
+    >>> assert es.opts['_pheno_integer_variables'] == [2, 4], es.opts['_pheno_integer_variables']
     >>> # TODO: do more testing here or in the class
 
     Parallel objective:
