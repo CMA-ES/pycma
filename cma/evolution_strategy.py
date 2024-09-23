@@ -1610,7 +1610,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 arinj.append(y)
             while self.pop_injection_solutions:
                 arinj.append((self.pop_injection_solutions.pop(0) - self.mean) / self.sigma)
-            if self.mean_shift_samples and self.countiter > 1:
+            if self.mean_shift_samples and (self.countiter > 1 or len(arinj) > 1):
                 # TPA is implemented by injection of the Delta mean
                 if len(arinj) < 2:
                     raise RuntimeError(
