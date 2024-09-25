@@ -2255,9 +2255,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # sort pop for practicability, now pop != self.pop, which is unsorted
         pop = np.asarray(pop)[fit.idx]  # array is used for weighted recombination
+        injected_solutions_indices = self._clean_injected_solutions_archive(pop)
 
         # prepend best-ever solution to population, in case
         # note that pop and fit.fit do not agree anymore in this case
+        prepended_solutions = 0
         if self.opts['CMA_elitist'] == 'initial':
             if not hasattr(self, 'f0'):
                 utils.print_warning(
@@ -2269,6 +2271,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # self.clip_or_fit_solutions([x_elit], [0]) # just calls repair_genotype
                 self.random_rescale_to_mahalanobis(x_elit)
                 pop = np.asarray([x_elit] + list(pop))
+                prepended_solutions = 1
                 utils.print_message('initial solution injected %f<%f' %
                                     (self.f0, fit.fit[0]),
                                'tell', 'CMAEvolutionStrategy',
@@ -2287,6 +2290,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # self.clip_or_fit_solutions(xp, [0])
             self.random_rescale_to_mahalanobis(xp[0])
             pop = np.asarray([xp[0]] + list(pop))
+            prepended_solutions = 1
 
         self.pop_sorted = pop
         self.integer_centering(pop[:sp.weights.mu], self.mean)
@@ -2408,37 +2412,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # logger = logging.getLogger(__name__)  # "global" level needs to be DEBUG
             # logger.debug("w[0,1]=%f,%f", sampler_weights[0],
             #               sampler_weights[1]) if self.countiter < 2 else None
-            # print(' injected solutions', tuple(self._injected_solutions_archive.values()))
-            for i, x in enumerate(pop):
-                try:
-                    self._injected_solutions_archive.pop(x)
-                    # self.gp.repaired_solutions.pop(x)
-                except KeyError:
-                    pass  # print(i)
-                else:
-                    # apply active_injected multiplier to non-TPA injections
-                    if i > 1 or not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA):
-                        if sampler_weights[i + 1] < 0:  # weight index 0 is for pc
-                            sampler_weights[i + 1] *= self.opts['CMA_active_injected']
-                        if sampler_weights_dd[i + 1] < 0:
-                            sampler_weights_dd[i + 1] *= self.opts['CMA_active_injected']
-            for k, s in list(self._injected_solutions_archive.items()):
-                if s['iteration'] < self.countiter - 2:
-                    # warn unless TPA injections were messed up by integer centering
-                    if (not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA)
-                            # self.integer_centering and
-                            # self.integer_centering is not _pass and
-                        or not isinstance(self.integer_centering, IntegerCentering)
-                        or s['index'] > 1):
-                        warnings.warn("""orphanated injected solution %s
-                            This could be a bug in the calling order/logics or due to
-                            a too small popsize used in `ask()` or when only using
-                            `ask(1)` repeatedly. Please check carefully.
-                            In case this is desired, the warning can be surpressed with
-                            ``warnings.simplefilter("ignore", cma.evolution_strategy.InjectionWarning)``
-                            """ % str(s), InjectionWarning)
-                    self._injected_solutions_archive.pop(k)
             assert len(sampler_weights) == len(pop_zero) + 1
+            for i in injected_solutions_indices:
+                # apply active_injected multiplier to non-TPA injections, index check
+                # is not really relevant as first indices do not have negative weights
+                i += 1 + prepended_solutions  # weight index 0 is for pc
+                if sampler_weights[i] < 0:
+                    sampler_weights[i] *= self.opts['CMA_active_injected']
+                if sampler_weights_dd[i] < 0:
+                    sampler_weights_dd[i] *= self.opts['CMA_active_injected']
+
             if flg_diagonal:
                 self.sigma_vec.update(
                     [self.sm.transform_inverse(self.pc)] +
@@ -2638,6 +2621,43 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 self.pop_injection_solutions.append(solution)
             else:
                 self.pop_injection_directions.append(solution - self.mean)
+
+    def _clean_injected_solutions_archive(self, pop):
+        """return indices of `pop` which are in ``self._injected_solutions_archive`` and
+
+        were "externally" injected (non-TPA).
+
+        Remove old entries from ``self._injected_solutions_archive`` and warn in case.
+        """
+        # print(' injected solutions', tuple(self._injected_solutions_archive.values()))
+        indices = []
+        for i, x in enumerate(pop):
+            try:
+                s = self._injected_solutions_archive.pop(x)
+                # self.gp.repaired_solutions.pop(x)
+            except KeyError:
+                pass
+            else:
+                if not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA) or s['index'] > 1:
+                    indices.append(i)  # found injected solution
+        for k, s in list(self._injected_solutions_archive.items()):
+            if s['iteration'] < self.countiter - 2:
+                if self.integer_mutations.is_none:  # integer_mutations removes some bad solutions
+                    # warn unless TPA injections were messed up by integer centering
+                    if (not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA)
+                            # self.integer_centering and
+                            # self.integer_centering is not _pass and
+                        # or not isinstance(self.integer_centering, IntegerCentering)
+                        or s['index'] > 1):
+                        warnings.warn("""orphanated injected solution %s
+                            This could be a bug in the calling order/logics or due to
+                            a too small popsize used in `ask()` or when only using
+                            `ask(1)` repeatedly. Please check carefully.
+                            In case this is desired, the warning can be surpressed with
+                            ``warnings.simplefilter("ignore", cma.evolution_strategy.InjectionWarning)``
+                            """ % str(s), InjectionWarning)
+                self._injected_solutions_archive.pop(k)
+        return indices  # in sorted pop
 
     @property
     def stds(self):
