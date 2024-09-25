@@ -2444,7 +2444,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     [self.sm.transform_inverse(self.pc)] +
                     list(self.sm.transform_inverse(pop_zero /
                                         (self.sigma * self.sigma_vec.scaling))),
-                    np.log(2) * np.asarray(sampler_weights))  # log(2) is here for historical reasons
+                    np.log(2) * np.asarray(sampler_weights),
+                    integer_indices=self.opts['integer_variables'])  # log(2) is here for historical reasons
             else:
                 pop_zero_encoded = pop_zero / (self.sigma * self.sigma_vec.scaling)
                 if self.opts['CMA_diagonal_decoding'] and hasattr(self.sm, 'beta_diagonal_acceleration'):
@@ -2453,7 +2454,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     self.sigma_vec.update(
                         [self.sm.transform_inverse(self.pc2 / self.sigma_vec.scaling)] +
                             [self.sm.transform_inverse(z) for z in pop_zero_encoded],
-                        ws)
+                        ws,
+                        integer_indices=self.opts['integer_variables'])
                 # TODO: recompute population after adaptation (see transformations.DD.update)?
                 if 11 < 3:  # may be better but needs to be checked
                     pop_zero_encoded = pop_zero / (self.sigma * self.sigma_vec.scaling)

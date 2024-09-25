@@ -771,7 +771,7 @@ class DiagonalDecoding(AdaptiveDecoding):
         self.is_identity = False
         self.scaling[index] = value
 
-    def update(self, vectors, weights, ignore_indices=None):
+    def update(self, vectors, weights, ignore_indices=(), integer_indices=()):
         """exponential update of the scaling factors.
 
         `vectors` have shape popsize x dimension and are assumed to be
@@ -792,15 +792,31 @@ class DiagonalDecoding(AdaptiveDecoding):
         z2 = np.asarray(vectors)**2  # popsize x dim array
         if 11 < 3 and np.max(z2) > 50:
             print(np.max(z2))
-        if np.any(z2 > 55) or np.any(z2 < -55):  # i.e. > 7**2
+        if np.any(z2 > 55):  # i.e. > 7**2
             # we should never observe sigma-values outside of [-7, 7] or so
-            idx = list(np.nonzero(np.logical_or(z2 > 55, z2 < -55))[0])
-            _warnings.warn("indices {0} of z={1} are outside of [-55, 55]"
-                           .format(idx, z2))
+            idx = np.nonzero(np.any(z2 > 55, 1))[0]
+            warn = True
+            if integer_indices:
+                warn = False
+                for k in idx:
+                    for i in np.nonzero(z2[k] > 55)[0]:
+                        if i not in integer_indices:
+                            warn = True
+                            break
+                    if warn:
+                        break
+            if warn:
+                d = []
+                for k in idx:
+                    i = np.nonzero(z2[k] > 55)[0]
+                    if len(i):
+                        d.append((k, list(i), z2[k][i]))
+                _warnings.warn("elements of z2[k] are larger than 55: "
+                               "[(k, idx, values)]={0}".format(d))
         # z2 = 1.96 * np.tanh(np.asarray(vectors) / 1.4)**2  # popsize x dim array
         z2_average = np.dot(weights, z2)  # dim-dimensional vector
         # 1 + w (z2 - 1) ~ exp(w (z2 - 1)) = exp(w z2 - w)
-        # TODO: fixme when np.exp overflows
+        # TODO: fixme when np.exp overflows (instead of max_z2 below)
         facs = np.exp((z2_average - sum(weights)) / 2)
             # remark that exp(log(2) * x) = 2**x
             # without log(2) we have that exp(z2 - 1) = z2 iff z2 = 1
