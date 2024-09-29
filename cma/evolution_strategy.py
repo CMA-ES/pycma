@@ -1086,6 +1086,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pop_injection_directions = []
         self.number_of_solutions_asked = 0
         self.number_of_injections_delivered = 0  # used/delivered in asked
+        self._is_independent_sample = []
 
         # self.gp.pheno adds fixed variables
         relative_stds = ((self.gp.pheno(self.mean + self.sigma * self.sigma_vec * self.D)
@@ -1421,6 +1422,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 except AttributeError:
                     pass
                 index_for_gradient = min((2, len(pop_pheno)-1))
+                try:
+                    self._is_independent_sample[index_for_gradient] = False
+                except Exception as e:
+                    warnings.warn("Exception {0} when setting _is_independent_sample[{1}]"
+                                  .format(e, index_for_gradient))
                 if xmean is None:
                     xmean = self.mean
                 xpheno = self.gp.pheno(xmean, copy=True,
@@ -1490,15 +1496,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     print("    g=", grad_at_mean)
                     print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5
                           )
-            except AttributeError:
-                warnings.warn("Gradient injection failed presumably due\n"
-                              "to missing attribute ``self.sm.B or self.sm.D``")
+            except AttributeError as e:
+                # presumably due to missing attribute ``self.sm.B or self.sm.D``
+                warnings.warn("Gradient injection failed with exception {0}".format(e))
 
         # insert solutions, this could also (better?) be done in self.gp.pheno
         for i in rglen((pop_geno)):
             self.sent_solutions.insert(pop_pheno[i], geno=pop_geno[i],
                                        iteration=self.countiter)
         ### iiinteger handling could come here
+
         return pop_pheno
 
     # ____________________________________________________________
@@ -1650,7 +1657,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Niid = number - len(arinj) # each row is a solution
         # compute ary
-        if Niid >= 0:  # should better be true
+        if Niid > 0:  # should better be true
             ary = self.sigma_vec * np.asarray(self.sm.sample(Niid))
             self._updateBDfromSM(self.sm)  # sm.sample invoked lazy update
             # unconditional mirroring
@@ -1668,7 +1675,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 ary = np.vstack((arinj, ary))
         else:
             ary = array(arinj)
-            assert number == len(arinj)
+            if number != len(arinj):
+                warnings.warn("{0} injections were handled while only {1} sample(s)"
+                              " were asked for".format(len(arinj), number))
+            assert number <= len(arinj)
 
         if (self.opts['verbose'] > 4 and self.countiter < 3 and len(arinj) and
                 self.adapt_sigma is not CMAAdaptSigmaTPA):
@@ -1686,6 +1696,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.evaluations_per_f_value = 1
         self.ary = ary
         self.number_of_solutions_asked += len(pop)
+        if number > 1 or number >= len(self._is_independent_sample):
+            # _is_independent_sample is currently never "zeroed"
+            self._is_independent_sample = len(arinj) * [False] + max((
+                0, Niid)) * [True]  # could be useful for integer mutation
         return pop
 
     def random_rescale_to_mahalanobis(self, x):
@@ -2130,7 +2144,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             utils.print_warning("function values with index %s are not finite but %s."
                                 % (str(idx), str([function_values[i] for i in idx])), 'ask',
                                 'CMAEvolutionStrategy', self.countiter)
-        if self.number_of_solutions_asked <= self.number_of_injections:
+        if self.number_of_solutions_asked <= self.number_of_injections or (
+                not sum(self._is_independent_sample)):
             utils.print_warning("""no independent samples generated because the
                 number of injected solutions, %d, equals the number of
                 solutions asked, %d, where %d solutions remain to be injected
