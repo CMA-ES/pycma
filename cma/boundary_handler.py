@@ -2,6 +2,7 @@
 """A collection of boundary (AKA box constraints) handling classes.
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals
+import warnings as _warnings
 import numpy as np
 from .utilities.utils import rglen
 from .transformations import BoxConstraintsLinQuadTransformation
@@ -11,20 +12,24 @@ del absolute_import, division, print_function  #, unicode_literals
 class BoundaryHandlerBase(object):
     """quick hack versatile base class.
 
-    To make modifications of attribute `bounds` after the instance was
-    generated and used effective, set back the class attribute
-    ``_bounds_dict = {}``.
+    To guaranty that modifications of the attribute `bounds` after this
+    instance was already used are effective, the class attribute
+    ``_bounds_dict`` must be reset like ``_bounds_dict = {}``.
     """
     use_cached_values = False
     '''default behavior as to whether to use cached values'''
     def __init__(self, bounds):
-        """bounds are not copied, but possibly modified and
-        put into a normalized form: ``bounds`` can be ``None``
-        or ``[lb, ub]`` where ``lb`` and ``ub`` are
-        either None or a vector (which can have ``None`` entries).
+        """`bounds` can be ``None`` or ``[lb, ub]``
 
-        Generally, the last entry is recycled to compute bounds
-        for any dimension.
+        where ``lb`` and ``ub`` are either ``None`` or a vector (which can have
+        ``None`` entries).
+
+        On return, the ``bounds`` attribute of ``self`` are the bounds in a
+        normalized form.
+
+        To compute bounds for any dimension, the last entry of bounds is
+        then recycled for variables with ``indices >= len(bounds[i]) for i
+        in (0,1)``.
 
         """
         self.use_cached_values = BoundaryHandlerBase.use_cached_values
@@ -36,13 +41,12 @@ class BoundaryHandlerBase(object):
                     "bounds must be None, empty, or a list of length 2"
                     " where each element may be a scalar, list, array,"
                     " or None; type(bounds) was: %s" % str(type(bounds)))
-            l = [None, None]  # figure out lengths
+            bounds = list(bounds)
             for i in [0, 1]:
                 try:
-                    l[i] = len(bounds[i])
+                    len(bounds[i])  # bails when bounds[i] is a scalar
                 except TypeError:
                     bounds[i] = [bounds[i]]
-                    l[i] = 1
                 if all([bounds[i][j] is None or not np.isfinite(bounds[i][j])
                         for j in rglen(bounds[i])]):
                     bounds[i] = None
@@ -230,38 +234,46 @@ class BoundaryHandlerBase(object):
             res.append([-np.inf, np.inf][ib] if b is None else b)
         return res
 
-    def to_dim_times_two(self, bounds):
+    def to_dim_times_two(self, bounds=None):
         """return boundaries in format ``[[lb0, ub0], [lb1, ub1], ...]``,
         as used by ``BoxConstraints...`` class.
 
+        Use by default ``bounds = self.bounds``.
         """
-        if not bounds:
-            b = [[None, None]]
-        else:
-            l = [None, None]  # figure out lenths
-            for i in [0, 1]:
-                try:
-                    l[i] = len(bounds[i])
-                except TypeError:
-                    bounds[i] = [bounds[i]]
-                    l[i] = 1
-            if l[0] != l[1] and 1 not in l and None not in (
-                    bounds[0][-1], bounds[1][-1]):  # disallow different lengths
-                raise ValueError(
-                    "lower and upper bounds must have the same length\n"
-                    "or length one or `None` as last element (the last"
-                    " element is always recycled).\n"
-                    "Lengths were %s"
-                    % str(l))
-            b = []  # bounds in different format
+        if bounds is None:
             try:
-                for i in range(max(l)):
-                    b.append([bounds[0][min((i, l[0] - 1))],
-                              bounds[1][min((i, l[1] - 1))]])
-            except (TypeError, IndexError):
-                print("boundaries must be provided in the form " +
-                      "[scalar_of_vector, scalar_or_vector]")
-                raise
+                bounds = self.bounds
+            except AttributeError:
+                pass
+        if not bounds:
+            return [[None, None]]
+        l = [None, None]  # figure out lengths
+        copied = False
+        for i in [0, 1]:
+            try:
+                l[i] = len(bounds[i])
+            except TypeError:
+                if not copied:
+                    bounds = list(bounds)
+                    copied = True
+                bounds[i] = [bounds[i]]
+                l[i] = 1
+        if l[0] != l[1] and 1 not in l and None not in (
+                bounds[0][-1], bounds[1][-1]):  # warn on different lengths
+            _warnings.warn(
+                "lower and upper bounds do not have the same length or length\n"
+                " one or `None` as last element (the last"
+                    " element is always recycled).\n"
+                "Lengths are {0} = [len(b) for b in bounds={1}])".format(l, bounds))
+        b = []  # bounds in different format
+        try:
+            for i in range(max(l)):
+                b.append([bounds[0][min((i, l[0] - 1))],
+                            bounds[1][min((i, l[1] - 1))]])
+        except (TypeError, IndexError):
+            print("boundaries must be provided in the form " +
+                    "[scalar_of_vector, scalar_or_vector]")
+            raise
         return b
 
 class BoundNone(BoundaryHandlerBase):
