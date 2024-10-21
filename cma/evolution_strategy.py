@@ -1302,16 +1302,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                           .format(es.N, self.N))
         if scaling:
             self.sigma_vec = transformations.DiagonalDecoding(es.sigma_vec.scaling)
-            if np.any(self.pc2 != 0):
-                warnings.warn("self.pc2={0} may not be compatible with changed sigma_vec"
+            if not np.all(self.pc2 == 0):
+                warnings.warn("self.pc2={0} != 0 may not be compatible with changed sigma_vec"
                               .format(self.pc2))
         try:
             self.sm.C = es.sm.C.copy()
         except Exception:
             warnings.warn("`self.sm.C = es.sm.C.copy()` failed")
         else:
-            if np.any(self.pc != 0):
-                warnings.warn("self.pc={0} may not be compatible with changed C"
+            if not np.all(self.pc == 0):
+                warnings.warn("self.pc={0} != 0 may not be compatible with changed C"
                               .format(self.pc))
         self.sm.update_now(-1)  # make B and D consistent with C
         self._updateBDfromSM()
