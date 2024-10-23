@@ -9,6 +9,61 @@ from .utilities.utils import rglen
 from .transformations import BoxConstraintsLinQuadTransformation
 del absolute_import, division, print_function  #, unicode_literals
 
+def normalize_bounds(bounds, copy=True):
+    """return ``[lower_bounds, upper_bounds]`` such that each of them
+
+    is either a nonempty `list` or `None`.
+
+    `copy` only makes a shallow copy.
+
+    On input, `bounds` must be a `list` of length 2.
+    """
+    for i in [0, 1]:
+        try:
+            if len(bounds[i]) == 0:  # bails when bounds[i] is a scalar
+                if copy:
+                    bounds = list(bounds)
+                    copy = False
+                bounds[i] = None  # let's use None instead of empty list
+        except TypeError:
+            if copy:
+                bounds = list(bounds)
+                copy = False
+            bounds[i] = [bounds[i]]
+        if not _utils.is_(bounds[i]) or all(
+                [bounds[i][j] is None or not np.isfinite(bounds[i][j])
+                    for j in rglen(bounds[i])]):
+            if copy:
+                bounds = list(bounds)
+                copy = False
+            bounds[i] = None
+        if bounds[i] is not None and any([bounds[i][j] == (-1)**i * np.inf
+                                            for j in rglen(bounds[i])]):
+            raise ValueError('lower/upper is +inf/-inf and ' +
+                                'therefore no finite feasible solution is available')
+    return bounds
+
+def none_to_inf(bounds, copy=True):
+    """replace any None by inf or -inf.
+
+    This code was never tested and is not in use.
+    """
+    copy_i = [copy, copy]
+    for ib, val in [[0, -np.inf], [1, np.inf]]:
+        if bounds[ib] is None:
+            if copy:
+                bounds = list(bounds)
+                copy = False
+            bounds[ib] = [val]
+            continue
+        for i in rglen(bounds[ib]):
+            if bounds[ib][i] is None:
+                if copy_i[ib]:
+                    bounds[ib] = list(bounds[ib])
+                    copy_i[ib] = False
+                bounds[ib][i] = val
+    return bounds
+
 
 class BoundaryHandlerBase(object):
     """quick hack versatile base class.
@@ -42,22 +97,7 @@ class BoundaryHandlerBase(object):
                     "bounds must be None, empty, or a list of length 2"
                     " where each element may be a scalar, list, array,"
                     " or None; type(bounds) was: %s" % str(type(bounds)))
-            bounds = list(bounds)
-            for i in [0, 1]:
-                try:
-                    if len(bounds[i]) == 0:  # bails when bounds[i] is a scalar
-                        bounds[i] = None  # let's use None instead of empty list
-                except TypeError:
-                    bounds[i] = [bounds[i]]
-                if not _utils.is_(bounds[i]) or all(
-                        [bounds[i][j] is None or not np.isfinite(bounds[i][j])
-                         for j in rglen(bounds[i])]):
-                    bounds[i] = None
-                if bounds[i] is not None and any([bounds[i][j] == (-1)**i * np.inf
-                                                  for j in rglen(bounds[i])]):
-                    raise ValueError('lower/upper is +inf/-inf and ' +
-                                     'therefore no finite feasible solution is available')
-            self.bounds = bounds
+            self.bounds = normalize_bounds(list(bounds), copy=False)
         self._bounds_dict = {}
         '''saved return values of get_bounds(i, dim). Changing `self.bounds` may
            only be effective when this is reset.'''
@@ -298,10 +338,6 @@ class BoundaryHandlerBase(object):
         as used by ``BoxConstraints...`` class.
 
         Use by default ``bounds = self.bounds``.
-
-        TODO: this method duplicates code from __init__ to get `bounds`
-        into a normalized form ``[lower_bounds, upper_bounds]`` (before to
-        convert it to the returned form).
         """
         if bounds is None:
             try:
@@ -310,23 +346,11 @@ class BoundaryHandlerBase(object):
                 pass
         if not bounds:
             return [[None, None]]
-        l = [None, None]  # figure out lengths
-        copied = False
+        bounds = normalize_bounds(list(bounds), copy=False)
         for i in [0, 1]:
-            try:
-                l[i] = len(bounds[i])
-            except TypeError:
-                if not copied:
-                    bounds = list(bounds)
-                    copied = True
-                bounds[i] = [bounds[i]]
-                l[i] = 1
-            else:
-                if l[i] == 0:
-                    if not copied:
-                        bounds = list(bounds)
-                        copied = True
-                    bounds[i] = [-np.inf if i == 0 else np.inf]
+            if bounds[i] is None:  # replace None with [None] which is easier below
+                bounds[i] = [None]  # [-np.inf if i == 0 else np.inf]
+        l = [len(bounds[i]) for i in [0, 1]]
         if l[0] != l[1] and 1 not in l and None not in (
                 bounds[0][-1], bounds[1][-1]):  # warn on different lengths
             _warnings.warn(
@@ -365,7 +389,7 @@ class BoundTransform(BoundaryHandlerBase):
     >>> from cma import fitness_transformations as ft
     >>> veq = cma.utilities.math.Mh.vequals_approximately
     >>> b = BoundTransform([0, None])
-    >>> assert b.bounds == [[0], [None]]
+    >>> assert b.bounds == [[0], None]
     >>> assert veq(b.repair([-0.1, 0, 1, 1.2]), np.array([0.0125, 0.0125, 1, 1.2])), b.repair([-0.1, 0, 1, 1.2])
     >>> assert b.is_in_bounds([0, 0.5, 1])
     >>> assert veq(b.transform([-1, 0, 1, 2]), [0.9, 0.0125,  1,  2  ]), b.transform([-1, 0, 1, 2])
