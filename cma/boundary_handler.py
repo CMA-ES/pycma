@@ -4,6 +4,7 @@
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 import warnings as _warnings
 import numpy as np
+from .utilities import utils as _utils
 from .utilities.utils import rglen
 from .transformations import BoxConstraintsLinQuadTransformation
 del absolute_import, division, print_function  #, unicode_literals
@@ -44,11 +45,13 @@ class BoundaryHandlerBase(object):
             bounds = list(bounds)
             for i in [0, 1]:
                 try:
-                    len(bounds[i])  # bails when bounds[i] is a scalar
+                    if len(bounds[i]) == 0:  # bails when bounds[i] is a scalar
+                        bounds[i] = None  # let's use None instead of empty list
                 except TypeError:
                     bounds[i] = [bounds[i]]
-                if all([bounds[i][j] is None or not np.isfinite(bounds[i][j])
-                        for j in rglen(bounds[i])]):
+                if not _utils.is_(bounds[i]) or all(
+                        [bounds[i][j] is None or not np.isfinite(bounds[i][j])
+                         for j in rglen(bounds[i])]):
                     bounds[i] = None
                 if bounds[i] is not None and any([bounds[i][j] == (-1)**i * np.inf
                                                   for j in rglen(bounds[i])]):
@@ -239,6 +242,10 @@ class BoundaryHandlerBase(object):
         as used by ``BoxConstraints...`` class.
 
         Use by default ``bounds = self.bounds``.
+
+        TODO: this method duplicates code from __init__ to get `bounds`
+        into a normalized form ``[lower_bounds, upper_bounds]`` (before to
+        convert it to the returned form).
         """
         if bounds is None:
             try:
@@ -258,6 +265,12 @@ class BoundaryHandlerBase(object):
                     copied = True
                 bounds[i] = [bounds[i]]
                 l[i] = 1
+            else:
+                if l[i] == 0:
+                    if not copied:
+                        bounds = list(bounds)
+                        copied = True
+                    bounds[i] = [-np.inf if i == 0 else np.inf]
         if l[0] != l[1] and 1 not in l and None not in (
                 bounds[0][-1], bounds[1][-1]):  # warn on different lengths
             _warnings.warn(
