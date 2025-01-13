@@ -10,28 +10,34 @@ import numpy as np
 class IntegerCentering(object):
     """round values of int-variables that are different from the int-mean.
 
-    The callable class instance changes a population of solutions in place.
-    This assumes that int-variables change the fitness only if their
-    rounded (genotype) value change (which may be wrong if a geno-pheno
-    transformation is applied). The class corrects for the bias introduced
-    by the rounding.
+    This callable class changes a population of solutions in place, in
+    particular rounding some of the integer variables. The call does not
+    guaranty to round any or all integer variables. The class assumes that
+    the fitness function only interprets the rounded values of integer
+    variables, that is, it assumes that int-variables change the fitness
+    only if their rounded (genotype) value change. (This may easily become
+    a wrong assumption if a geno-pheno transformation is applied). The
+    class tries to correct for the bias introduced by rounding values.
 
     This class should generally be used in combination with a lower bound
     on the integer variables along the lines of ``min((0.2,
     mueff/dimension))``, as it is induced by passing a nonempty
-    ``'integer_variables'`` option to `CMAEvolutionStrategy`.
+    ``'integer_variables'`` option to `CMAEvolutionStrategy`. Applying
+    lower bounds alone is generally more effective than applying integer
+    centering alone.
 
-    This class has no dynamically changing state variables!
+    Class instances have no dynamically changing state variables!
 
-    When integer variable indices are given with the
-    ``'integer_variables'`` option, an `IntegerCentering` class instance is
-    called in `cma.CMAEvolutionStrategy.tell` with (genotypic) solutions
-    like ``int_centering(self.pop_sorted[:self.sp.weights.mu], self.mean)``
-    before the CMA update of the state variables. The call changes the
-    numpy arrays of `self.pop_sorted` in place. The call tries to access
-    the (phenotypic) bounds as defined in ``es.boundary_handler`` from the
-    constructor argument. Hence it is expected to fail with a combination
-    of ``bounds`` and ``fixed_variables`` set in `cma.CMAOptions`.
+    When integer variable indices are passed to `CMAEvolutionStrategy` via
+    the ``'integer_variables'`` `CMAOptions`, an `IntegerCentering` class
+    instance is created, and it is called in `CMAEvolutionStrategy.tell`
+    before the update of the state variables of CMA, passing mu (genotypic)
+    solutions, like ``int_centering(self.pop_sorted[:self.sp.weights.mu],
+    self.mean)`` . The call changes the `numpy` arrays of `self.pop_sorted`
+    in place. The call tries to access the (phenotypic) bounds as defined
+    in ``es.boundary_handler`` from the constructor argument. Hence it is
+    expected to fail with a combination of ``bounds`` and
+    ``fixed_variables`` set in `CMAOptions`.
 
     Pseudocode usage hints::
 
@@ -67,7 +73,7 @@ class IntegerCentering(object):
     >>> assert int1_sphere(es.mean) < 1e-6, es.stop()
 
     Details: The default `method2` was used in the below reference and, as
-    of version 4.0.0, is activated in `cma.CMAEvolutionStrategy` when
+    of version 4.0.0, is activated in `CMAEvolutionStrategy` when
     `integer_variables` are given as option.
 
     Reference: Marty et al, LB+IC-CMA-ES: Two simple modiﬁcations of
