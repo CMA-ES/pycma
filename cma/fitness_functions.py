@@ -577,7 +577,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return s if s else foffset
 
 
-class _F_0(object):
+class _coco_F_0(object):
     """return a "normalized" BBOB function, funID=1..24 when suite='bbob'.
 
     The `fun` attribute is the original function which also provides the
@@ -604,6 +604,10 @@ class _F_0(object):
         self.set_opt()
         self.fun = self.suite.get_problem_by_function_dimension_instance(
             funID, dimension, instance)  # reset final_target_hit
+    def __getattr__(self, name):
+        if name == '_best_parameter':
+            raise AttributeError("_coco_F_0 has not attribute _best_parameter")
+        return getattr(self.fun, name)
     def set_opt(self):
         self.fun._best_parameter('print')
         self.x_opt = np.loadtxt('._bbob_problem_best_parameter.txt')
