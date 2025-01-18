@@ -592,7 +592,11 @@ class AugmentedLagrangian(object):
         #    print('muminus1 %f threshold triggered var %d: %f' % (threshold, i, self.g_history.cdf(i)))
         return res
     def muplus3(self, g, i, threshold=0.95):
-        """return `True` if mu should be increased, else `False`"""
+        """return `True` if mu should be increased, else `False`.
+
+        TODO: because the stationary condition is g == 0, it seems
+        unreasonable to always increase mu when g > 0?
+        """
         if g[i] > 0:
             return True
         if g[i] * self.mu[i] > -self.lam[i]:  # in penalized but feasible domain
@@ -606,7 +610,18 @@ class AugmentedLagrangian(object):
                 return True
         return False
     def muminus3(self, g, i, threshold=0.9):
-        """return `True` if mu should be reduced, else `False`"""
+        """return `True` if mu should be reduced, else `False`.
+
+        If mu is large, the augmented function is steeper on the infeasible
+        side. Consequently, typically g < 0 and, if the constraint is
+        active, some solution will still be infeasible. If this is the
+        case, we decrease mu.
+
+        TODO: if more than 50% are infeasible, we may not want to decrease
+        mu further? This usually does not happen, because we increase mu
+        when g > 0. However, if the constraint is a nonsmooth 1/2^n sector,
+        the feasiblity ratio goes inevitably to 1/2^n.
+        """
         p_feas = self.g_history.cdf(i, len_=self.mucdf3_horizon)
         # p_feas = self.g_all[i].cdf1(len_=n)  # TODO: try to understand why this leads to increase of mu on a linear fct with n linear constraints
         if p_feas < threshold and 0 > g[i]:  # * self.mu[i] > -1 * self.lam[i]:
