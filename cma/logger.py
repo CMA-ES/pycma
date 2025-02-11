@@ -753,7 +753,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
              fshift=0,
              addcols=None,
              load=True,
-             message=None):
+             message=None,
+             **kwargs):
         """plot data from a `CMADataLogger` (using the files written
         by the logger).
 
@@ -803,6 +804,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except ImportError:
             ImportError('could not find matplotlib.pyplot module, function plot() is not available')
             return self
+        iabscissa = kwargs.pop('abscissa', iabscissa)  # accept abscissa as keyword too
+        if kwargs:
+            warnings.warn("unrecognised kwargs={0}".format(kwargs))
         if hasattr(self, 'es') and self.es is not None:
             if fig is self.es:      # in case of usage in a callback
                 fig = gcf().number  # plot in current figure
@@ -1850,7 +1854,8 @@ def plot(name=None, fig=None, abscissa=0, iteridx=None,
         fig = last_figure_number
     if isinstance(fig, (int, float)):
         last_figure_number = fig
-    return CMADataLogger(name).plot(fig, abscissa, iteridx, plot_mean, foffset,
+    return CMADataLogger(name).plot(fig, kwargs.pop('iabscissa', abscissa),
+                             iteridx, plot_mean, foffset,
                              x_opt, fontsize, downsample_to, xsemilog, xnormalize,
                              fshift, addcols, **kwargs)
 
