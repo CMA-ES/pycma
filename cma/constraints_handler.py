@@ -489,7 +489,7 @@ class AugmentedLagrangian(object):
         if self.mu is not None and all(self._initialized * (self.mu > 0)):
             return  # we're all set
         G = np.asarray(G).T  # now row G[i] contains all values of constraint i
-        sign_average = np.mean(np.sign(G), axis=1)  # caveat: equality vs inequality
+        sign_average = -1 + 2 * np.mean(G > 0, axis=1)  # caveat: equality vs inequality
         if self.lam is None:  # destroys all coefficients
             self.set_m(len(G))
         elif not self._initialized.shape:
