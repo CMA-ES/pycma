@@ -155,7 +155,7 @@ else:
 
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
 # $Id: __init__.py 4432 2020-05-28 18:39:09Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py
