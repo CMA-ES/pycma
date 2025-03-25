@@ -806,14 +806,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self._set_x0(x0)  # manage weird shapes, set self.x0
         self.N_pheno = len(self.x0)
 
-        self.sigma0 = sigma0
         if utils.is_str(sigma0):
-            raise ValueError("sigma0 must be a scalar, a string is no longer permitted")
+            raise ValueError("sigma0 must be a scalar, a string like '{0}' is no longer permitted".format(sigma0))
             # self.sigma0 = eval(sigma0)  # like '1./N' or 'np.random.rand(1)[0]+1e-2'
-        if np.size(self.sigma0) != 1 or np.shape(self.sigma0):
-            raise ValueError('input argument sigma0 must be (or evaluate to) a scalar,'
+        if np.size(sigma0) != 1 or np.shape(sigma0):
+            raise ValueError('input argument sigma0 was {0} but must be (or evaluate to) a scalar,'
                              ' use `cma.ScaleCoordinates` or option `"CMA_stds"` when'
-                             ' different sigmas in each coordinate are in order.')
+                             ' different sigmas in each coordinate are in order.'
+                             .format(sigma0))
+        self.sigma0 = float(sigma0)
         self.sigma = self.sigma0  # goes to inialize
 
         # extract/expand options
@@ -2518,10 +2519,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # mindx = eval(self.opts['mindx'])
         #  if utils.is_str(self.opts['mindx']) else self.opts['mindx']
         if self.sigma * min(self.D) < self.opts['mindx']:  # TODO: sigma_vec is missing here
-            self.sigma = self.opts['mindx'] / min(self.D)
+            self.sigma = float(self.opts['mindx'] / min(self.D))
 
         if self.sigma > 1e9 * self.sigma0:
-            alpha = self.sigma / max(self.sm.variances)**0.5
+            alpha = float(self.sigma / max(self.sm.variances)**0.5)
             if alpha > 1:
                 try:
                     self.sm *= alpha
@@ -2736,8 +2737,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         print('final/bestever f-value = %e %e after %d/%d evaluations' % (
             self.best.last.f, fbestever, self.countevals, self.best.evals))
         if self.N < 9:
-            print('incumbent solution: ' + str(list(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair))))
-            print('std deviation: ' + str(list(self.stds)))
+            print('incumbent solution: ' + ' '.join(str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)).split())
+                                           .replace(' ', ', ').replace('[,', '['))
+            print('std deviation: ' + ' '.join(str(self.stds).split())
+                                           .replace(' ', ', ').replace('[,', '['))
         else:
             print('incumbent solution: %s ...]' % (str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
             print('std deviations: %s ...]' % (str(self.stds[:8])[:-1]))
@@ -3456,7 +3459,7 @@ class _CMAStopDict(dict):
             # iiinteger: stagnation termination can prevent to find the optimum
         self._addstop('tolxstagnation', es._stoptolxstagnation.stop)
 
-        s = es.sigma / es.D.max()
+        s = float(es.sigma / es.D.max())
         self._addstop('tolupsigma', opts['tolupsigma'] and
                       s > es.sigma0 * opts['tolupsigma'],
                       s if self._get_value else None)
@@ -3478,7 +3481,7 @@ class _CMAStopDict(dict):
             # non-user defined, method specific
             # noeffectaxis (CEC: 0.1sigma), noeffectcoord (CEC:0.2sigma), conditioncov
             idx = (es.mean == es.mean + 0.2 * sigma_x_sigma_vec_x_sqrtdC).nonzero()[0]
-            self._addstop('noeffectcoord', any(idx), list(idx))
+            self._addstop('noeffectcoord', any(idx), [int(i) for i in idx])
 #                         any([es.mean[i] == es.mean[i] + 0.2 * es.sigma *
 #                                                         (es.sigma_vec if np.isscalar(es.sigma_vec) else es.sigma_vec[i]) *
 #                                                         sqrt(es.dC[i])
@@ -3684,7 +3687,7 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
             for f, x in zip(surrogate.evals.fvalues, surrogate.evals.X):
                 if not_evaluated(f):  # ignore NaN, important for correct count output
                     continue
-                best.update(f, x)
+                best.update(f if isinstance(f, int) else float(f), x)
             if inject:
                 es.inject([surrogate.model.xopt])
             if callback:
@@ -4110,7 +4113,7 @@ def fmin(objective_function, x0, sigma0,
 
                 sigma_factor = 0.01**np.random.uniform()  # Local search
                 popsize_multiplier = fmin_options['incpopsize']**(irun - runs_with_small)
-                opts['popsize'] = np.floor(popsize0 * popsize_multiplier**(np.random.uniform()**2))
+                opts['popsize'] = int(popsize0 * popsize_multiplier**(np.random.uniform()**2))
                 opts['maxiter'] = min(maxiter0, 0.5 * sum(large_i) / opts['popsize'])
                 # print('small basemul %s --> %s; maxiter %s' % (popsize_multiplier, opts['popsize'], opts['maxiter']))
 
@@ -4134,9 +4137,9 @@ def fmin(objective_function, x0, sigma0,
                 es = x0
                 x0 = es.inputargs['x0']  # for the next restarts
                 if np.isscalar(sigma0) and np.isfinite(sigma0) and sigma0 > 0:
-                    es.sigma = sigma0
+                    es.sigma = float(sigma0)
                 # debatable whether this makes sense:
-                sigma0 = es.inputargs['sigma0']  # for the next restarts
+                sigma0 = float(es.inputargs['sigma0'])  # for the next restarts
                 if options is not cma_default_options:
                     if all(str(v) == v for v in options):
                         warnings.warn(

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Parameters and Options for CMA-ES.
 """
+import math
 from math import inf  # used to eval options
 import warnings as _warnings
 import numpy as np
@@ -82,7 +83,7 @@ def cma_default_options_(  # to get keyword completion back
     maxstd='None  #v maximal std (scalar or vector) in any coordinate direction',
     maxstd_boundrange='1/3  # maximal std relative to bound_range per coordinate, overruled by maxstd',
     pc_line_samples='False #v one line sample along the evolution path pc',
-    popsize='4 + 3 * np.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
+    popsize='4 + 3 * math.log(N)  # population size, AKA lambda, int(popsize) is the number of new solution per iteration',
     popsize_factor='1  # multiplier for popsize, convenience option to increase default popsize',
     randn='np.random.randn  #v randn(lam, N) must return an np.array of shape (lam, N), see also cma.utilities.math.randhss',
     scaling_of_variables='None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or CMA_stds). WAS: Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`',
@@ -214,8 +215,11 @@ def safe_str(s):
     return purecma.safe_str(s.split('#')[0],
                             dict([k, k] for k in
                                  ['True', 'False', 'None',
-                                 'N', 'dim', 'popsize', 'int', 'np.inf', 'inf',
-                                 'np.log', 'np.random.randn', 'time',
+                                 'N', 'dim', 'popsize', 'int',
+                                 'math.log', 
+                                 'np.inf', 'inf',
+                                 'np.log',
+                                 'np.random.randn', 'time',
                                  # 'cma_signals.in', 'outcmaes/',
                                  'BoundTransform', 'is_feasible', 'np.linalg.eigh',
                                  '{}', '/'])
@@ -666,8 +670,8 @@ class CMAOptions(dict):
                 self['conditioncov_alleviate'] = [self['conditioncov_alleviate'][0], 0]
             self['conditioncov_alleviate'][-1] = 0
         if inopts.get('popsize', None) in (None, cma_default_options['popsize']):
-            self['popsize'] = 6 + 3 * (np.log(dimension) +  # for the time being, why not sqrt(N)?
-                                       np.log(len(self['integer_variables']) + 0/2))
+            self['popsize'] = 6 + 3 * (math.log(dimension) +  # for the time being, why not sqrt(N)?
+                                       math.log(len(self['integer_variables']) + 0/2))
 
         # number of early tol-triggers before success on the 2D sphere with one int-variable:
         # code: es = cma.CMA([2, 0.1], 0.22, {'integer_variables': [0],...
