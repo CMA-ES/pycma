@@ -1,6 +1,7 @@
 # pycma &nbsp; &nbsp; &nbsp; &nbsp; 
 [![CircleCI](https://circleci.com/gh/CMA-ES/pycma/tree/master.svg?style=shield)](https://circleci.com/gh/CMA-ES/pycma/tree/master)
 [![Build status](https://ci.appveyor.com/api/projects/status/1rge11pwyt55b26k?svg=true)](https://ci.appveyor.com/project/nikohansen/pycma)
+![GitHub Repo stars](https://img.shields.io/github/stars/CMA-ES/pycma?style=flat)
 [![Downloads](https://static.pepy.tech/badge/cma/month)](https://pepy.tech/project/cma)
 [![DOI](https://zenodo.org/badge/68926339.svg)](https://doi.org/10.5281/zenodo.2559634)
 [[BibTeX](https://github.com/CMA-ES/CMA-ES.github.io/blob/master/pycmabibtex.bib)] cite as:
