@@ -54,10 +54,10 @@ installs from the conda cloud channel `cma-es`. CAVEAT: this distribution is cur
 
 ## Installation from Github
 
-The quick way (this requires [`git`](https://git-scm.com) to be installed): to install the code from, for example, the `master` branch, copy-paste
+The quick way (this requires [`git`](https://git-scm.com) to be installed) to install the code from, for example, the `development` branch:
 
 ```sh
-    pip install git+https://github.com/CMA-ES/pycma.git@master
+    pip install git+https://github.com/CMA-ES/pycma.git@development
 ```
 
 The long way:
@@ -79,9 +79,9 @@ The long way:
   - or install the ``cma`` package by typing
 
     ```sh
-        pip install -e cma
+        pip install -e .
     ```
-    in the folder where the ``cma`` package folder can be found.
+    in the (`pycma`) folder where the ``cma`` package folder can be found.
     Moving the ``cma`` folder away from its location invalidates this
     installation.
 
@@ -90,6 +90,14 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``4.2.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.2.0)
+  - a stand-alone boundary handling function wrapper ``BoundDomainTransform``
+  - streamline plot docs, fix symlog plot with newest `matplotlib`, plots display the value of `.stop()` and the version number
+  - a few more minor fixes and improvements
+  - replace `setup.py` with `pyproject.toml`
+  - [Version ``4.1.0``](https://github.com/CMA-ES/pycma/releases/tag/v4.1.0) (already since `5a30571f`)
+    - move boundary handling into a separate module
+    - various small-ish fixes and improvements, in particular an edge case in the initialization of the Lagrange multipliers in the constraints handling
 * [Release ``4.0.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.0.0)
   - majorly improved mixed-integer handling based on a more concise lower bound
     of variances and on so-called integer centering

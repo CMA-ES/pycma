@@ -5,16 +5,16 @@ Evolution Strategy).
 CMA-ES is a stochastic optimizer for robust non-linear non-convex
 derivative- and function-value-free numerical optimization.
 
-This implementation can be used with Python versions >= 2.7, namely,
-it was tested with 2.7, 3.5, 3.6, 3.7, 3.8.
+This release was tested with Python versions 3.8 to 3.13. The
+implementation is intended to be compatible with Python >= 2.7.
 
 CMA-ES searches for a minimizer (a solution x in :math:`R^n`) of an
-objective function f (cost function), such that f(x) is minimal.
-Regarding f, only a passably reliable ranking of the candidate
-solutions in each iteration is necessary. Neither the function values
-itself, nor the gradient of f need to be available or do matter (like
-in the downhill simplex Nelder-Mead algorithm). Some termination
-criteria however depend on actual f-values.
+objective function f (cost function), such that f(x) is minimal. Regarding
+f, only a passably reliable ranking of the candidate solutions in each
+iteration is necessary. Neither the function values themselves, nor the
+gradient of f need to be available or do matter, like in the downhill
+simplex Nelder-Mead algorithm. Some termination criteria however depend on
+actual Delta f-values.
 
 The `cma` module provides two independent implementations of the
 CMA-ES algorithm in the classes `cma.CMAEvolutionStrategy` and
@@ -24,42 +24,22 @@ In each implementation two interfaces are provided:
 
 - functions `fmin2` and `purecma.fmin`:
     run a complete minimization of the passed objective function with
-    CMA-ES. `fmin` also provides optional restarts and noise handling.
+    CMA-ES. `fmin2` also provides optional restarts and noise handling.
 
-- class `CMAEvolutionStrategy` and `purecma.CMAES`:
-    allow for minimization such that the control of the iteration
-    loop remains with the user.
+- class `CMAEvolutionStrategy` (and the alias `CMA`) and `purecma.CMAES`:
+    allow for minimization such that the control of the iteration loop
+    remains with the user. `fmin2` returns an instance of
+    `CMAEvolutionStrategy`.
 
-The `cma` package root provides shortcuts to these and other classes and
-functions.
+Additionally, `fmin_con2` provides constrained optimization.
 
-Used external packages are `numpy` (only `purecma` does not depend on
-`numpy`) and `matplotlib.pyplot` (for `plot` etc., optional but highly
-recommended).
+For a quick start see below or confer to the notebook(s) https://github.com/CMA-ES/pycma/blob/development/notebooks/notebook-usecases-basics.ipynb
 
-Install
-=======
+`CMAEvolutionStrategy` relies, in contrast to `cma.purecma`, heavily on
+`numpy` and optionally on `matplotlib.pyplot` (for `plot` etc., optional
+but highly recommended).
 
-To install the package from `PyPI`_ with `pip`_, type::
-
-    pip install cma
-
-from the command line.
-
-To install the package from a ``cma`` folder::
-
-    pip install -e cma
-
-To upgrade the currently installed version use additionally the ``-U``
-option.
-
-To use the package `from source`_, only the source folder ``cma`` needs to
-be visible in the python path, e.g. in the current working directory.
-
-
-.. _PyPI: https://pypi.org/project/cma
-.. _pip: https://pip.pypa.io
-.. _from source: https://github.com/CMA-ES/pycma
+The source code is available at https://github.com/CMA-ES/pycma.
 
 Testing
 =======
@@ -155,7 +135,7 @@ else:
 
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
 
-__version__ = "4.1.0"
+__version__ = "4.2.0"
 # $Source$  # according to PEP 8 style guides, but what is it good for?
 # $Id: __init__.py 4432 2020-05-28 18:39:09Z hansen $
 # bash $: svn propset svn:keywords 'Date Revision Id' __init__.py
