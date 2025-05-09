@@ -330,6 +330,16 @@ def num2str(val, significant_digits=2, force_rounding=False,
                        desired_length=None)
     return s_ret
 
+def version_diff(v1, v2):
+    """return -1 if v1 < v2 else +1 if v1 > v2 else 0"""
+    for n1, n2 in zip(v1.split('.'), v2.split('.')):
+        if int(n1) < int(n2):
+            return -1
+        if int(n1) > int(n2):
+            return 1
+    return 0
+
+
 # todo: this should rather be a class instance
 warnings_counter = collections.defaultdict(int)
 def print_warning(msg, method_name=None, class_name=None, iteration=None,

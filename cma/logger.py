@@ -1599,11 +1599,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
             _d = dat_x[:, 5:]
             _d_pos = np.abs(_d[_d != 0])
             if len(_d_pos):
-                if matplotlib.__version__[:3] < '3.3':
+                if utils.version_diff(matplotlib.__version__, '3.3') >= 0:
                     # a terrible interface change that swallows the new/old parameter and breaks code
-                    yscale('symlog', linthreshy=np.min(_d_pos))  # see matplotlib.scale.SymmetricalLogScale
-                else:
-                    yscale('symlog', linthresh=np.min(_d_pos))
+                    yscale('symlog', linthresh=np.min(_d_pos))  # see matplotlib.scale.SymmetricalLogScale
+                else:  # old kwarg
+                    yscale('symlog', linthreshy=np.min(_d_pos))
             smartlogygrid(linthresh=np.min(_d_pos))
         if dat_x.shape[1] < 100:  # annotations
             ax = array(axis())

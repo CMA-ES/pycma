@@ -185,11 +185,11 @@ class LoggerList(list):
                 if i == 0:
                     v = np.abs(logger.data)
                     min_val = max((1e-9, np.min(v[v>0])))
-                    if matplotlib.__version__[:3] < '3.3':
+                    if utils.version_diff(matplotlib.__version__, '3.3') >= 0:
                         # a terrible interface change that swallows the new/old parameter and breaks code
-                        plt.yscale('symlog', linthreshy=min_val)  # see matplotlib.scale.SymmetricalLogScale
-                    else:
-                        plt.yscale('symlog', linthresh=min_val)
+                        plt.yscale('symlog', linthresh=min_val)  # see matplotlib.scale.SymmetricalLogScale
+                    else:  # old kwarg
+                        plt.yscale('symlog', linthreshy=min_val)
 
 def _log_g(s):
     return s.g + [0]
