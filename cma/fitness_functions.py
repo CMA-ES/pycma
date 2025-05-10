@@ -146,7 +146,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         dim = len(x)
         x = array([x[i % dim] for i in range(2 * dim)])
         N = 8
-        i = self.evaluations % dim
+        # i = self.evaluations % dim
         # f = sum(x[i:i + N]**2)
         f = sum(x[np.random.randint(dim, size=N)]**2)
         return f

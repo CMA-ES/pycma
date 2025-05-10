@@ -209,7 +209,6 @@ from .integer_centering import IntegerCentering
 from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
-from .utilities.utils import seval as eval
 from .utilities.utils import SolutionDict as _SolutionDict
 from .utilities.math import Mh
 from .sigma_adaptation import *
@@ -1381,7 +1380,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # return [Solution(self.gp.pheno(x, copy=False), copy=False) for x in pop]  # here comes the memory leak, now solved
         pop_pheno = [self.gp.pheno(x, copy=True,
                                 into_bounds=self.boundary_handler.repair)
-                     for x in pop_geno]
+                        for x in pop_geno]
 
         if gradf is not None:
             if not isinstance(self.sm, sampler.GaussFullSampler):
@@ -1427,7 +1426,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     self._is_independent_sample[index_for_gradient] = False
                 except Exception as e:
                     warnings.warn("Exception {0} when setting _is_independent_sample[{1}]"
-                                  .format(e, index_for_gradient))
+                                    .format(e, index_for_gradient))
                 if xmean is None:
                     xmean = self.mean
                 xpheno = self.gp.pheno(xmean, copy=True,
@@ -1449,7 +1448,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             xmean, fpenalty)
                     elif self.boundary_handler is None or \
                             isinstance(self.boundary_handler,
-                                       BoundNone):
+                                        BoundNone):
                         pass
                     else:
                         raise NotImplementedError(
@@ -1493,10 +1492,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 if 11 < 3:
                     print("x/m", pop_pheno[index_for_gradient] / self.mean)
                     print("  x-m=",
-                          pop_pheno[index_for_gradient] - self.mean)
+                            pop_pheno[index_for_gradient] - self.mean)
                     print("    g=", grad_at_mean)
-                    print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5
-                          )
+                    print("      (x-m-g)/||g||=", (pop_pheno[index_for_gradient] - self.mean - grad_at_mean) / sum(grad_at_mean**2)**0.5)
             except AttributeError as e:
                 # presumably due to missing attribute ``self.sm.B or self.sm.D``
                 warnings.warn("Gradient injection failed with exception {0}".format(e))
@@ -1504,7 +1502,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # insert solutions, this could also (better?) be done in self.gp.pheno
         for i in rglen((pop_geno)):
             self.sent_solutions.insert(pop_pheno[i], geno=pop_geno[i],
-                                       iteration=self.countiter)
+                                        iteration=self.countiter)
         ### iiinteger handling could come here
 
         return pop_pheno
@@ -2102,7 +2100,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         :See: class `CMAEvolutionStrategy`, `ask`, `ask_and_eval`, `fmin`
     """
         if self._flgtelldone:
-            raise RuntimeError('tell should only be called once per iteration')
+            raise RuntimeError('tell can currently only be called once per iteration')
 
         lam = len(solutions)
         if lam != len(function_values):
@@ -3730,7 +3728,7 @@ def fmin2(objective_function, x0, sigma0,
          args=(),
          gradf=None,
          restarts=0,
-         restart_from_best='False',
+         restart_from_best=False,
          incpopsize=2,
          eval_initial_x=False,
          parallel_objective=None,
@@ -3742,19 +3740,21 @@ def fmin2(objective_function, x0, sigma0,
          init_callback=None):
     """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``,
 
-    and with the same in input arguments as `fmin`. Hence a typical
-    calling pattern may be::
+    and with the same input arguments as `fmin`. Possible calling patterns
+    are::
 
         x, es = cma.fmin2(...)  # recommended pattern
         es = cma.fmin2(...)[1]  # `es` contains all available information
         x = cma.fmin2(...)[0]   # keep only the best evaluated solution
 
-    `fmin2` is an alias for::
+    and `fmin2` is an alias for::
 
         res = fmin(...)
         return res[0], res[-2]
 
-    `fmin` from `fmin2` is::
+    For descriptions of the input arguments see `fmin`.
+
+    For completness, recovering the output of `fmin` from `fmin2`::
 
         es = fmin2(...)[1]  # fmin2(...)[0] is es.result[0]
         return es.result + (es.stop(), es, es.logger)
@@ -3798,7 +3798,7 @@ def fmin(objective_function, x0, sigma0,
          args=(),
          gradf=None,
          restarts=0,
-         restart_from_best='False',
+         restart_from_best=False,
          incpopsize=2,
          eval_initial_x=False,
          parallel_objective=None,
@@ -4149,7 +4149,8 @@ def fmin(objective_function, x0, sigma0,
                     es.opts.set(options)
                 # ignore further input args and keep original options
             else:  # default case
-                if irun and eval(str(fmin_options['restart_from_best'])):
+                if irun and (fmin_options['restart_from_best'] != 'False'
+                             and fmin_options['restart_from_best']):
                     utils.print_warning('CAVE: restart_from_best is often not useful',
                                         verbose=opts['verbose'])
                     es = CMAEvolutionStrategy(best.x, sigma_factor * sigma0, opts)
@@ -4334,8 +4335,6 @@ def fmin(objective_function, x0, sigma0,
         # TODO refine output, can #args be flexible?
         # is this well usable as it is now?
     else:  # except KeyboardInterrupt:  # Exception as e:
-        if eval(options_parameters.safe_str(options['verb_disp'])) > 0:
-            print(' in/outcomment ``raise`` in last line of cma.fmin to prevent/restore KeyboardInterrupt exception')
         raise KeyboardInterrupt  # cave: swallowing this exception can silently mess up experiments, if ctrl-C is hit
 
 def no_constraints(x):

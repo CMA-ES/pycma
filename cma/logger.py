@@ -848,7 +848,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 fig = gcf().number  # plot in current figure
             if message is None:
                 message = ''
-            if not 'stop()' in message:
+            if 'stop()' not in message:
                 if not message.endswith('\n'):
                     message += '\n'
                 message += "stop()={0}".format(self.es.stop())

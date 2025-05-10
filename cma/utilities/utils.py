@@ -2,7 +2,7 @@
 """various utilities not related to optimization"""
 from __future__ import (absolute_import, division, print_function,
                         )  #unicode_literals, with_statement)
-import os, sys, time
+import os, time
 import warnings
 import ast  # ast.literal_eval is safe eval
 import numpy as np
@@ -10,7 +10,6 @@ import collections  # defaultdict since Python 2.5, OrderedDict since Python 3.1
 from .python3for2 import abc, range
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
-PY2 = sys.version_info[0] == 2
 global_verbosity = 1
 
 # array([]) does not work but np.size(.) == 0
@@ -25,10 +24,6 @@ global_verbosity = 1
 # and False for NaN, and an exception for array([0,1]), see also
 # http://google-styleguide.googlecode.com/svn/trunk/pyguide.html#True/False_evaluations
 
-def seval(s, *args, **kwargs):
-    if any(substring in s for substring in ("import", "sys.", "sys ", "shutil", "val(")):
-        raise ValueError('"%s" seems unsafe to evaluate' % s)
-    return eval(s, *args, **kwargs)
 
 def is_(var):
     """intuitive handling of variable truth value also for `numpy` arrays.
@@ -71,10 +66,7 @@ def is_str(var):
     >>> assert not is_str([1]) and not is_str(1)
 
     """
-    types_ = (bytes, str)
-    if PY2:
-        types_ = types_ + (basestring, unicode)  # == types.StrTypes
-    return any(isinstance(var, type_) for type_ in types_)
+    return hasattr(var, 'startswith')
 def is_nan(var):
     """return ``np.isnan(var)`` or `False` if `var` is not numeric"""
     try:

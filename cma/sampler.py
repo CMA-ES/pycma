@@ -648,6 +648,7 @@ class GaussFullSampler(GaussSampler):
         X = [mean - fac * sigma * self.D[0] * self.B[0], mean,
              mean + fac * sigma * self.D[0] * self.B[0]]
         F = [f(x) for x in X]
+        F
         raise NotImplementedError
 
 class GaussDiagonalSampler(GaussSampler):

@@ -11,7 +11,6 @@ Usage::
 or possibly by executing this file as a script::
 
     python cma/test.py  # same options as above work
-    cma/test.py         # the same
 
 or equivalently by passing Python code::
 
@@ -68,7 +67,6 @@ _files_written = ['_saved-cma-object.pkl',
     ]
 """files written by the doc tests and hence, in case, to be deleted"""
 
-PY2 = sys.version_info[0] == 2
 def _clean_up(folder, start_matches, protected):
     """(permanently) remove entries in ``folder`` which begin with any of
     ``start_matches``, where ``""`` matches any string, and which are not
@@ -88,13 +86,6 @@ def _clean_up(folder, start_matches, protected):
         if any(file_.startswith(s) for s in start_matches) \
                 and not any(file_.startswith(p) for p in protected):
             os.remove(os.path.join(folder, file_))
-def is_str(var):  # copy from utils to avoid relative import
-    """`bytes` (in Python 3) also fit the bill"""
-    if PY2:
-        types_ = (str, unicode)
-    else:
-        types_ = (str, bytes)
-    return any(isinstance(var, type_) for type_ in types_)
 
 def various_doctests():
     """various doc tests.
@@ -332,7 +323,7 @@ def doctest_files(file_list=files_for_doctest, **kwargs):
     """
     # print("__name__ is", __name__, sys.modules[__name__])
     # print(__package__)
-    if not isinstance(file_list, list) and is_str(file_list):
+    if not isinstance(file_list, list) and hasattr(file_list, 'startswith'):
         file_list = [file_list]
     verbosity_here = kwargs.get('verbose', 0)
     if verbosity_here < 0:

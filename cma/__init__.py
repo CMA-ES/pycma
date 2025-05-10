@@ -132,8 +132,8 @@ try:
     del _np
 except ImportError:
     _warnings.warn('Only `cma.purecma` has been imported. Install `numpy` ("pip'
-          ' install numpy") if you want to import the entire `cma`'
-          ' package.')
+                   ' install numpy") if you want to import the entire `cma`'
+                   ' package.')
 else:
     from . import (constraints_handler, evolution_strategy, fitness_functions,
                     fitness_transformations, interfaces, optimization_tools,

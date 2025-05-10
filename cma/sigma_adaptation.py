@@ -323,8 +323,10 @@ class CMAAdaptSigmaMedianImprovement(CMAAdaptSigmaBase):
             self.initialize(es)
             self.fit = es.fit.fit
         else:
-            ft1, ft2 = self.fit[int(self.index_to_compare)], self.fit[int(np.ceil(self.index_to_compare))]
-            ftt1, ftt2 = es.fit.fit[(es.popsize - 1) // 2], es.fit.fit[int(np.ceil((es.popsize - 1) / 2))]
+            ft1 = self.fit[int(self.index_to_compare)]
+            ft2 = self.fit[int(np.ceil(self.index_to_compare))]
+            ftt1 = es.fit.fit[(es.popsize - 1) // 2]
+            # ftt2 = es.fit.fit[int(np.ceil((es.popsize - 1) / 2))]
             pt2 = self.index_to_compare - int(self.index_to_compare)
             # ptt2 = (es.popsize - 1) / 2 - (es.popsize - 1) // 2  # not in use
             s = 0

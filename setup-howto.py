@@ -1,18 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""setup for cma package distribution.
+"""Obsolete and replaced by pyproject.toml, still contains the howto. setup for cma package distribution.
 
-Switch to master branch.
+Switch to the desired branch.
 
 Run local tests
 
-    ./script-test-all.py
+    ./script-test-all-all-arm.sh
+    ruff check cma
 
 Push to a test branch to trigger test:
 
+    git push origin :test  # delete remote test branch if necessary
     git push origin HEAD:test
 
-Edit version numbers into (new) commit vX.X.X::
+Check/edit version numbers into (new) commit vX.X.X::
 
     code cma/__init__.py  # edit version number
     code tools/conda.recipe/meta.yaml  # edit version number
@@ -21,50 +23,60 @@ Add a release note (based on git ls, same commit) in::
 
     ./README.md  # add release description and amend v.X.X.X. commit
 
-To prepare (and check) the docs from a dirty code folder (run ``./script-make-apidocs.sh ``)::
+To check the apidocs from a dirty code folder:
 
-    backup cma --move
-    git checkout -- cma
-    pip install -e .
-    pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt
-    backup --recover
-    less +G pydoctor-messages.txt  # check for errors (which are at the end!)
+    ./script-make-apidocs.sh
 
-    # push new docs to github
+        ==>
+            backup apidocs --move
+            backup cma --move
+            git checkout -- cma
+            pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt
+            backup --recover
+            less +G pydoctor-messages.txt  # check for errors (which are at the end!)
+
+Make and check the distribution from a (usual) dirty code folder ==> install-folder::
+
+    ./script-prepare-distribution.sh
+    
+        ==>
+            backup install-folder --move  # CAVEAT: not the homebrew tool
+            mkdir install-folder  # delete if necessary
+            backup cma --move    # backup is a self-coded minitool
+            git checkout -- cma
+            cp -rp cma pyproject.toml LICENSE README.txt install-folder
+            backup --recover  # recover above moved folder (and backup current, just in case)
+
+    cd install-folder
+    python -m build > dist_call_output.txt; less +G dist_call_output.txt
+    twine check dist/*  # fails with Python 3.13
+    less +G dist_call_output.txt  # errors are shown in the end
+    tar -tf dist/cma-4.2.0.tar.gz | tree --fromfile | less
+                #   ==> 36 files, check that the distribution folders are clean
+                # not really useful anymore as we copy into a clean folder
+
+# see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
+
+Loop over tests and distribution and fix code until everything is fine.
+
+Upload the distribution::
+
+    twine upload dist/*4.2.0*  # to not upload outdated stuff
+
+Push new docs to github
+
     cp -r apidocs/* /Users/hansen/git/CMA-ES.github.io/apidocs-pycma
     cd /Users/hansen/git/CMA-ES.github.io
     git add apidocs-pycma  # there may be new files
     git ci
     git push
 
-To prepare a distribution from a (usual) dirty code folder::
+Tag and push git branch::
 
-    backup cma --move    # backup is a self-coded minitool
-    git checkout -- cma
-    python setup.py check  # obsolete but why not
-      # python build was: python setup.py sdist bdist_wheel --universal > dist_call_output.txt ; less dist_call_output.txt  # bdist_wininst
-    python -m build > dist_call_output.txt ; less dist_call_output.txt  # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
-    # bbdiff cma build/lib/cma/  # just checking
-    backup --recover  # recover above moved folder (and backup current, just in case)
+    git tag -a r4.2.0  # refactor boundary handling code, add UnboundDomain stand-alone class
+    git push origin r4.2.0
 
-Check distribution and project description:
-
-    tree build | less # check that the build folders are clean
-    twine check dist/*
-    # python setup.py --long-description | rst2html.py > long-description.html ; open long-description.html
-
-Loop over tests and distribution and fix code until everything is fine and
-rebase v.X.X.X. commit to be last commit.
-
-Push branch to master::
-
-    git push
-
-Upload the distribution::
-
-    twine upload dist/*3.x.x*  # to not upload outdated stuff
-
-Create a release on GitHub (click on releases and then new draft).
+Create a release on GitHub (click on releases and then new draft, or an r4... tag will do?).
 
 Anaconda::
 
