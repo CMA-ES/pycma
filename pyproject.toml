@@ -1,0 +1,88 @@
+# see also
+#   https://packaging.python.org/en/latest/guides/modernize-setup-py-project/
+#   https://xebia.com/blog/an-updated-guide-to-setuptools-and-pyproject-toml/
+#   https://alpopkes.com/posts/python/packaging_tools/
+#   https://dev.to/adamghill/python-package-manager-comparison-1g98
+# 
+
+[build-system]
+requires = [
+    "setuptools >=70.1",
+    # "setuptools-scm",   # if we want to use git versions for versioning
+    # "wheel",  # setuptools doesn't need wheel anymore, see https://pypi.org/project/wheel/
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cma"
+description = "CMA-ES, Covariance Matrix Adaptation Evolution Strategy for non-linear numerical optimization in Python"
+authors = [
+    {name = "Nikolaus Hansen", email = "authors_firstname.lastname@inria.fr"},
+    {name = "Youhei Akimoto"},
+    {name = "Petr Baudis"},
+]
+dependencies = [
+    "numpy",
+]
+dynamic = ["version",  # see tool.setuptools.dynamic below
+           # "readme",
+          ]
+readme = "README.txt"
+license = "BSD-3-Clause"
+keywords = [
+    "optimization",
+    "CMA-ES",
+    "cmaes",
+]
+maintainers = [
+    {name = "Nikolaus Hansen", email = "authors_firstname.lastname@inria.fr"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Framework :: IPython",
+    "Framework :: Jupyter",
+    "Intended Audience :: Education",
+    "Intended Audience :: Other Audience",
+    "Intended Audience :: Science/Research",
+    # "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[tool.setuptools]
+# packages = ["cma", "cma.utilities"]  # fails when they are in an src/ folder
+include-package-data = false  # true is default, false doesn't change anything
+
+# [tool.setuptools.packages.find]  # for . works only in a clean folder
+# where = ["src"]  # this doesn't work, it always takes the root too
+# include = ["cma*"]
+# namespaces = false
+
+[project.optional-dependencies]
+plotting = ["matplotlib"]
+constrained-solution-tracking = ["moarchiving"]
+
+[project.urls]
+Homepage = "https://github.com/CMA-ES/pycma"
+# Documentation = ""  # API / notebooks / practical hints
+Repository = "https://github.com/CMA-ES/pycma.git"
+"Bug Tracker" = "https://github.com/CMA-ES/pycma/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "cma.__version__"}  # any module attribute compatible with ast.literal_eval
+
+# readme = {file = ["README.txt"]}
+# In the dynamic table, the attr directive [3] will read an attribute from the given module [4], while file will read the contents of all given files and concatenate them in a single string.
+
+[tool.ruff.lint]
+ignore = ['F401', 'F403', 'E401', 'E402', 'F405', 'E701', 'E702', 'E722', 'E741',]
+# select = ["NPY201"]
+
+[tool.ruff.lint.per-file-ignores]
+"fitness_models.py" = ['E731']
+"python3for2.py" = ['F811', 'F821']
