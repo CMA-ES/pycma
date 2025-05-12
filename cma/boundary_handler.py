@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""A collection of boundary (AKA box constraints) handling classes.
+"""A collection of variable boundaries (AKA box constraints) handling classes.
 """
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 import warnings as _warnings
@@ -31,14 +31,14 @@ def normalize_bounds(bounds, copy=True):
                 copy = False
             bounds[i] = [bounds[i]]
         if not _utils.is_(bounds[i]) or all(
-                [bounds[i][j] is None or not np.isfinite(bounds[i][j])
-                    for j in rglen(bounds[i])]):
+                bounds[i][j] is None or not np.isfinite(bounds[i][j])
+                    for j in rglen(bounds[i])):
             if copy:
                 bounds = list(bounds)
                 copy = False
             bounds[i] = None
-        if bounds[i] is not None and any([bounds[i][j] == (-1)**i * np.inf
-                                            for j in rglen(bounds[i])]):
+        if bounds[i] is not None and any(bounds[i][j] == (-1)**i * np.inf
+                                            for j in rglen(bounds[i])):
             raise ValueError('lower/upper is +inf/-inf and ' +
                                 'therefore no finite feasible solution is available')
     return bounds
@@ -64,6 +64,81 @@ def none_to_inf(bounds, copy=True):
                 bounds[ib][i] = val
     return bounds
 
+class BoundDomainTransform(object):
+    """create a `callable` with unbounded domain from a function with bounded domain,
+
+    for example an objective or constraints function. The new "unbounded"
+    `callable` maps ``x`` to ``function(self.transform(x))``, first
+    "projecting" the input (e.g., candidate solutions) into the bounded
+    domain with `transform` before to evaluate the result on the original
+    function. The "projection" is smooth and differentiable, namely
+    coordinate-wise piecewise linear or quadratic. The "projection" is not
+    idempotent.
+
+    Bounds are passed as ``boundaries = [lower_bounds, upper_bounds]``
+    where each ``*_bounds`` can be `None`, or a scalar, or an iterable (a
+    vector) whose values can be `None` too. If the iterable has fewer
+    values than the solutions, the last value is recycled, if it has more
+    values, trailing values are ignored.
+
+    For example, ``boundaries = [None, [0, 0, None]]`` means no lower
+    bounds and an upper bound of zero for the first two variables.
+
+    Example:
+
+    >>> import cma
+    >>> fun = cma.boundary_handler.BoundDomainTransform(
+    ...             cma.ff.sphere,  # is composed with fun.transform into fun
+    ...             [[0.02, 0.01], None])  # boundaries for the "original" problem
+    >>> x, es = cma.fmin2(fun, 3 * [0.5], 0.5, {'verbose':-9})
+    >>> assert all(x - 1e-4 < [-0.03, -0.04, -0.04])  # x is in the unbounded domain
+    >>> print("solution in the original (bounded) domain = {}"
+    ...       .format(fun.transform(es.result.xfavorite)))
+    solution in the original (bounded) domain = [0.02 0.01 0.01]
+
+    The original function can be accessed and called via the attribute
+    ``function`` like ``fun.function(...)``. For code simplicity,
+    attributes of ``function`` are "inherited" to ``fun``.
+
+    Details: the resulting function has a repetitive landscape with a
+    period slightly larger than twice the boundary interval. The
+    ``BoundDomainTransform(function,...)`` instance emulates the original function
+    on attribute access by calling ``__getattr__``. To access shadowed
+    attributes or for debugging, replace ``.attrname`` with
+    ``.function.attrname``.
+    """
+    def __init__(self, function, boundaries):
+        """return a callable that evaluates `function` only within `boundaries`"""
+        self.function = function
+        self.boundary_handler = BoundTransform(boundaries)
+        self.transform = self.boundary_handler.transform  # alias for convenience
+    def __call__(self, x, *args, **kwargs):
+        return self.function(self.transform(x), *args, **kwargs)
+    def __getattr__(self, name):
+        """return ``getattr(self.function, name)`` when ``not hasattr(self, name)``.
+
+        This emulates the `function` interface, kinda like blind inheritance.
+        """
+        return getattr(self.function, name)
+
+class _BoundDomainPenalty(object):
+    """[WIP early] function wrapper for penalty boundary handler, looks kinda complex"""
+    def __init__(self, function, boundaries):
+        """return a callable that evaluates `function` only within `boundaries`"""
+        self.function = function
+        self.boundary_handler = BoundPenalty(boundaries)
+        self.transform = self.boundary_handler.repair  # alias for convenience
+    def __call__(self, x, *args, **kwargs):
+        return self.function(self.transform(x), *args, **kwargs)
+    def callback(self):
+        """needs the mean and the fitness values?"""
+        raise NotImplementedError
+    def __getattr__(self, name):
+        """return ``getattr(self.function, name)`` when ``not hasattr(self, name)``.
+
+        This emulates the `function` interface, kinda like blind inheritance.
+        """
+        return getattr(self.function, name)
 
 class BoundaryHandlerBase(object):
     """quick hack versatile base class.
@@ -144,10 +219,7 @@ class BoundaryHandlerBase(object):
         BoundPenalty class, it should maybe change.
 
         """
-        if np.isscalar(solutions[0]):
-            return 0.0
-        else:
-            return len(solutions) * [0.0]
+        return 0.0 if np.isscalar(solutions[0]) else len(solutions) * [0.0]
 
     def update(self, *args, **kwargs):
         """end-iteration callback of boundary handler (abstract/empty)"""
@@ -517,6 +589,7 @@ class BoundPenalty(BoundaryHandlerBase):
     def repair(self, x, copy_if_changed=True):
         """sets out-of-bounds components of ``x`` on the bounds.
 
+        TODO: unify with BoundaryHandlerBase.repair
         """
         # TODO (old data): CPU(N,lam,iter=20,200,100): 3.3s of 8s for two bounds, 1.8s of 6.5s for one bound
         # remark: np.max([bounds[0], x]) is about 40 times slower than max((bounds[0], x))

@@ -150,7 +150,7 @@ else:
     CMA = CMAEvolutionStrategy  # shortcut for typing without completion
     from .logger import disp, plot, plot_zip, CMADataLogger
     from .optimization_tools import NoiseHandler
-    from .boundary_handler import BoundPenalty, BoundTransform, BoundNone
+    from .boundary_handler import BoundPenalty, BoundTransform, BoundNone, BoundDomainTransform
     from .constraints_handler import ConstrainedFitnessAL, AugmentedLagrangian
 
 # fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
