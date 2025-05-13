@@ -750,54 +750,90 @@ class CMADataLogger(interfaces.BaseDataLogger):
              downsample_to=1e7,
              xsemilog=False,
              xnormalize=False,
+             xtransform=None,
              fshift=0,
              addcols=None,
              load=True,
              message=None,
              **kwargs):
-        """plot data from a `CMADataLogger` (using the files written
-        by the logger).
+        """plot data from a `CMADataLogger` using files written by the logger.
 
         Arguments
         ---------
-        `fig`
-            figure number, by default starting from 325
-        `iabscissa`
-            ``0==plot`` versus iteration count,
-            ``1==plot`` versus function evaluation number
-        `iteridx`
-            iteration indices to plot, e.g. ``range(100)`` for the first 100 evaluations.
-        `x_opt`
-            If `isscalar(x_opt)` it is interpreted as iteration number and the
-            difference of ``x`` to the respective iteration is plotted. If it is
-            a negative scalar the respective index rather than the iteration is used.
-            Namely in particular, ``x_opt=0`` subtracts the initial solution ``X0``
-            and ``x_opt=-1`` subtracts the final solution of the data.
-            If ``len(x_opt) == dimension``, the difference to `x_opt` is
-            plotted, otherwise the first row of ``x_opt`` are the indices of
-            the variables to be plotted and the second row, if present, is used
-            to take the difference.
-        `fshift`
-            is added to all displayed fitness values
+        `fig`: figure number, by default starting from 325
+
+        `iabscissa` or `abscissa`: ``0 ==>`` plot versus iteration count,
+        ``1 ==>`` plot versus function evaluation number
+
+        `iteridx`: the iteration indices to plot, e.g. ``range(100)`` for
+        the first 100 evaluations.
+
+        `plot_mean:bool` indicates whether to plot the current best x or the
+        mean.
+
+        `foffset:float` a small value added to f values to improve log-plot
+        appearance.
+
+        `downsample_to`: number of data lines to use at most
+
+        `x_opt`: plot x-values as a difference to another solution and/or
+        select a subset of variables to plot.
+            
+        If `x_opt` is a nonnegative `int`, it is interpreted as
+        iteration number and the difference of ``x`` to the respective
+        (closest but not larger) iteration is plotted.
+
+        If `x_opt` is a negative `int` the respective index rather than
+        the iteration is used. Namely and in particular, ``x_opt=0``
+        subtracts the initial solution ``X0`` and ``x_opt=-1``
+        subtracts the final solution of the data.
+
+        If ``len(x_opt) == dimension`` or `x_opt` is a float, the
+        difference to `x_opt` is plotted.
+
+        Otherwise: ``x_opt[0]`` defines the indices of the variables to
+        be plotted where ``x_opt[1]``, if present, is subtracted.
+
+        `xsemilog:bool`: customized semilog plot for x-values
+
+        `xnormalize:bool`: divide x-values by standard deviations, may show stationary
+            behavior when the optimum is in zero
+
+        `xtransform:callable` is a function that returns transformed x-values,
+        applied before `x_opt` is subtracted and `xnormalize` is done.
+
+        `fshift:float` is added to all displayed fitness values
+
+        `addcols:int` is the number of added columns for additional subplots
+
+        `load:bool=True`: load/reload data before to try plotting. Useful
+        as a `CMADataLogger` instance itself does not load data by default.
+
+        `message:str`: a message text appearing in the plot
 
         Return `CMADataLogger` itself.
 
-        Examples
-        --------
+        Example
+        -------
         ::
 
             import cma
             logger = cma.CMADataLogger()  # with default name
-            # try to plot the "default logging" data (e.g.
-            #   from previous fmin calls, which is essentially what
-            #   also cma.plot() does)
             logger.plot()
             cma.s.figsave('fig325.png')  # save current figure
-            logger.figclose()
+            logger.figclose()  # or cma.s.figclose()
+
+        Details
+        -------
+        Data from codes in other languages (C, Java, Matlab, Scilab) have the same
+        format and can be plotted just the same.
 
         Dependencies: matlabplotlib.pyplot
 
+        :See: `cma.plot` alias `cma.logger.plot`
     """
+        global last_plot_arguments
+        last_plot_arguments = dict(locals())  # avoid passing new arguments all the way
         try:
             from matplotlib import pyplot
             from matplotlib.pyplot import figure, subplot, gcf
@@ -917,49 +953,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
     def plot_all(self, fig=None, iabscissa=0, iteridx=None,
              foffset=1e-19, x_opt=None, fontsize=7):
-        """
-        plot data from a `CMADataLogger` (using the files written by the logger).
+        """Obsolete: plot data from a `CMADataLogger` (using the files written by the logger).
 
-        Superseded by `plot`?
+        Superseded by `CMADataLogger.plot`
 
         Arguments
         ---------
-        `fig`
-            figure number, by default 425
-        `iabscissa`
-            ``0==plot`` versus iteration count,
-            ``1==plot`` versus function evaluation number
-        `iteridx`
-            iteration indices to plot
-        `x_opt`
-            If `isscalar(x_opt)` it is interpreted as iteration number and the
-            difference of ``x`` to the respective iteration is plotted. If it is
-            a negative scalar the respective index rather than the iteration is used.
-            Namely in particular, ``x_opt=0`` subtracts the initial solution ``X0``
-            and ``x_opt=-1`` subtracts the final solution of the data.
-            If ``len(x_opt) == dimension``, the difference to `x_opt` is
-            plotted, otherwise the first row of ``x_opt`` are the indices of
-            the variables to be plotted and the second row, if present, is used
-            to take the difference.
+        See `CMADataLogger.plot`
 
         Return `CMADataLogger` itself.
-
-        Examples
-        --------
-        ::
-
-            import cma
-            logger = cma.CMADataLogger()  # with default name
-            # try to plot the "default logging" data (e.g.
-            #   from previous fmin calls, which is essentially what
-            #   also cma.plot() does)
-            logger.plot_all()
-            cma.s.figsave('fig425.png')  # save current figure
-            logger.s.figclose()
-
-        Dependencies: matlabplotlib/pyplot.
-
         """
+        warnings.warn('please use `plot` instead of `plot_all`')
         try:
             # pyplot: prodedural interface for matplotlib
             from matplotlib import pyplot
@@ -1049,6 +1053,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             self.plot_mean(iabscissa, x_opt)
 
         self._finalize_plotting()
+        warnings.warn('please use `plot` instead of `plot_all`')
         return self
     def plot_axes_scaling(self, iabscissa=0):
         from matplotlib import pyplot
@@ -1089,11 +1094,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         dat.std = np.array(self.std, copy=True)
         self._enter_plotting()
         try:
-            if len(np.shape(idx)) > 1:
-                idx = idx[0]  # take only first row
+            if not np.isscalar(idx[0]):
+                idx = idx[0]  # take the first entry (from x_opt argument)
             if len(idx) < dat.std.shape[1] - 5:  # idx reduces the displayed variables
                 dat.std = dat.std[:, list(range(5)) + [5 + i for i in idx]]
-        except TypeError: pass  # idx has no len
+        except TypeError:
+            pass  # idx was not an array
         # remove sigma from stds (graphs become much better readible)
         dat.std[:, 5:] = np.transpose(dat.std[:, 5:].T / dat.std[:, 2].T)
         # ax = array(pyplot.axis())
@@ -1528,9 +1534,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
         import matplotlib
         from matplotlib.pyplot import plot, yscale, text, grid, axis, title
         dat = self  # for convenience and historical reasons
+        if callable(last_plot_arguments.get('xtransform', None)):
+            dat_x = dat.x[:,:]
+            tf = last_plot_arguments.get('xtransform')
+            for i in range(len(dat_x)):
+                dat_x[i,5:] = tf(dat_x[i,5:])
+        elif xnormalize or x_opt is not None:
+            dat_x = dat.x[:,:]
+        else:
+            dat_x = dat.x
         # interpret x_opt
-        dat_x = dat.x
-        if np.isscalar(x_opt):  # interpret as iteration number or negative index
+        if isinstance(x_opt, int):  # interpret as iteration number or negative index
             if x_opt == 0:  # subtract X0
                 import ast
                 fn = self.name_prefix + 'x0.dat'
@@ -1554,17 +1568,15 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                   " of iteration {3} from `x_opt` argument"
                                   .format(self.x[_i, 0], _i, _m, x_opt))
                 x_opt = self.x[_i, 5:]
-            dat_x = dat.x[:,:]
             dat_x[:, 5:] -= x_opt
         elif x_opt is not None:  # x_opt is a vector or an index array to reduce dimension or both
-            dat_x = dat.x[:,:]
             try:
                 dat_x[:, 5:] -= x_opt
             except ValueError:  # interpret x_opt as index
                 def apply_xopt(dat_x, x_opt_idx):
                     """first row of `x_opt_idx` are indices, second (optional) row are values"""
                     x_opt_vals = None
-                    if len(np.shape(x_opt_idx)) > 1:
+                    if not np.isscalar(x_opt_idx[0]):
                         x_opt_vals = x_opt_idx[1]
                         x_opt_idx = np.asarray(x_opt_idx[0])
                     dat_x = dat_x[:, list(range(5)) + [5 + i for i in x_opt_idx]]
@@ -1790,62 +1802,25 @@ class CMADataLogger(interfaces.BaseDataLogger):
     # end class CMADataLogger
 
 last_figure_number = 324
-def plot(name=None, fig=None, abscissa=0, iteridx=None,
-         plot_mean=False,
-         foffset=1e-19, x_opt=None, fontsize=7, downsample_to=3e3,
-         xsemilog=None, xnormalize=None, fshift=0, addcols=None, **kwargs):
-    """
-    plot data from files written by a `CMADataLogger`,
-    the call ``cma.plot(name, **argsdict)`` is a shortcut for
-    ``cma.CMADataLogger(name).plot(**argsdict)``
+last_plot_arguments = {}
+def plot(name=None, fig=None, abscissa=0,
+         downsample_to=3e3,
+         xsemilog=None,
+         xnormalize=None,
+         **kwargs):
+    """plot data from files written by a `CMADataLogger`, see `CMADataLogger.plot`.
 
-    Arguments
-    ---------
-    `name`
-        name of the logger, filename prefix, None evaluates to
-        the default 'outcmaes/'
-    `fig`
-        filename or figure number, or both as a tuple (any order)
-    `abscissa`
-        0==plot versus iteration count,
-        1==plot versus function evaluation number
-    `iteridx`
-        iteration indices to plot
-    `x_opt`
-        If `isscalar(x_opt)` it is interpreted as iteration number and the
-        difference of ``x`` to the respective iteration is plotted. If it is
-        a negative scalar the respective index rather than the iteration is used.
-        Namely in particular, ``x_opt=0`` subtracts the initial solution ``X0``
-        and ``x_opt=-1`` subtracts the final solution of the data.
-        If ``len(x_opt) == dimension``, the difference to `x_opt` is
-        plotted, otherwise the first row of ``x_opt`` are the indices of
-        the variables to be plotted and the second row, if present, is used
-        to take the difference.
-    `xsemilog`
-        customized semilog plot for x-values
-    `fshift`
-        is added to plotted and shown f-values
+    ``cma.plot()`` plots the data from the default output folder (which is
+    by default always overwritten). ``cma.plot(name, **argsdict)`` is a
+    shortcut for ``cma.CMADataLogger(name).plot(**argsdict)``.
 
-    Return `None`
+    `name` is the filename prefix of the logger, `None` evaluates to the
+    default ``'outcmaes/'`` (hence writing in a subfolder).
 
-    Examples
-    --------
-    ::
+    The explictly given arguments are for backwards compatibility of their
+    default setting and may disappear. All arguments are documented in
+    `CMADataLogger.plot`.
 
-       cma.plot()  # the optimization might be still
-                   # running in a different shell
-       cma.s.figsave('fig325.png')
-       cma.s.figclose()
-
-       cdl = cma.CMADataLogger().downsampling().plot()
-       # in case the file sizes are large
-
-    Details
-    -------
-    Data from codes in other languages (C, Java, Matlab, Scilab) have the same
-    format and can be plotted just the same.
-
-    :See also: `CMADataLogger`, `CMADataLogger.plot`
 
     """
     global last_figure_number
@@ -1855,9 +1830,11 @@ def plot(name=None, fig=None, abscissa=0, iteridx=None,
     if isinstance(fig, (int, float)):
         last_figure_number = fig
     return CMADataLogger(name).plot(fig, kwargs.pop('iabscissa', abscissa),
-                             iteridx, plot_mean, foffset,
-                             x_opt, fontsize, downsample_to, xsemilog, xnormalize,
-                             fshift, addcols, **kwargs)
+                                    downsample_to=downsample_to,
+                                    xsemilog=xsemilog,
+                                    xnormalize=xnormalize,
+                                    **kwargs)
+plot.__doc__ = plot.__doc__ + CMADataLogger.plot.__doc__.split('\n', 1)[1]
 
 def plot_zip(name=None, filename=None, unique=True):
     """create tar file ``filename [+ ...] + '.tar.gz'`` of folder `name`.
@@ -1914,7 +1891,7 @@ def disp(name=None, idx=None):
        cma.disp(idx=r_[0, -10:0]) # first and ten last
        cma.disp(idx=r_[0:int(1e9):1000, -10:0])
 
-    :See also: `CMADataLogger.disp`
+    :See: `CMADataLogger.disp`
 
     """
     return CMADataLogger(name if name else CMADataLogger.default_prefix
