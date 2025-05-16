@@ -3,6 +3,7 @@
 from __future__ import absolute_import, division, print_function  #, unicode_literals
 import sys
 import warnings
+import math
 import numpy as np
 from multiprocessing import Pool as ProcessingPool
 # from pathos.multiprocessing import ProcessingPool
@@ -321,14 +322,14 @@ class BestSolution(object):
 
     Keeps also track of the genotype, if available.
     """
-    def __init__(self, x=None, f=np.inf, evals=None):
+    def __init__(self, x=None, f=math.inf, evals=None):
         """initialize the best solution with ``x``, ``f``, and ``evals``.
 
         Better solutions have smaller ``f``-values.
         """
         self.x = x
         self.x_geno = None
-        self.f = f if f is not None and f is not np.nan else np.inf
+        self.f = f if f is not None and f is not np.nan else math.inf
         self.evals = evals
         self.evalsall = evals
         self.compared = 0
@@ -351,7 +352,7 @@ class BestSolution(object):
                 self.evalsall = arx.evalsall
             elif arx.evalsall is not None:
                 self.evalsall = max((self.evalsall, arx.evalsall))
-            if arx.f is not None and arx.f < np.inf:
+            if arx.f is not None and arx.f < math.inf:
                 self.update([arx.x], xarchive, [arx.f], arx.evals)
             self.compared += arx.compared
             return self
@@ -364,16 +365,17 @@ class BestSolution(object):
             return
         if minidx is np.nan:
             return
-        minarf = arf[minidx]
+        minarf = arf[minidx] if isinstance(arf[minidx], int) else float(arf[minidx])
         # minarf = reduce(lambda x, y: y if y and y is not np.nan
-        #                   and y < x else x, arf, np.inf)
-        if minarf < np.inf and (minarf < self.f or self.f is None):
-            self.x, self.f = arx[minidx], arf[minidx]
+        #                   and y < x else x, arf, math.inf)
+        if minarf < math.inf and (minarf < self.f or self.f is None):
+            self.x = arx[minidx]
+            self.f = minarf
             if xarchive is not None and xarchive.get(self.x) is not None:
                 self.x_geno = xarchive[self.x].get('geno')
             else:
                 self.x_geno = None
-            self.evals = None if not evals else evals - len(arf) + minidx + 1
+            self.evals = None if not evals else evals - len(arf) + int(minidx) + 1  # minidx was np.int
             self.evalsall = evals
         elif evals:
             self.evalsall = evals
@@ -386,7 +388,7 @@ class BestSolution(object):
 class BestSolution2(object):
     """minimal tracker of a smallest f-value with variable meta-info"""
     def __init__(self):
-        self.f = np.inf
+        self.f = math.inf
         self.x = None
         self.info = None
         self.count_saved = None
@@ -947,7 +949,7 @@ class Sections(object):
         res = self.res
 
         flatx, flatf = self.flattened()
-        minf = np.inf
+        minf = math.inf
         for i in flatf:
             minf = min((minf, min(flatf[i])))
         addf = 1e-9 - minf if minf <= 1e-9 else 0
