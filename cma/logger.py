@@ -142,6 +142,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.file_names = ('axlen', 'axlencorr', 'axlenprec', 'fit', 'stddev', 'sigvec',
                            'xmean', 'xrecentbest')
         """used in load, however hard-coded in add, because data must agree with name"""
+        self.file_stoppings = 'stoppings.json2'
+        self.stoppings = None
+        """content of stoppings.json2 file as a `str`"""
         self.key_names = ('D', 'corrspec', 'precspec', 'f', 'std', 'sigvec', 'xmean', 'xrecent')
         """used in load, however hard-coded in plot"""
         self._key_names_with_annotation = ('std', 'sigvec', 'xmean', 'xrecent')
@@ -336,6 +339,22 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if not filenameprefix:
             filenameprefix = self.name_prefix
         assert len(self.file_names) == len(self.key_names)
+        self.stoppings = None  # don't keep previous condition
+        fn = filenameprefix + self.file_stoppings
+        try:
+            if os.path.isfile(fn):
+                with open(fn, 'r') as f:
+                    self.stoppings = f.read().strip()
+        except Exception as e:
+            warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
+        fn = filenameprefix + 'version.txt'
+        try:
+            if os.path.isfile(fn):
+                with open(fn, 'r') as f:
+                    self.data_version = f.read().strip()
+        except Exception as e:
+            warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
+
         for i in range(len(self.file_names)):
             fn = filenameprefix + self.file_names[i] + '.dat'
             try:
@@ -347,7 +366,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     try:
                         self.__dict__[self.key_names[i]] = list(
                                 np.loadtxt(fn, comments=['%', '#'], ndmin=2))
-                    except:
+                    except Exception:
                         try:
                             self.__dict__[self.key_names[i]] = list(
                                 np.loadtxt(fn, comments='%'))
@@ -382,7 +401,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         self.__dict__[self.key_names[i]][-1])
                 self.__dict__[self.key_names[i]] = \
                     np.asarray(self.__dict__[self.key_names[i]])
-            except:
+            except Exception:
                 if self.file_names[i] != 'sigvec':
                     utils.print_warning('no data for %s' % fn, 'load',
                                 'CMADataLogger')
@@ -434,7 +453,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         evals = es.countevals
         iteration = es.countiter
         try: eigen_decompositions = es.sm.count_eigen
-        except: eigen_decompositions = 0  # no correlations will be plotted
+        except Exception: eigen_decompositions = 0  # no correlations will be plotted
         sigma = es.sigma
         if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
             stds = es.sigma_vec.scaling * es.sm.variances**0.5
@@ -452,12 +471,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
             medianf = es.fit.fit[len(es.fit.fit) // 2]
             iqrangef = np.diff(_mathutils.Mh.prctile(
                 es.fit.fit, [25, 75], sorted_=True))[0]
-        except:
+        except Exception:
             if iteration > 0:  # first call without f-values is OK
                 raise
         try:
             xrecent = es.best.last.x
-        except:
+        except Exception:
             xrecent = None
         diagC = es.sigma * es.sigma_vec.scaling * es.sm.variances**0.5
         if es.opts['CMA_diagonal'] is True or es.countiter <= es.opts['CMA_diagonal']:
@@ -479,13 +498,15 @@ class CMADataLogger(interfaces.BaseDataLogger):
         else:
             try:
                 diagD = es.sm.eigenspectrum**0.5
-            except:
+            except Exception:
                 diagD = [1]
             maxD = max(diagD)
             minD = min(diagD)
         diagonal_scaling = es.sigma_vec.scaling
-        try: diagonal_scaling_beta = es.sm._beta_diagonal_acceleration  # is for free
-        except: diagonal_scaling_beta = 1
+        try:
+            diagonal_scaling_beta = es.sm._beta_diagonal_acceleration  # is for free
+        except Exception:
+            diagonal_scaling_beta = 1
         correlation_matrix = None
         if not hasattr(self, 'last_precision_matrix'):
             self.last_precision_matrix = None
@@ -497,8 +518,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     try:
                         self.last_precision_matrix = np.linalg.inv(correlation_matrix)
                         self.last_precision_matrix = _mathutils.to_correlation_matrix(self.last_precision_matrix)
-                    except:  # diagonal case
-                        warnings.warn("CMADataLogger failed to compute precision matrix")
+                    except Exception:  # diagonal case
+                        if iteration < 2 or not np.remainder(np.log10(iteration), 1):
+                            warnings.warn("CMADataLogger failed to compute precision matrix (iteration {0})".format(iteration))
             except (AttributeError, NotImplementedError):
                 pass
             # TODO: write also np.linalg.eigvalsh(sigma_vec.transform_covariance_matrix(es.C))
@@ -627,6 +649,25 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + str(float(bestf)) + ' '  # float converts Fraction
                             + ' '.join(map(str, xrecent))
                             + '\n')
+            fn = self.name_prefix + self.file_stoppings
+            with open(fn, 'w') as f:
+                try:
+                    f.write(repr(es.stop(check=False)))
+                except Exception:
+                    pass
+            try:  # experimental, WIP
+                from . import evolution_strategy
+                if hasattr(evolution_strategy, 'all_stoppings'):
+                    with open(self.name_prefix + 'all_stoppings.json2', 'w') as f:
+                        f.write(repr(evolution_strategy.all_stoppings))
+            except Exception:
+                pass
+            try:  # experimental, WIP
+                from . import __version__
+                with open(self.name_prefix + 'version.txt', 'w') as f:
+                    f.write(__version__)
+            except Exception:
+                pass
         except (IOError, OSError):
             if iteration <= 1:
                 utils.print_warning(('could not open/write file %s: ' % fn,
@@ -720,7 +761,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         try:
             iteridx = list(iteridx)
             iteridx.append(iteridx[-1])  # last entry is artificial
-        except:
+        except Exception:
             pass
         dat.std = dat.std[_where([x in iteridx
                                     for x in dat.std[:, 0]])[0], :]
@@ -754,7 +795,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              fshift=0,
              addcols=None,
              load=True,
-             message=None,
+             message='',
              **kwargs):
         """plot data from a `CMADataLogger` using files written by the logger.
 
@@ -843,12 +884,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         iabscissa = kwargs.pop('abscissa', iabscissa)  # accept abscissa as keyword too
         if kwargs:
             warnings.warn("unrecognised kwargs={0}".format(kwargs))
+        if message is None:
+            message = ''
         if hasattr(self, 'es') and self.es is not None:
             if fig is self.es:      # in case of usage in a callback
                 fig = gcf().number  # plot in current figure
-            if message is None:
-                message = ''
-            if 'stop()' not in message:
+            if message is not False and 'stop(' not in message:
                 if not message.endswith('\n'):
                     message += '\n'
                 message += "stop()={0}".format(self.es.stop())
@@ -878,6 +919,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if self.f.shape[0] > downsample_to:
             self.downsampling(1 + self.f.shape[0] // downsample_to)
             self.load()
+        if message is not False and 'stop(' not in message and self.stoppings:
+            if not message.endswith('\n'):  # copy-paste from above
+                message += '\n'
+            message += "stop()={0}".format(self.stoppings)
 
         dat = self
         dat.x = dat.xmean  # this is the genotyp
@@ -1450,14 +1495,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ax = array(axis())
         # ax[1] = max(minxend, ax[1])
         axis(ax)
-        text(ax[0] + 0.003 * (ax[1] - ax[0]), ax[2] * (ax[3]/ax[2])**0.002,
+        text(ax[0] + 0.003 * (ax[1] - ax[0]), ax[2] * (ax[3]/ax[2])**0.01,
                     # 10**(log10(ax[2])+0.05*(log10(ax[3])-log10(ax[2]))),
              (message + '\n' if message else '') +
              'evals/iter={0}/{1} min($f$)={2}'.format(
                  int(dat.f[-1, 1]), int(dat.f[-1, 0]), repr(minfit))
             )
              #'.f_recent=' + repr(dat.f[-1, 5]))
-
+        try:
+            text(ax[1], ax[3], 'v' + self.data_version, fontsize=5)
+        except Exception:
+            pass
         self.f[:, 5:8] -= fshift
 
         # AR and damping of diagonal decoding
