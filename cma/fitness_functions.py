@@ -343,7 +343,24 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         x = [x] if isscalar(x[0]) else x  # scalar into list
         f = [(1. - x[0])**2 + sum(alpha * (x[:-1]**2 - x[1:])**2) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
+    def dixonprice(self, x):
+        """Dixon-Price function.
 
+        The function has a local attractor at ``[1/3, 0, ..., 0]`` which
+        starts to dominate for dimensions larger than about five. The
+        global optimum is ``[1, 0.70710678, ...]`` with the limit of 1/2
+        for increasing index.
+
+        >>> import cma
+        >>> def xstar(n):
+        ...     return [2**-((2**i - 2) / 2**i) for i in range(1, n + 1)]
+        >>> assert cma.ff.dixonprice(xstar(4)) < 1e-11, cma.ff.dixonprice(xstar(4))
+
+        see https://al-roomi.org/benchmarks/unconstrained/n-dimensions/236-dixon-price-s-function
+        """
+        x = np.asarray(x)
+        idx = np.arange(1, len(x))
+        return (x[0] - 1)**2 + np.dot(idx + 1, (2 * x[idx]**2 - x[idx-1])**2)
     def diffpow(self, x, rot=0):
         """Diffpow test objective function"""
         N = len(x)
