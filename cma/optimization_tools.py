@@ -813,9 +813,10 @@ class NoiseHandler(object):
 class Sections(object):
     """plot sections through an objective function.
 
-    A first rational thing to do, when facing an (expensive)
-    application. By default 6 points in each coordinate are evaluated.
-    This class is still experimental.
+    A first rational thing to do, when facing an (expensive) application.
+    By default 6 points in each coordinate are evaluated. The data is saved
+    and reloaded by default. A change of basis will invalide the loaded
+    result. This class is still experimental.
 
     Examples
     --------
@@ -835,7 +836,7 @@ class Sections(object):
     is attribute ``name`` and by default ``str(func)``, see `__init__`.
 
     A random (orthogonal) basis can be generated with
-    ``cma.Rotation()(np.eye(3))``.
+    ``cma.transformations.Rotation()(np.eye(3))``.
 
     CAVEAT: The default name is unique in the function name, but it
     should be unique in all parameters of `__init__` but `plot_cmd`
@@ -899,7 +900,7 @@ class Sections(object):
             self.res = {}
             self.res['x'] = x
 
-    def do(self, repetitions=1, locations=np.arange(-0.5, 0.6, 0.2), plot=True):
+    def do(self, repetitions=1, locations=tuple((i - 2.5) / 3 for i in range(6)), plot=True):
         """generates, plots and saves function values ``func(y)``,
         where ``y`` is 'close' to `x` (see `__init__()`). The data are stored in
         the ``res`` attribute and the class instance is saved in a file
@@ -958,8 +959,8 @@ class Sections(object):
             arx = sorted(res[i].keys())
             plot_cmd(arx, [tf(np.median(res[i][x]) + addf) for x in arx], color + '-')
             pyplot.text(arx[-1], tf(np.median(res[i][arx[-1]])), i)
-            if len(flatx[i]) < 11:
-                plot_cmd(flatx[i], tf(np.array(flatf[i]) + addf), color + 'o')
+            if len(flatx[i]) < 33:
+                plot_cmd(flatx[i], tf(np.array(flatf[i]) + addf), color + ('o' if len(flatx[i]) < 11 else '.'))
         pyplot.ylabel('f + ' + str(addf))
         pyplot.draw()
         pyplot.ion()
