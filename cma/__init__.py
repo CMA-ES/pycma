@@ -83,9 +83,10 @@ From a python shell::
 
 """
 
-# How to create a html documentation file:
-#    pydoctor --docformat=restructuredtext --make-html cma
+# How to create a html documentation file (see also setup-howto.py):
+#    pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt
 # old:
+#    pydoctor --docformat=restructuredtext --make-html cma
 #    pydoc -w cma  # edit the header (remove local pointers)
 #    epydoc cma.py  # comes close to javadoc but does not find the
 #                   # links of function references etc
@@ -102,14 +103,16 @@ del _ab, _di, _pr
 
 ___author__ = "Nikolaus Hansen and Petr Baudis and Youhei Akimoto"
 __license__ = "BSD 3-clause"
+__version__ = "4.2.1 dev"
 
+
+import collections as _collections
 import warnings as _warnings
 
 # __package__ = 'cma'
 from . import purecma
 try:
     import numpy as _np
-    del _np
 except ImportError:
     _warnings.warn('Only `cma.purecma` has been imported. Install `numpy` ("pip'
                    ' install numpy") if you want to import the entire `cma`'
@@ -133,9 +136,17 @@ else:
     from .boundary_handler import BoundPenalty, BoundTransform, BoundNone, BoundDomainTransform
     from .constraints_handler import ConstrainedFitnessAL, AugmentedLagrangian
 
-# fcts = ff  # historical reasons only, replace cma.fcts with cma.ff first
+try:
+    version_info = _collections.namedtuple(
+            'version_info', ('major', 'minor', 'micro'), module='cma')(
+                    *(int(s) for s in __version__.split(' ')[0].split('.')))
+except TypeError:
+    try:
+        version_info = _collections.namedtuple(
+                'version_info', ('major', 'minor', 'micro'))(
+                        *(int(s) for s in __version__.split(' ')[0].split('.')))
+    except Exception:
+        version_info = tuple(int(s) for s in __version__.split(' ')[0].split('.'))
+# a simple tuple is in the end more user friendly!?
+version_info = tuple(int(s) for s in __version__.split(' ')[0].split('.'))
 
-__version__ = "4.2.0"
-# $Source$  # according to PEP 8 style guides, but what is it good for?
-# $Id: __init__.py 4432 2020-05-28 18:39:09Z hansen $
-# bash $: svn propset svn:keywords 'Date Revision Id' __init__.py

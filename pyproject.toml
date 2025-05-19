@@ -27,7 +27,7 @@ dependencies = [
 dynamic = ["version",  # see tool.setuptools.dynamic below
            # "readme",
           ]
-readme = "README.txt"
+readme = "README.rst"
 license = "BSD-3-Clause"
 keywords = [
     "optimization",

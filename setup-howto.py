@@ -44,7 +44,7 @@ Make and check the distribution from a (usual) dirty code folder ==> install-fol
             mkdir install-folder  # delete if necessary
             backup cma --move    # backup is a self-coded minitool
             git checkout -- cma
-            cp -rp cma pyproject.toml LICENSE README.txt install-folder
+            cp -rp cma pyproject.toml LICENSE README.rst install-folder
             backup --recover  # recover above moved folder (and backup current, just in case)
 
     cd install-folder
@@ -59,9 +59,19 @@ Make and check the distribution from a (usual) dirty code folder ==> install-fol
 
 Loop over tests and distribution and fix code until everything is fine.
 
-Upload the distribution::
+Upload the distribution in ``install-folder``::
 
-    twine upload dist/*4.2.0*  # to not upload outdated stuff
+    # optional: test upload:
+        cd ..
+        cp -rp install-folder test-install-folder
+        cd test-install-folder
+        mv cma cmae
+        # change version directive in pyproject to cmae.__version___
+        python -m build > dist_call_output.txt ...
+        twine upload --repository testpypi dist/*
+        cd ../install-folder
+
+    twine upload dist/*  # upload everything as the install folder was clean
 
 Push new docs to github
 
@@ -73,8 +83,8 @@ Push new docs to github
 
 Tag and push git branch::
 
-    git tag -a r4.2.0  # refactor boundary handling code, add UnboundDomain stand-alone class
-    git push origin r4.2.0
+    git tag -a r4.2.1  # fix readme formatting
+    git push origin r4.2.1
 
 Create a release on GitHub (click on releases and then new draft, or an r4... tag will do?).
 

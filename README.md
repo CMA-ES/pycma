@@ -90,7 +90,7 @@ either of these with ``sudo``.
 
 ## Version History
 
-* [Release ``4.2.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.2.0)
+* [Release ``4.2.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.2.0) and [``4.2.1``](https://github.com/CMA-ES/pycma/releases/tag/r4.2.1)
   - a stand-alone boundary handling function wrapper ``BoundDomainTransform``
   - streamline plot docs, fix symlog plot with newest `matplotlib`, plots display the value of `.stop()` and the version number
   - a few more minor fixes and improvements
