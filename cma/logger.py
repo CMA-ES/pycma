@@ -1359,7 +1359,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         for i, val in enumerate(dat.f[0, :]): # hack to prevent warnings
             if np.isnan(val):
                 dat.f[0, i] = dat.f[1, i]
-        minfit = np.nanmin(dat.f[:, 5])
+        minfit = float(np.nanmin(dat.f[:, 5]))
         dfit1 = dat.f[:, 5] - minfit  # why not using idx?
         dfit1[dfit1 < 1e-98] = np.nan
         dfit2 = dat.f[:, 5] - dat.f[-1, 5]
