@@ -8,7 +8,7 @@ import numpy as np
 from multiprocessing import Pool as ProcessingPool
 # from pathos.multiprocessing import ProcessingPool
 from .utilities.utils import BlancClass as _BlancClass
-from .utilities.math import Mh
+from .utilities import math as _um
 # from .transformations import BoundTransform  # only to make it visible but gives circular import anyways
 from .utilities.python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
@@ -404,13 +404,27 @@ class BestSolution2(object):
         if self.count == 1 or (np.isfinite(f) and (not np.isfinite(self.f) or f < self.f)):
             self.previous = dict(self.__dict__)
             del self.previous['previous']  # otherwise we get a linked list of all previous entries
-            self.f = f
+            self.f = _um.ifloat(f)
             self.x = x
             self.info = info_construct(info) if info_construct else info
             self.count_saved = self.count
         return self
     def __str__(self):
         return str(self.__dict__)
+class BestFeasibleSolution(BestSolution2):
+    def __init__(self):
+        BestSolution2.__init__(self)
+        self.g = None
+        self.al_penalties = None
+    def update(self, f, g, al_penalties=None, x=None, info=None, info_construct=None):
+        """g and al_penalties are lists of constraint and penalty values"""
+        if any(gi > 0 for gi in g):
+            return self  # not a feasible solution, do nothing
+        BestSolution2.update(self, f, x, info, info_construct)
+        if self.count_saved == self.count:
+            self.g = _um.lifloat(g)
+            self.al_penalties = _um.lifloat(al_penalties)
+        return self
 class ExponentialSmoothing(object):
     """not in use (yet)
 
@@ -767,14 +781,14 @@ class NoiseHandler(object):
 
         # compute rank change limits using both ranks[0] and ranks[1]
         r = np.arange(1, 2 * lam)  # 2 * lam - 2 elements
-        limits = [0.5 * (Mh.prctile(np.abs(r - (ranks[0, i] + 1 - (ranks[0, i] > ranks[1, i]))),
+        limits = [0.5 * (_um.Mh.prctile(np.abs(r - (ranks[0, i] + 1 - (ranks[0, i] > ranks[1, i]))),
                                       self.theta * 50) +
-                         Mh.prctile(np.abs(r - (ranks[1, i] + 1 - (ranks[1, i] > ranks[0, i]))),
+                         _um.Mh.prctile(np.abs(r - (ranks[1, i] + 1 - (ranks[1, i] > ranks[0, i]))),
                                       self.theta * 50))
                     for i in self.idx]
         # compute measurement
         #                               max: 1 rankchange in 2*lambda is always fine
-        s = np.abs(rankDelta[self.idx]) - Mh.amax(limits, 1)  # lives roughly in 0..2*lambda
+        s = np.abs(rankDelta[self.idx]) - _um.Mh.amax(limits, 1)  # lives roughly in 0..2*lambda
         self.noiseS += self.cum * (np.mean(s) - self.noiseS)
         return self.noiseS, s
 
