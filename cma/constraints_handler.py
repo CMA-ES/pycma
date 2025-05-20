@@ -1000,11 +1000,10 @@ class ConstrainedFitnessAL(object):
 
     def _fg_values(self, es):
         """f, g values used to update the Augmented Lagrangian coefficients"""
-        if self.which == 'mean' or self.which == 'solution':
-            self(self.get_solution(es))  # also update best and in case reset finding_feasible
-            return self.F[-1], self.G[-1]
-        else:
+        if self.which not in ['mean', 'solution']:
             return self._best_fg
+        self(self.get_solution(es))  # also update best and in case reset finding_feasible
+        return self.F[-1], self.G[-1]
 
     def _update_best(self, x, f, g, g_al=None):
         """keep track of best solution and best feasible solution"""
