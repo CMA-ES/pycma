@@ -535,7 +535,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]
         1      8 2.09...
     >>> assert len(es.result) == 8, es.result
-    >>> assert es.result[1] < 1e-9, es.result
+    >>> assert es.result.fbest < 1e-9, es.result
 
     The optimization loop can also be written explicitly:
 
@@ -571,8 +571,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...     es.disp()  #doctest: +ELLIPSIS
     Itera...
     >>>
-    >>> assert es.result[1] < 1e-9, es.result
-    >>> assert es.result[2] < 9000, es.result  # by internal termination
+    >>> assert es.result.fbest < 1e-9, es.result
+    >>> assert es.result.evals_best < 9000, es.result  # by internal termination
     >>> # es.logger.plot()  # will plot data
     >>> # cma.s.figshow()  # display plot window
 
@@ -591,8 +591,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     UserWarning('computed initial point...
     >>> es.optimize(cma.ff.rosen, verb_disp=0)  #doctest: +ELLIPSIS
     <cma...
-    >>> assert cma.ff.rosen(es.result[0]) < 1e-7 + 5.54781521192, es.result
-    >>> assert es.result[2] < 3300, es.result
+    >>> assert cma.ff.rosen(es.result.xbest) < 1e-7 + 5.54781521192, es.result
+    >>> assert es.result.evals_best < 3300, es.result
 
     The inverse transformation is (only) necessary if the `BoundPenalty`
     boundary handler is used at the same time.
@@ -642,7 +642,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...     if bestever.f < 1e-8:  # global optimum was hit
     ...         break  #doctest: +ELLIPSIS
     (5_w,...
-    >>> assert es.result[1] < 1e-8, es.result
+    >>> assert es.result.fbest < 1e-8, es.result
 
     On the Rastrigin function, usually after five restarts the global
     optimum is located.
@@ -681,8 +681,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> # resuming
     >>> es.optimize(cma.ff.rosen, verb_disp=200)  #doctest: +ELLIPSIS
       200 ...
-    >>> assert es.result[2] < 15000, es.result
-    >>> assert cma.s.Mh.vequals_approximately(es.result[0], 12 * [1], 1e-5), es.result
+    >>> assert es.result.evals_best < 15000, es.result
+    >>> assert cma.s.Mh.vequals_approximately(es.result.xbest, 12 * [1], 1e-5), es.result
     >>> assert len(es.result) == 8, es.result
 
     Details
@@ -3761,97 +3761,35 @@ def fmin2(objective_function, x0, sigma0,
          bipop=False,
          callback=None,
          init_callback=None):
-    """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``,
-
-    and with the same input arguments as `fmin`. Possible calling patterns
-    are::
-
-        x, es = cma.fmin2(...)  # recommended pattern
-        es = cma.fmin2(...)[1]  # `es` contains all available information
-        x = cma.fmin2(...)[0]   # keep only the best evaluated solution
-
-    and `fmin2` is an alias for::
-
-        res = fmin(...)
-        return res[0], res[-2]
-
-    For descriptions of the input arguments see `fmin`.
-
-    For completness, recovering the output of `fmin` from `fmin2`::
-
-        es = fmin2(...)[1]  # fmin2(...)[0] is es.result[0]
-        return es.result + (es.stop(), es, es.logger)
-
-    The best found solution is equally available under::
-
-        fmin(...)[0]
-        fmin2(...)[0]
-        fmin2(...)[1].result[0]
-        fmin2(...)[1].result.xbest
-        fmin2(...)[1].best.x
-
-    The incumbent, current estimate for the optimum is available under::
-
-        fmin(...)[5]
-        fmin2(...)[1].result[5]
-        fmin2(...)[1].result.xfavorite
-
-    """
-    res = fmin(objective_function, x0, sigma0,
-         options,
-         args,
-         gradf,
-         restarts,
-         restart_from_best,
-         incpopsize,
-         eval_initial_x,
-         parallel_objective,
-         noise_handler,
-         noise_change_sigma_exponent,
-         noise_kappa_exponent,
-         bipop,
-         callback,
-         init_callback)
-    return res[0], res[-2]
-
-
-all_stoppings = []  # accessable via cma.evolution_strategy.all_stoppings, bound to change
-def fmin(objective_function, x0, sigma0,
-         options=None,
-         args=(),
-         gradf=None,
-         restarts=0,
-         restart_from_best=False,
-         incpopsize=2,
-         eval_initial_x=False,
-         parallel_objective=None,
-         noise_handler=None,
-         noise_change_sigma_exponent=1,
-         noise_kappa_exponent=0,  # TODO: add max kappa value as parameter
-         bipop=False,
-         callback=None,
-         init_callback=None):
     """functional interface to the stochastic optimizer CMA-ES
     for non-convex function minimization.
 
-    `fmin2` provides the cleaner return values.
+    Return the `tuple` ``(xbest, es)`` where ``es`` is a
+    `CMAEvolutionStrategy` instance, see in particular ``es.result`` and
+    ``es.result_pretty()`` for detailed results.
+
 
     Calling Sequences
     =================
-    ``fmin(objective_function, x0, sigma0)``
+    ``x, es = fmin2(objective_function, x0, sigma0)``
         minimizes ``objective_function`` starting at ``x0`` and with
         standard deviation ``sigma0`` (step-size)
-    ``fmin(objective_function, x0, sigma0, options={'ftarget': 1e-5})``
+    ``x, es = fmin2(objective_function, x0, sigma0, options={'ftarget': 1e-5})``
         minimizes ``objective_function`` up to target function value 1e-5,
         which is typically useful for benchmarking.
-    ``fmin(objective_function, x0, sigma0, args=('f',))``
+    ``x, es = fmin2(objective_function, x0, sigma0, args=('f',))``
         minimizes ``objective_function`` called with an additional
         argument ``'f'``.
-    ``fmin(objective_function, x0, sigma0, options={'ftarget':1e-5, 'popsize':40})``
+    ``x, es = fmin2(objective_function, x0, sigma0, options={'ftarget':1e-5, 'popsize':40})``
         uses additional options ``ftarget`` and ``popsize``
-    ``fmin(objective_function, esobj, None, options={'maxfevals': 1e5})``
+    ``x, es = fmin2(objective_function, esobj, None, options={'maxfevals': 1e5})``
         uses the `CMAEvolutionStrategy` object instance ``esobj`` to
         optimize ``objective_function``, similar to ``esobj.optimize()``.
+
+    Less recommended calling patterns are::
+
+        es = cma.fmin2(...)[1]  # `es` contains all available information
+        x = cma.fmin2(...)[0]   # keep only the best evaluated solution
 
     Arguments
     =========
@@ -3974,6 +3912,119 @@ def fmin(objective_function, x0, sigma0,
     ``cma.CMAOptions('tol')``, or ``cma.CMAOptions('bound')``,
     see also class `CMAOptions`.
 
+    Details
+    =======
+    This function is an interface to the class `CMAEvolutionStrategy`. The
+    latter class should be used when full control over the iteration loop
+    of the optimizer is desired.
+
+    Examples
+    ========
+    The following example calls `fmin2` optimizing the Rosenbrock function
+    in 10-D with initial solution 0.1 and initial step-size 0.5. The
+    options are specified for the usage with the `doctest` module.
+
+    >>> import cma
+    >>> # cma.CMAOptions()  # returns all possible options
+    >>> options = {'CMA_diagonal':100, 'seed':1234, 'verb_time':0}
+    >>>
+    >>> x, es = cma.fmin2(cma.ff.rosen, [0.1] * 10, 0.3, options)  #doctest: +ELLIPSIS
+    (5_w,10)-aCMA-ES (mu_w=3.2,w_1=45%) in dimension 10 (seed=1234...)
+       Covariance matrix is diagonal for 100 iterations (1/ccov=26...
+    Iterat #Fevals   function value  axis ratio  sigma ...
+        1     10 ...
+    termination on tolfun=1e-11 ...
+    final/bestever f-value = ...
+    >>> assert es.result.fbest < 1e-12  # f-value of best found solution
+    >>> assert es.result.evaluations < 8000  # evaluations
+
+    The above call is pretty much equivalent with the slightly more
+    verbose call::
+
+        es = cma.CMAEvolutionStrategy([0.1] * 10, 0.3,
+                    options=options).optimize(cma.ff.rosen)
+        x = es.result.xbest
+
+    where `optimize` returns the `CMAEvolutionStrategy` instance. The
+    following example calls `fmin2` optimizing the Rastrigin function
+    in 3-D with random initial solution in [-2,2], initial step-size 0.5
+    and the BIPOP restart strategy (that progressively increases population).
+    The options are specified for the usage with the `doctest` module.
+
+    >>> import cma
+    >>> # cma.CMAOptions()  # returns all possible options
+    >>> options = {'seed':12345, 'verb_time':0, 'ftarget': 1e-8}
+    >>>
+    >>> x, es = cma.fmin2(cma.ff.rastrigin, lambda : 2. * np.random.rand(3) - 1, 0.5,
+    ...                   options, restarts=9, bipop=True)  #doctest: +ELLIPSIS
+    (3_w,7)-aCMA-ES (mu_w=2.3,w_1=58%) in dimension 3 (seed=12345...
+
+    In either case, the method::
+
+        cma.plot();
+
+    (based on `matplotlib.pyplot`) produces a plot of the run and, if
+    necessary::
+
+        cma.s.figshow()
+
+    shows the plot in a window. Finally::
+
+        cma.s.figsave('myfirstrun')  # figsave from matplotlib.pyplot
+
+    will save the figure in a png. The figure data can be saved like::
+
+        es.logger.zip()
+
+    We can use the gradient like
+
+    >>> import cma
+    >>> x, es = cma.fmin2(cma.ff.rosen, np.zeros(10), 0.1,
+    ...             options = {'ftarget':1e-8,},
+    ...             gradf=cma.ff.grad_rosen,
+    ...         )  #doctest: +ELLIPSIS
+    (5_w,...
+    >>> assert cma.ff.rosen(es.result.xbest) < 1e-8
+    >>> assert es.result.evals_best < 3600  # 1% are > 3300
+    >>> assert es.result.evaluations < 3600  # 1% are > 3300
+
+    If solutions can only be comparatively ranked, either use
+    `CMAEvolutionStrategy` directly via `ask` and `tell` or a "parallel"
+    objective function accepting a list of solutions as input which
+    returns, for example, the solution ranks:
+
+    >>> def parallel_sphere(X): return [cma.ff.sphere(x) for x in X]
+    >>> x, es = cma.fmin2(None, 3 * [0], 0.1, {'verbose': -9},
+    ...                   parallel_objective=parallel_sphere)
+    >>> assert es.result.fbest < 1e-9
+
+    :See also: `CMAEvolutionStrategy`, `OOOptimizer.optimize`, `plot`,
+        `CMAOptions`, `scipy.optimize.fmin`
+"""
+    res = fmin(objective_function, x0, sigma0,
+         options,
+         args,
+         gradf,
+         restarts,
+         restart_from_best,
+         incpopsize,
+         eval_initial_x,
+         parallel_objective,
+         noise_handler,
+         noise_change_sigma_exponent,
+         noise_kappa_exponent,
+         bipop,
+         callback,
+         init_callback)
+    return res[0], res[-2]
+
+
+all_stoppings = []  # accessable via cma.evolution_strategy.all_stoppings, bound to change
+def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
+    """DEPRECATED: use `fmin2` instead.
+
+    `fmin` will remain fully functional and be maintained in the foreseeable future.
+
     Return
     ======
     Return the list provided in `CMAEvolutionStrategy.result` appended
@@ -3982,22 +4033,42 @@ def fmin(objective_function, x0, sigma0,
         res = es.result + (es.stop(), es, logger)
 
     where
-        - ``res[0]`` (``xopt``) -- best evaluated solution
-        - ``res[1]`` (``fopt``) -- respective function value
-        - ``res[2]`` (``evalsopt``) -- respective number of function evaluations
-        - ``res[3]`` (``evals``) -- number of overall conducted objective function evaluations
+        - ``res[0]`` (``xbest``) -- best evaluated solution
+        - ``res[1]`` (``fbest``) -- respective function value
+        - ``res[2]`` (``evals_best``) -- respective number of function evaluations
+        - ``res[3]`` (``evaluations``) -- number of overall conducted objective function evaluations
         - ``res[4]`` (``iterations``) -- number of overall conducted iterations
-        - ``res[5]`` (``xmean``) -- mean of the final sample distribution
+        - ``res[5]`` (``xfavorite``) -- mean of the final sample distribution
         - ``res[6]`` (``stds``) -- effective stds of the final sample distribution
         - ``res[-3]`` (``stop``) -- termination condition(s) in a dictionary
-        - ``res[-2]`` (``cmaes``) -- class `CMAEvolutionStrategy` instance
-        - ``res[-1]`` (``logger``) -- class `CMADataLogger` instance
+        - ``res[-2]`` (``es``) -- class `CMAEvolutionStrategy` instance
+        - ``res[-1]`` (``logger``) -- class `CMADataLogger` instance == es.logger
 
-    Details
-    =======
-    This function is an interface to the class `CMAEvolutionStrategy`. The
-    latter class should be used when full control over the iteration loop
-    of the optimizer is desired.
+    The successor `fmin2` is an alias for::
+
+        res = fmin(...)
+        return res[0], res[-2]
+
+    For descriptions of the input arguments see `fmin2`.
+
+    For completness, recovering the output of `fmin` from `fmin2`::
+
+        es = fmin2(...)[1]  # fmin2(...)[0] is es.result.xbest
+        return es.result + (es.stop(), es, es.logger)
+
+    The best found solution is equally available under::
+
+        fmin(...)[0]
+        fmin2(...)[0]
+        fmin2(...)[1].result[0]
+        fmin2(...)[1].result.xbest
+        fmin2(...)[1].best.x
+
+    The incumbent, current estimate for the optimum is available under::
+
+        fmin(...)[5]
+        fmin2(...)[1].result[5]
+        fmin2(...)[1].result.xfavorite
 
     Examples
     ========
@@ -4077,9 +4148,35 @@ def fmin(objective_function, x0, sigma0,
 
     :See also: `CMAEvolutionStrategy`, `OOOptimizer.optimize`, `plot`,
         `CMAOptions`, `scipy.optimize.fmin`
-
-    """  # style guides say there should be the above empty line
+"""  # style guides say there should be the above empty line
     if 1 < 3:  # try: # pass on KeyboardInterrupt
+        def _get_value(i, key, default):
+            """check posargs and kwargs for i and key, respectively"""
+            if len(posargs) > i:
+                if key in kwargs:
+                    raise ValueError(
+                        '{0} given as positional and keyword argument with values {1} and {2}.'
+                        '\nOnly either positional or keyword is allowed, see also `cma.fmin2`.'
+                        .format(key, posargs[i], kwargs[key]))
+                return posargs[i]
+            if key in kwargs:
+                return kwargs[key]
+            return default
+        options = _get_value(0, 'options', None)
+        args = _get_value(1, 'args', ())
+        gradf = _get_value(2, 'gradf', None)
+        restarts = _get_value(3, 'restarts', 0)
+        restart_from_best = _get_value(4, 'restart_from_best', False)
+        incpopsize = _get_value(5, 'incpopsize', 2)
+        eval_initial_x = _get_value(6, 'eval_initial_x', False)
+        parallel_objective = _get_value(7, 'parallel_objective', None)
+        noise_handler = _get_value(8, 'noise_handler', None)
+        noise_change_sigma_exponent = _get_value(9, 'noise_change_sigma_exponent', 1)
+        noise_kappa_exponent = _get_value(10, 'noise_kappa_exponent', 0)  # TODO: add max kappa value as parameter
+        bipop = _get_value(11, 'bipop', False)
+        callback = _get_value(12, 'callback', None)
+        init_callback = _get_value(13, 'init_callback', None)
+
         if not objective_function and not parallel_objective:  # cma.fmin(0, 0, 0)
             return CMAOptions()  # these opts are by definition valid
 
@@ -4401,7 +4498,7 @@ def _al_set_logging(al, kwargs, *more_kwargs):
 def fmin_con(objective_function, x0, sigma0,
              g=no_constraints, h=no_constraints, post_optimization=False,
              archiving=True, **kwargs):
-    """Deprecated: use `cma.ConstrainedFitnessAL` or `cma.fmin_con2` instead.
+    """DEPRECATED: use `cma.ConstrainedFitnessAL` or `cma.fmin_con2` instead.
 
     Optimize f with constraints g (inequalities) and h (equalities).
 
@@ -4441,7 +4538,7 @@ def fmin_con(objective_function, x0, sigma0,
     `con_archives` attribute which is nonempty if `archiving`. The last
     element of each archive is the best feasible solution if there was any.
 
-    See `cma.fmin` for further parameters ``**kwargs``.
+    See `cma.fmin2` for the further parameters ``**kwargs``.
 
     >>> import cma
     >>> x, es = cma.evolution_strategy.fmin_con(
