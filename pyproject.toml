@@ -28,7 +28,7 @@ dynamic = ["version",  # see tool.setuptools.dynamic below
            # "readme",
           ]
 readme = "README.txt"
-license = "BSD-3-Clause"
+license = {text = "BSD-3-Clause"}
 keywords = [
     "optimization",
     "CMA-ES",
