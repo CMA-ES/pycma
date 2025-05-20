@@ -4,10 +4,6 @@ in particular `CMAEvolutionStrategy`, `fmin2` and further ``fmin_*``
 functions.
 """
 
-# TODO (mainly done): remove separable CMA within the code (keep as sampler only)
-# TODO (low): implement a (deep enough) copy-constructor for class
-#       CMAEvolutionStrategy to repeat the same step in different
-#       configurations for online-adaptation of meta parameters
 # TODO (complex): reconsider geno-pheno transformation. Can it be a
 #       separate module that operates inbetween optimizer and objective?
 #       Can we still propagate a repair of solutions to the optimizer?
@@ -26,14 +22,18 @@ functions.
 #       inconcise. Cheap solution: project sigma_vec on smallest eigenvector?
 # TODO: class _CMAStopDict implementation looks way too complicated,
 #       design generically from scratch?
-# TODO: separate display and logging options, those CMAEvolutionStrategy
-#       instances don't use themselves (probably all?)
 # TODO: check scitools.easyviz and how big the adaptation would be
 # TODO: separate initialize==reset_state from __init__
 # TODO: keep best ten solutions
-# TODO: implement constraints handling
 # TODO: eigh(): thorough testing would not hurt
 # TODO: (partly done) apply style guide
+# TODO (mainly done): remove separable CMA within the code (keep as sampler only)
+# DONE (low): implement a (deep enough) copy-constructor for class
+#       CMAEvolutionStrategy to repeat the same step in different
+#       configurations for online-adaptation of meta parameters
+# DONE: ?separate display and logging options, those CMAEvolutionStrategy
+#       instances don't use themselves (probably all?)
+# DONE: implement constraints handling
 # WON'T FIX ANYTIME SOON (done within fmin): implement bipop in a separate
 #       algorithm as meta portfolio algorithm of IPOP and a local restart
 #       option to be implemented
