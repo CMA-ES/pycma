@@ -210,7 +210,7 @@ from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import SolutionDict as _SolutionDict
-from .utilities.math import Mh
+from .utilities.math import Mh, ifloat as _ifloat
 from .sigma_adaptation import *
 from . import restricted_gaussian_sampler as _rgs
 
@@ -3685,7 +3685,7 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
             for f, x in zip(surrogate.evals.fvalues, surrogate.evals.X):
                 if not_evaluated(f):  # ignore NaN, important for correct count output
                     continue
-                best.update(f if isinstance(f, int) else float(f), x)
+                best.update(_ifloat(f), x)
             if inject:
                 es.inject([surrogate.model.xopt])
             if callback:
@@ -4165,7 +4165,7 @@ def fmin(objective_function, x0, sigma0,
                     x = es.gp.pheno(es.mean, copy=True,
                                     into_bounds=es.boundary_handler.repair,
                                     archive=es.sent_solutions)
-                    es.f0 = objective_function(x, *args)
+                    es.f0 = _ifloat(objective_function(x, *args))
                     es.best.update([x], es.sent_solutions,
                                    [es.f0], 1)
                     es.countevals += 1
@@ -4237,7 +4237,7 @@ def fmin(objective_function, x0, sigma0,
                         # use option check_point = [0]
                         if 0 * np.random.randn() >= 0:
                             X[0] = 0 + opts['vv'] * es.sigma**0 * np.random.randn(es.N)
-                            fit[0] = objective_function(X[0], *args)
+                            fit[0] = _ifloat(objective_function(X[0], *args))
                             # print fit[0]
                     if es.opts['verbose'] > 4:  # may be undesirable with dynamic fitness (e.g. Augmented Lagrangian)
                         if es.countiter < 2 or min(fit) <= es.best.last.f:
@@ -4278,7 +4278,7 @@ def fmin(objective_function, x0, sigma0,
                 mean_pheno = es.gp.pheno(es.mean, copy=True,
                                          into_bounds=es.boundary_handler.repair,
                                          archive=es.sent_solutions)
-                fmean = objective_function(mean_pheno, *args)
+                fmean = _ifloat(objective_function(mean_pheno, *args))
                 es.countevals += 1
                 es.best.update([mean_pheno], es.sent_solutions, [fmean], es.countevals)
 
@@ -4477,7 +4477,7 @@ def fmin_con(objective_function, x0, sigma0,
         archives = []
 
     def f(x):
-        F.append(objective_function(x))
+        F.append(_ifloat(objective_function(x)))
         return F[-1]
     def constraints(x):
         gvals, hvals = g(x), h(x)
@@ -4489,7 +4489,7 @@ def fmin_con(objective_function, x0, sigma0,
         G.append(list(gvals) + list(hvals))
         return G[-1]
     def auglag(x):
-        fval, gvals = f(x), constraints(x)
+        fval, gvals = _ifloat(f(x)), constraints(x)
         alvals = _al(gvals)
         if all([gi <= 0 for gi in gvals]):
             best_feasible_solution.update(fval, x,
@@ -4518,8 +4518,8 @@ def fmin_con(objective_function, x0, sigma0,
 
     if post_optimization:
         def f_post(x):
-            return sum(gi ** 2 for gi in g(x) if gi > 0) + sum(
-                       hi ** 2 for hi in h(x) if hi ** 2 > post_optimization ** 2)
+            return _ifloat(sum(gi ** 2 for gi in g(x) if gi > 0) + sum(
+                           hi ** 2 for hi in h(x) if hi ** 2 > post_optimization ** 2))
 
         kwargs_post = kwargs.copy()
         kwargs_post.setdefault('options', {})['ftarget'] = 0
@@ -4527,7 +4527,7 @@ def fmin_con(objective_function, x0, sigma0,
         _, es_post = fmin2(f_post, es.result.xfavorite, es.sigma,
                            **kwargs_post)
         if es_post.best.f == 0:
-            f = objective_function(es_post.best.x)
+            f = _ifloat(objective_function(es_post.best.x))
             es.best_feasible.update(f, x=es_post.best.x, info={
                 'x': es_post.best.x,
                 'f': f,
@@ -4538,7 +4538,7 @@ def fmin_con(objective_function, x0, sigma0,
         g_x_post, h_x_post = g(x_post), h(x_post)
         if all([gi <= 0 for gi in g_x_post]) and \
                 all([hi ** 2 <= post_optimization ** 2 for hi in h_x_post]):
-            f_x_post = objective_function(x_post)
+            f_x_post = _ifloat(objective_function(x_post))
             es.best_feasible.update(f_x_post, x=x_post, info={
                 'x': x_post,
                 'f': f_x_post,
@@ -4615,7 +4615,7 @@ def fmin_con2(objective_function, x0, sigma0,
         if kwargs_fmin['options'].get('eval_final_mean', None):
             # this doesn't make sense if xfavorite is returned anyway
             g = constraints(es.result.xfavorite)
-            fun._update_best(x, objective_function(x), g, fun.al(g))
+            fun._update_best(x, _ifloat(objective_function(x)), g, fun.al(g))
             x = fun.best_feas.x
     else:
         x = es.result.xfavorite
