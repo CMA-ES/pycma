@@ -9,6 +9,10 @@ import numpy as np
 from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
+def ifloat(float_):
+    """remove np type of a number, return `int` or `float`"""
+    return float_ if isinstance(float_, int) else float(float_)  # isinstance(float_, (int, float)) is not faster
+
 def _sqrt_len(x):  # makes randhss option pickable
     return len(x)**0.5
 
