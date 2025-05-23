@@ -145,6 +145,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self.file_stoppings = 'stoppings.json2'
         self.stoppings = None
         """content of stoppings.json2 file as a `str`"""
+        self.file_parameters = 'parameters.json2'
+        self.parameters = None
+        """content of parameters.json2 file as a dict"""
         self.key_names = ('D', 'corrspec', 'precspec', 'f', 'std', 'sigvec', 'xmean', 'xrecent')
         """used in load, however hard-coded in plot"""
         self._key_names_with_annotation = ('std', 'sigvec', 'xmean', 'xrecent')
@@ -339,21 +342,37 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if not filenameprefix:
             filenameprefix = self.name_prefix
         assert len(self.file_names) == len(self.key_names)
-        self.stoppings = None  # don't keep previous condition
-        fn = filenameprefix + self.file_stoppings
+
+        fn = filenameprefix.rstrip('down') + self.file_stoppings
         try:
-            if os.path.isfile(fn):
-                with open(fn, 'r') as f:
-                    self.stoppings = f.read().strip()
+            with open(fn, 'r') as f:
+                self.stoppings = f.read().strip()
         except Exception as e:
-            warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
+            if os.path.isfile(fn):
+                warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
+            self.stoppings = None  # don't keep previous condition
+
         fn = filenameprefix + 'version.txt'
         try:
-            if os.path.isfile(fn):
-                with open(fn, 'r') as f:
-                    self.data_version = f.read().strip()
+            with open(fn, 'r') as f:
+                self.data_version = f.read().strip()
         except Exception as e:
-            warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
+            if os.path.isfile(fn):
+                warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
+
+        fn = filenameprefix.rstrip('down') + self.file_parameters
+        try:
+            with open(fn, 'r') as f:
+                self.parameters = f.read().strip()
+        except Exception as e:
+            if os.path.isfile(fn):
+                warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
+            self.parameters = None  # don't keep previous parameters
+        try:
+            import ast
+            self.parameters = ast.literal_eval(self.parameters)
+        except Exception as e:
+                warnings.warn('ast.literal_eval("{0}") read from file {1} failed with Exception {2}'.format(self.parameters, fn, e))
 
         for i in range(len(self.file_names)):
             fn = filenameprefix + self.file_names[i] + '.dat'
@@ -649,16 +668,24 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + str(float(bestf)) + ' '  # float converts Fraction
                             + ' '.join(map(str, xrecent))
                             + '\n')
-            fn = self.name_prefix + self.file_stoppings
+            fn = self.name_prefix.rstrip('down') + self.file_stoppings
             with open(fn, 'w') as f:
                 try:
                     f.write(repr(es.stop(check=False)))
                 except Exception:
                     pass
+            if hasattr(es, 'sp') and self.parameters != es.sp.__dict__:
+                self.parameters = es.sp.__dict__
+                fn = self.name_prefix.rstrip('down') + self.file_parameters
+                with open(fn, 'w') as f:
+                    try:
+                        f.write(repr(self.parameters))
+                    except Exception:
+                        pass
             try:  # experimental, WIP
                 from . import evolution_strategy
                 if hasattr(evolution_strategy, 'all_stoppings'):
-                    with open(self.name_prefix + 'all_stoppings.json2', 'w') as f:
+                    with open(self.name_prefix.rstrip('down') + 'all_stoppings.json2', 'w') as f:
                         f.write(repr(evolution_strategy.all_stoppings))
             except Exception:
                 pass
@@ -1537,6 +1564,262 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
+    @property
+    def _sensitivities(self):
+        """return for each coordinate ``len(self.data['f'][:, 0])`` sensitivities over time"""
+        if self.data['std'] is None:
+            self.load()
+        dim = len(self.data['std'][0]) - 5
+        # median Delta evals / Delta iters is a relatively safe bet to have the popsize
+        popsize = np.median(np.diff(self.data['std'][:, 1]) / np.maximum(1, np.diff(self.data['std'][:, 0])))
+        # sqrt(dim) accounts for Df from all coordinates
+        normal_iqr = dim**0.5 * (1.349 - 0.3**(popsize**0.35))
+        i0 = len(self.data['std']) - len(self.data['f'])
+        return [self.data['f'][:, 8] / (normal_iqr * self.data['std'][i0:, j])
+                for j in range(5, len(self.data['std'][0]))]
+
+    def plot_sensitivities(self, plot_absolute=False, gradf=None):
+        """[WIP] experimental
+
+        Plot IQR(f) / IQR(std_i). The donimator is computed as 1.349 x
+        std_i x sqrt(n). The sqrt(n) accounts for the effect of the
+        changes in all other variables on f.
+        """
+        if self.data['std'] is None:
+            self.load()
+        columns = 3 + plot_absolute + (gradf not in (None, False))
+        dim = len(self.data['std'][0]) - 5
+        # TODO: multiply stdi by sqrt(dim) to account for Df from all coordinates
+        popsize = np.median(np.diff(self.data['std'][:, 1]) / np.maximum(1, np.diff(self.data['std'][:, 0])))  # Delta evals / Delta iters
+        normal_iqr = dim**0.5 * (1.349 - 0.3**(popsize**0.35))
+        i0 = len(self.data['std']) - len(self.data['f'])
+        from matplotlib import pyplot
+        pyplot.figure(np.random.randint(9999999), figsize=(4 + 3 * columns, 3))
+        self._enter_plotting()
+        icol = 0
+        ########################
+        icol += 1
+        pyplot.subplot(1, columns, icol)
+        pyplot.title(r'Local sensitivities by coordinate versus iteration')
+        for j in range(5, len(self.data['std'][0])):
+            iqr_ratio = self.data['f'][:, 8] / (normal_iqr * self.data['std'][i0:, j])
+            pyplot.semilogy(self.data['f'][:, 0], iqr_ratio, label=str(j - 5))
+            pyplot.text(self.data['f'][-1, 0], iqr_ratio[-1], j - 5)
+        j < 20 and pyplot.legend()
+        pyplot.xlabel('iteration')
+        pyplot.ylabel(r'IQR($f$) / $\widehat{\mathrm{IQR}}(x_i)$')
+        pyplot.grid(True, which='both')
+        ########################
+        if plot_absolute:
+            icol += 1
+            pyplot.subplot(1, columns, icol)
+            pyplot.title(r'IQR($f$) versus $\widehat{\text{IQR}}(x_i)$')
+            for j in range(5, len(self.data['std'][0])):
+                iqr_ratio = self.data['f'][:, 8]  # / (normal_iqr * self.data['std'][i0:, j])
+                idx = np.argsort(self.data['std'][i0:, j])
+                stds = normal_iqr * self.data['std'][i0:, j][idx]
+                pyplot.loglog(stds, iqr_ratio[idx], label=str(j - 5))
+                pyplot.text(stds[-1], iqr_ratio[idx][-1], j - 5)
+                pyplot.text(stds[0], iqr_ratio[idx][0], j - 5)
+            j < 20 and pyplot.legend()
+            pyplot.xlabel(r'estimated IQR of coordinate $x_i$ ($\widehat{\text{IQR}}(x_i)$)')
+            pyplot.ylabel(r'IQR($f$)')
+            pyplot.grid(True, which='both')
+        ########################
+        if gradf:
+            icol += 1
+            pyplot.subplot(1, columns, icol)
+            pyplot.title('Partial derivatives')
+            pyplot.semilogy(self.xmean[:, 0], [np.abs(gradf(x)) for x in self.xmean[:,5:]])
+            pyplot.xlabel('iteration')
+        ########################
+        icol += 1
+        pyplot.subplot(1, columns, icol)
+        pyplot.title(r'Local sensitivities by coordinate versus $\widehat{\text{IQR}}(x_i)$')
+        for j in range(5, len(self.data['std'][0])):
+            iqr_ratio = self.data['f'][:, 8] / (normal_iqr * self.data['std'][i0:, j])
+            idx = np.argsort(self.data['std'][i0:, j])
+            stds = normal_iqr * self.data['std'][i0:, j][idx]
+            pyplot.loglog(stds, iqr_ratio[idx], label=str(j - 5))
+            pyplot.text(stds[-1], iqr_ratio[idx][-1], j - 5)
+            pyplot.text(stds[0], iqr_ratio[idx][0], j - 5)
+        j < 20 and pyplot.legend()
+        pyplot.xlabel(r'estimated IQR of coordinate $x_i$ ($\widehat{\text{IQR}}(x_i)$)')
+        pyplot.ylabel(r'IQR($f$) / $\widehat{\text{IQR}}(x_i)$')
+        pyplot.grid(True, which='both')
+        ########################
+        icol += 1
+        pyplot.subplot(1, columns, icol)
+        pyplot.title(r'Local sensitivities by coordinate versus median $f$')
+        idx = np.argsort(self.data['f'][:, 6])
+        for j in range(5, len(self.data['std'][0])):
+            iqr_ratio = self.data['f'][:, 8] / (normal_iqr * self.data['std'][i0:, j])
+            f = self.data['f'][:, 6][idx]
+            pyplot.loglog(f, iqr_ratio[idx], label=str(j - 5))
+            pyplot.text(f[-1], iqr_ratio[idx][-1], j - 5)
+            pyplot.text(f[0], iqr_ratio[idx][0], j - 5)
+        j < 20 and pyplot.legend()
+        pyplot.xlabel(r'median $f$')
+        pyplot.ylabel(r'IQR($f$) / $\widehat{\text{IQR}}(x_i)$')
+        pyplot.grid(True, which='both')
+        self._finalize_plotting(False)
+        pyplot.tight_layout()  # avoid xlabel to be cut off
+
+    def popsize(self, data_field='f'):
+        '''return median popsize from iteration and evaluation data'''
+        # popsize = Delta evals / Delta iters
+        popsizes = np.diff(self.data[data_field][:, 1]) / np.maximum(1,
+                                np.diff(self.data[data_field][:, 0]))
+        popsizes[-1] = popsizes[-2]
+        return np.median(popsizes)
+    @property
+    def mueff(self):
+        from .recombination_weights import RecombinationWeights
+        # TODO: can we make this ??
+        try:
+            mueff = RecombinationWeights(self.parameters['weights']).mueff
+        except Exception as e:
+            warnings.warn("obtaining ``RecombinationWeights(self.parameters"
+                "['weights']).mueff`` failed with exception {0}, using popsize/3"
+                .format(e))
+            mueff = self.popsize('std') / 3
+        return mueff
+
+    def plot_estimated_errors(self, x_opt=None, markerscaler=10, log_threshold=0.05, dim_exponent=1,
+                              multiplier=None,
+                              plot_kwargs={}):
+        """[WIP] experimental
+
+        `multiplier` takes dimension and mueff as input and computes the error
+        multiplier. The soon to be expired default value was ``dim**0.5 * 3
+        / min((popsize, 3 * dim + 15))``.
+
+        The trust is defined as ``-max_i(Delta log(sigma * D_ii))`` and is high when all axes diminish.
+        """
+        plot_kwargs.setdefault('linewidth', 0.25)
+        from matplotlib import pyplot
+        import collections
+        self._enter_plotting()
+        if self.data['std'] is None:
+            self.load()
+        if x_opt is None:
+            x_opt = collections.defaultdict(float)
+        elif x_opt == 'final':
+            x_opt = self.xmean[-2, 5:]
+        elif np.isscalar(x_opt):
+            import functools
+            x_opt = collections.defaultdict(functools.partial(float, x_opt))
+        # in the stationary distribution:
+        # std_i * dimension**0.5 / min(popsize / 2, dimension) / 5
+        # how to correct for nonstationary?
+        # length of pc?
+        # 1 + iteration/dim?
+        dim = len(self.data['std'][0]) - 5
+        average_window = int(3 + dim**dim_exponent)
+        # pretty ad hoc correction factor
+        # TODO: qqq compared the model from issue #283
+        # which claims that |mi-xi*| < 2 n**(1/3) / mueff**(1/2) * stdi
+        if multiplier is None:
+            if 1 < 3:
+                # see https://github.com/CMA-ES/pycma/issues/283
+                multiplier = 2 * dim**(1/3) / self.mueff**(1/2)
+            else:  # looks strange, like a bug?
+                # self.parameters['popsize'] is available now but only for new data
+                popsizes = np.diff(self.data['std'][:, 1]) / np.maximum(1, np.diff(self.data['std'][:, 0]))  # Delta evals / Delta iters
+                popsizes[-1] = popsizes[-2]
+                multiplier = dim**0.5 * 3 / np.minimum(popsizes.reshape(-1, 1), 3 * dim + 15)
+                multiplier = dim**0.5 * 3 / np.minimum(popsizes.reshape(-1, 1), 3 * dim + 15)
+        else:
+            multiplier = multiplier(dim, self.mueff)
+        errors = multiplier * self.data['std'][1:, 5:]
+        # distances_to_final_point = np.abs(self.data['xmean'][1:, 5:] -
+        #                                   self.data['xmean'][-2, 5:])
+        # not available during the run:
+        # errors = np.maximum(errors0, distances_to_final_point) 
+        # errors += 1 / self.data['std'][1:, 1].reshape(-1, 1)**2  # ad hoc: add 1 / evaluations
+        logdiffs = np.max(np.diff(np.log(self.D[:, 5:]), axis=0), axis=1) + np.diff(np.log(self.D[:, 2]))
+        logdiffs = dim**0.995 * _mathutils.moving_average(logdiffs, average_window)
+        logdiffs = np.hstack([logdiffs[0], logdiffs])
+        pyplot.figure(np.random.randint(9999999), figsize=(10.5, 3))
+        ########################
+        trust_label = r'max$_i$ $\Delta$ log($\sigma_i$)'
+        ax1 = pyplot.subplot(1, 3, 1)
+        pyplot.title(r'Variable sensitivities')
+        pyplot.ylabel(r'Sensitivity IQR($f$) / $\widehat{\text{IQR}}(x_i)$')
+        pyplot.xlabel('estimated distance to optimum')
+        pyplot.grid(True, 'both')
+        if log_threshold >= 0:  # trust by markersize
+            sizes = -logdiffs
+            sizes[sizes < log_threshold] = 0
+            if max(sizes):
+                sizes /= max(sizes)
+            for i, sens in enumerate(self._sensitivities):
+                err = errors[:,i]
+                if len(err) != len(sens):
+                    raise ValueError
+                idx = np.argsort(err)
+                p = pyplot.loglog(err[idx], sens[idx], label=i, **plot_kwargs)
+                for j in range(len(err)):
+                    if sizes[j]:
+                        pyplot.loglog(err[j], sens[j], '.', color=p[-1].get_color(),
+                                    markersize=markerscaler*sizes[j])
+        else: # all trust lines
+            ax2 = pyplot.twinx()
+            pyplot.ylabel(trust_label)
+            pyplot.grid(True)
+            for i, sens in enumerate(self._sensitivities):
+                err = errors[:,i]
+                if len(err) != len(sens):
+                    raise ValueError
+                idx = np.argsort(err)
+                pyplot.sca(ax1)
+                p = pyplot.loglog(err[idx], sens[idx], label=i)
+                pyplot.sca(ax2)
+                pyplot.plot(err[idx],  # self.D[:,0][idx],
+                            logdiffs[idx],
+                            color=p[-1].get_color(), zorder=-1, linewidth=0.5)
+            pyplot.plot([min(err), max(err)], [0, 0], 'k-')
+            pyplot.sca(ax1)
+        dim < 21 and pyplot.legend(title='coordinate', fontsize=5 + 3/dim)
+        ########################
+        pyplot.subplot(1, 3, 2)
+        pyplot.title(r'Coordinate-Wise Estimated Distance to Optimum')
+        pyplot.xlabel('iteration')
+        # dimension**0.5 / min(popsize / 0.4, dimension) / 5
+        ax = pyplot.gca()
+        # Delta log (sigma x max(D_ii))
+        pyplot.twinx()
+        pyplot.plot(self.D[:,0],
+                    logdiffs,
+                    # dim**0.5 * _mathutils.moving_average(-np.diff(np.log(self.D[:, 2] * self.D[:, -1])),
+                    #                                      average_window),
+                    'k-', label=trust_label,
+                    zorder=-1, linewidth=0.5)
+        pyplot.legend()
+        pyplot.sca(ax)
+        pyplot.semilogy(self.data['std'][1:, 0], errors)
+        for i, y in enumerate(errors[-1]):
+            pyplot.text(self.data['std'][-1, 0], y, i)
+        ########################
+        pyplot.subplot(1, 3, 3)
+        pyplot.title(r'True Dx / Estimated Error (x_opt[0]={0})'
+                       .format(x_opt[0]))
+        pyplot.xlabel('iteration')
+        for j in range(len(self.data['std'][0]) - 5):
+            Dx = np.abs(self.data['xmean'][1:, j + 5] - x_opt[j])
+            errorserrors = np.abs(Dx / errors[:, j])
+            pyplot.semilogy(self.data['std'][1:, 0], errorserrors, label=str(j))
+            pyplot.text(self.data['std'][-1, 0], errorserrors[-1], j)
+        j < 21 and pyplot.legend(fontsize=5 + 3/(j+3))
+        pyplot.grid(True, which='both')
+        pyplot.twinx()
+        pyplot.plot(self.D[:,0],
+                    logdiffs,
+                    'k-', label=trust_label, zorder=-1, linewidth=0.5)
+        pyplot.legend()
+        self._finalize_plotting(False)
+        pyplot.tight_layout()  # avoid xlabel to be cut off
+
     def _enter_plotting(self, fontsize=7):
         """assumes that a figure is open """
         from matplotlib import pyplot
@@ -1548,11 +1831,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
         ## was: pyplot.hold(False)
         ## pyplot.gcf().clear()  # opens a figure window, if non exists
         pyplot.ioff()  # I assume this should save some time?
-    def _finalize_plotting(self):
+    def _finalize_plotting(self, subplot_adjust=True):
         if self.skip_finalize_plotting:
             return
         from matplotlib import pyplot
-        pyplot.subplots_adjust(left=0.05, top=0.96, bottom=0.07, right=0.95)
+        subplot_adjust and pyplot.subplots_adjust(left=0.05, top=0.96, bottom=0.07, right=0.95)
         # pyplot.tight_layout(rect=(0, 0, 0.96, 1))
         pyplot.gcf().canvas.draw()  # update figure immediately
         pyplot.ion()  # prevents that the execution blocks after plotting
