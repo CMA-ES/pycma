@@ -3102,7 +3102,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Argument
         --------
-        A *genotype* difference `dx`.
+        `dx`, a *genotype* difference to the distribution mean. As `dx` is
+        interpreted as a difference to the mean, the return value does not
+        depend on the current mean.
 
         Example
         -------
@@ -3120,7 +3122,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         """
         self._try_update_sm_now()
-        return self.sm.norm(np.asarray(dx) / self.sigma_vec.scaling) / self.sigma
+        return float(self.sm.norm(np.asarray(dx) / self.sigma_vec.scaling) / self.sigma)
 
     @property
     def isotropic_mean_shift(self):
