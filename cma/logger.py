@@ -1580,15 +1580,15 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if annotations is None:
             annotations = self.persistent_communication_dict.get('variable_annotations')
         import matplotlib
-        from matplotlib.pyplot import plot, yscale, text, grid, axis, title
+        from matplotlib.pyplot import plot, yscale, text, axis, title
         dat = self  # for convenience and historical reasons
         if callable(last_plot_arguments.get('xtransform', None)):
-            dat_x = dat.x[:,:]
+            dat_x = dat.x.copy()
             tf = last_plot_arguments.get('xtransform')
             for i in range(len(dat_x)):
                 dat_x[i,5:] = tf(dat_x[i,5:])
         elif xnormalize or x_opt is not None:
-            dat_x = dat.x[:,:]
+            dat_x = dat.x.copy()
         else:
             dat_x = dat.x
         # interpret x_opt
