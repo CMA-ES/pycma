@@ -4264,7 +4264,8 @@ def fmin(objective_function, x0, sigma0,
                             #  like only multiplying kappa instead of
                             #  changing cmean and sigma.
                             es.sp.cmean *= np.exp(-noise_kappa_exponent * np.tanh(noisehandler.noiseS))
-                            es.sp.cmean[es.sp.cmean > 1] = 1.0  # also works with "scalar arrays" like np.array(1.2)
+                            if es.sp.cmean > 1:    # cmean is now a float, however,
+                                es.sp.cmean = 1.0  # cmean[cmean > 1] would also work with "scalar arrays" like np.array(1.2)
                     for f in callback:
                         f is None or f(es)
                     es.disp()

@@ -800,7 +800,7 @@ class CMAParameters(object):
      'c1_sep': ...0.0343279...,
      'cc': 0.171767...,
      'cc_sep': 0.252594...,
-     'cmean': array(1...,
+     'cmean': 1.0,
      'cmu': 0.00921656...,
      'cmu_sep': ...0.0565385...,
      'lam_mirr': 0,
@@ -983,7 +983,7 @@ class CMAParameters(object):
             # sp.damps = 20 # 1. + 20 * sp.cs**-1  # 1e99 # (1 + 2*max(0,sqrt((mueff-1)/(N+1))-1)) + sp.cs;
             print('damps is %f' % (sp.damps))
 
-        sp.cmean = np.asarray(opts['CMA_cmean'], dtype=float)
+        sp.cmean = float(opts['CMA_cmean'])
         # sp.kappa = 1  # 4-D, lam=16, rank1, kappa < 4 does not influence convergence rate
                         # in larger dim it does, 15-D with defaults, kappa=8 factor 2
         if 11 < 3 and np.any(sp.cmean != 1):
