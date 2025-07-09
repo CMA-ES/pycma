@@ -594,9 +594,10 @@ class DiagonalDecoding(AdaptiveDecoding):
     def __init__(self, scaling):
         if isinstance(scaling, int):
             scaling = scaling * [1.0]
-        self.scaling = np.array(scaling, dtype=float)
+        self.scaling = np.atleast_1d(scaling)
         self.dim = np.size(self.scaling)
         self.is_identity = False
+        self.is_initialized = False
         if is_one(self.scaling):
             self.is_identity = True
         self._parameters = {}
@@ -749,6 +750,7 @@ class DiagonalDecoding(AdaptiveDecoding):
 
     def _init_(self, int_or_vector):
         """init scaling (only) when not yet done"""
+        self.is_initialized = True
         if not self.is_identity or not np.size(self.scaling) == 1:
             return self
         try: int_ = len(int_or_vector)
@@ -766,7 +768,7 @@ class DiagonalDecoding(AdaptiveDecoding):
 
         is available.
         """
-        if np.size(self.scaling) == 1:
+        if not self.is_initialized:
             raise ValueError("not yet initialized (dimension needed)")
         self.is_identity = False
         self.scaling[index] = value
