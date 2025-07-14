@@ -1209,8 +1209,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.x0.ndim != 1:
             raise ValueError('x0 must be 1-D array')
         if len(self.x0) <= 1:
-            utils.print_warning('Initial solution argument x0=%s.\n'
-                                'CAVEAT: Optimization in 1-D is poorly tested.'
+            utils.print_warning('Initial solution argument x0=%s is 1-dimensional.\n'
+
+                                'Optimization in 1-D is not supported and may bail or work poorly. \nSee issues https://github.com/CMA-ES/pycma/issues/86 and https://github.com/CMA-ES/pycma/issues/302.'
                                 % str(self.x0))
         try:
             self.x0.resize(self.x0.shape[0])  # 1-D array, not really necessary?!
