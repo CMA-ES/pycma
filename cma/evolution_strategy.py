@@ -228,6 +228,17 @@ archive_sent_solutions = sys.version_info >= (2,6)
 archive_after_sent = None  # was `True` before July 2025
 '''`None` ==> active when popsize < 33, for historical reasons, not really useful?'''
 
+round_integer_variables = sys.version_info >= (2,6)
+'''round integer variables of sampled candidate solutions (at the end of
+   `ask`) for the evaluation on the objective function. This takes about
+   15% CPU time with option ``verbose=-9``, partly due to array copies?'''
+
+ask_phenotype_archive_revert_changes = True
+'''When detected, ignore inplace changes of solutions delivered by `ask`
+   for updating in `tell`. Currently, solutions are (only) archived in
+   `_ask_phenotype_archive` when integer variables were rounded at the end
+   of `ask`.'''
+
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
 
@@ -1126,9 +1137,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.hsiglist = []
 
         self.sent_solutions = get_CMASolutionDict(archive_sent_solutions)()
+        '''archive solutions close to the end of `ask`, this archive is
+           passed to ``gp.geno`` to bypass calling the inverse geno-pheno
+           transformation in `tell`'''
+        self._ask_phenotype_archive = utils.SolutionDict()
+        '''archive solutions at the very end of `ask` when and before
+           integer rounding is applied. Retrieve them at the very beginning
+           of `tell` before the inverse geno-pheno transformation is
+           applied'''
         self.archive = get_CMASolutionDict(self.sp.popsize < 33
                                                if archive_after_sent is None
                                            else archive_after_sent)()
+        '''archive solutions processed in `tell`, not really in use!?'''
         self._injected_solutions_archive = _SolutionDict()
         self.best = ot.BestSolution()
 
@@ -1523,6 +1543,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.sent_solutions.insert(pop_pheno[i], geno=pop_geno[i],
                                         iteration=self.countiter)
         ### iiinteger handling could come here
+
+        # round integer variables
+        self._population_round_int_variables(pop_pheno)
 
         return pop_pheno
 
@@ -2057,6 +2080,109 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         dx[i] *= threshold * stds[i] / np.abs(dx[i])
         return dX
 
+    def _round_int_variables(self, solution, copy_when_changed=True):
+        """round integer variables in `solution`
+
+        based on the ``integer_variables`` option and depending on the
+        `round_integer_variables` module setting.
+        """
+        if not round_integer_variables or not len(self.opts['integer_variables']):
+            return solution
+        idx = self.opts.get('_pheno_integer_variables',
+                            self.opts['integer_variables'])
+        if not len(idx):
+            return solution  # can not happen
+        if copy_when_changed:
+            solution = np.array(solution)
+        for i in idx:
+            solution[i] = float(np.round(solution[i]))
+        return solution
+
+    def _population_round_int_variables(self, pop_pheno):
+        """round integer variables of solutions in `pop_pheno` and store
+
+        the original solutions in `self.__ask_phenotype_archive`.
+
+        Fixed variables are not changed by design (they were removed from
+        the _pheno_integer_variables index list too).
+        """
+        if round_integer_variables and len(self.opts['integer_variables']):
+            idx = self.opts.get('_pheno_integer_variables',
+                                self.opts['integer_variables'])
+            if len(idx):  # should always be true
+                idx = np.asarray(idx)
+                for k in range(len(pop_pheno)):
+                    y = np.array(pop_pheno[k])
+                    y[idx] = np.round(y[idx])
+                    self._ask_phenotype_archive[y] = pop_pheno[k]  # save the original
+                    pop_pheno[k] = y  # replace with new
+            else:
+                warnings.warn("\nask: len(integer_variables) > len(idx) = 0 which"
+                              " looks like a bug. \n integer_variables={0}"
+                              "\n _pheno_integer_variables={1}"
+                              .format(self.opts['integer_variables'],
+                                      self.opts.get('_pheno_integer_variables', None)),
+                              RuntimeWarning)
+
+    def _catch_and_truncate_ask_phenotype_archive(self,
+                popped_solutions, solutions, final_len=0):
+        """catch modified `solutions` to revert rounding and warn of inconcistencies.
+
+        Elements of `popped_solutions` are the noninteger versions of
+        `solutions` and may be reassigned (which changes the reference
+        when it is a `list`, but the content when it is an ndarray).
+
+        Truncate `self._ask_phenotype_archive` to `final_len`.
+
+        Hidden input parameters are `self._ask_phenotype_archive` and
+        `round_integer_variables` and `ask_phenotype_archive_revert_changes`.
+        """
+        # catch inplace modified solutions
+        if len(self._ask_phenotype_archive):
+            for key, val in list(self._ask_phenotype_archive
+                                        ._unhashed_keys.items()):
+                aval = np.asarray(val)
+                for k, s in enumerate(solutions):
+                    if val is s or np.all(aval == s):
+                        # we did not to find this solution in the archive before
+                        # because it was modified and hence its key had changed
+                        s_archived = self._ask_phenotype_archive.pop(key)
+                        if ask_phenotype_archive_revert_changes:
+                            popped_solutions[k] = s_archived
+                            s3 = ("\n Because ``cma.evolution_strategy."
+                                    "ask_phenotype_archive_revert_changes is True``,"
+                                    "\n the modification is ignored.")
+                        else:
+                            s3 = ""
+                        if round_integer_variables:  # recompute the delivered value
+                            s_delta = np.asarray(s) - self._round_int_variables(s_archived)
+                        else:  # can't currently happen
+                            s_delta = '`unkown`'
+                        warnings.warn("\ntell: solution with index {0} = "
+                            "\n    {1}\n was modified by "
+                            "\n    {2}\n between calling `ask` and `tell`."
+                            "\n Modifications often lead to unexpected"
+                            " and/or undesired results.{3}"
+                            .format(k, s, s_delta, s3))
+                        break  # solution found and key is consumed
+        # warn of (still) unconsumed solutions
+        if len(self._ask_phenotype_archive):
+            warnings.warn("\ntell: {0} solution(s) of _ask_phenotype_archive have not been"
+                " consumed.\n These have been delivered by ask but not been passed to tell: {1}"
+                .format(len(self._ask_phenotype_archive),
+                        list(self._ask_phenotype_archive.values())))
+        if len(self._ask_phenotype_archive.data_with_same_key):
+            warnings.warn("\ntell, _ask_phenotype_archive: {0} keys with seemingly"
+                          " identical solutions were found (as delivered in `ask`)"
+                          " which is highly unusual. Namely\n  {1}\n"
+                          "(shown are only the second and further identical solutions)."
+                          .format(len(self._ask_phenotype_archive.data_with_same_key),
+                                  self._ask_phenotype_archive.data_with_same_key))
+            self._ask_phenotype_archive.data_with_same_key = {}
+        # truncate to zero
+        self._ask_phenotype_archive.truncate_to(final_len)
+        #  old: min((10, max((0, len(self._ask_phenotype_archive) - 1)))))
+
     # ____________________________________________________________
     def tell(self, solutions, function_values, check_points=None,
              copy=False):
@@ -2197,6 +2323,24 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.countevals += lam * self.evaluations_per_f_value
         self.best.update(solutions,  # caveat: these solutions may be out-of-bounds
                          self.sent_solutions, function_values, self.countevals)
+
+        # Retrieve preimages from _ask_phenotype_archive
+        # as the first step to get to the genotype.
+        # Without integer handling, the archive should be empty
+        if 0 < len(self._ask_phenotype_archive) < len(solutions):
+            warnings.warn("\ntell: solutions passed to `tell` = {0} > {1} = solutions"
+                " phenotype-archived by `ask`. \n  Consider using the ``.inject``"
+                " method for outside solution proposals."
+                .format(len(solutions), len(self._ask_phenotype_archive)))
+        # CAVEAT: if solutions is an array, then solutions[k] = 2 *
+        # np.array(solutions[k]) changes the content of solutions[k] which
+        # is not intended. This may have been a bug? Now solutions becomes
+        # invariably a `list`.
+        _solutions = solutions  # to catch changed solutions (hence changed key)
+        solutions = [self._ask_phenotype_archive.pop(s, s) for s in solutions]
+        # amend solutions if necessary (usually not) and clear archive
+        self._catch_and_truncate_ask_phenotype_archive(solutions, _solutions)
+
         flg_diagonal = self.opts['CMA_diagonal'] is True \
                        or self.countiter <= self.opts['CMA_diagonal']
         if not flg_diagonal and isinstance(self.sm, sampler.GaussStandardConstant):
@@ -2255,6 +2399,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if 1 < 3:
                 pop += [self.gp.geno(s,
                             from_bounds=self.boundary_handler.inverse,
+                            # gp.geno manages copy in repair_genotype, by default True_if_changed
                             repair=(self.repair_genotype if check_points not in (False, 0, [], ()) else None),
                             archive=self.sent_solutions)]  # takes genotype from sent_solutions, if available
             s_geno = self.sent_solutions.pop(s, None)

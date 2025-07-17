@@ -257,7 +257,9 @@ def various_doctests():
     >>> import warnings
     >>> idx = [0, 1, -1]
     >>> f = cma.s.ft.IntegerMixedFunction2(cma.ff.elli, idx)
-    >>> for more_opts in [{}, {'AdaptSigma': cma.sigma_adaptation.CMAAdaptSigmaTPA}]:
+    >>> for i, more_opts in enumerate(2 * [{}] +
+    ...                               2 * [{'AdaptSigma': cma.sigma_adaptation.CMAAdaptSigmaTPA}]):
+    ...     cma.evolution_strategy.round_integer_variables = i % 2
     ...     opts = dict(ftarget=1e-9, seed=5, verbose=-9, integer_variables=idx)
     ...     opts.update(more_opts)
     ...     es = cma.CMAEvolutionStrategy(4 * [5], 10, opts).optimize(f)
@@ -270,6 +272,19 @@ def various_doctests():
     >>> assert es.opts['integer_variables'] == [1, 3], es.opts['integer_variables']
     >>> assert es.opts['_pheno_integer_variables'] == [2, 4], es.opts['_pheno_integer_variables']
     >>> # TODO: do more testing here or in the class
+
+    >>> es = cma.CMA(3 * [-1], 2.21, {'integer_variables': [0, 2], 'verbose':-9})
+    >>> s = es.ask()[:-1] + 2 * [[1, 2.2, 2]]  # nonconsumed and more solutions warnings
+    >>> s[0][0] += 234  # warn that solution changed
+    >>> with warnings.catch_warnings(record=True) as warns:
+    ...     warnings.simplefilter("always")
+    ...     es.tell(s, list(range(len(s))))
+    ...     # [print(str(w.message)) for w in warns]
+    ...     assert len(warns) == 3, [str(w.message) for w in warns]
+    ...     assert 'solutions passed to' in str(warns[0].message), warns[0].message
+    ...     assert 'solution with index 0' in str(warns[1].message), warns[1].message
+    ...     assert '234' in str(warns[1].message), warns[1].message
+    ...     assert '1 solution(s) of' in str(warns[2].message), warns[2].message
 
     Parallel objective:
 
