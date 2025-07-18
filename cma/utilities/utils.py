@@ -172,6 +172,19 @@ def ranks(a, reverse=False):
     return [len(idx) - 1 - idx.index(i) if reverse else idx.index(i)
             for i in range(len(idx))]
 
+def round_indices(a, indices):
+    """modify ``a[i]`` to ``round(a[i])`` for i in `indices` and return `a`, never used"""
+    for i in indices:
+        a[i] = np.round(a[i])
+    return a
+
+def tolist(a):
+    """return ``a.tolist()`` if applicable else ``list(a)``, never used"""
+    try:
+        return a.tolist()
+    except AttributeError:
+        return list(a)
+
 def zero_values_indices(diffs):
     """generate increasing index pairs ``(i, j)`` with ``all(diffs[i:j] == 0)``
 
