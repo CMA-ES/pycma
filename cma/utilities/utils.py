@@ -2,7 +2,7 @@
 """various utilities not related to optimization"""
 from __future__ import (absolute_import, division, print_function,
                         )  #unicode_literals, with_statement)
-import os, time
+import os, sys, time
 import warnings
 import ast  # ast.literal_eval is safe eval
 import numpy as np
@@ -503,19 +503,22 @@ class DerivedDictBase(abc.MutableMapping):
     if necessary.
 
     Details: This is the clean way to subclass the build-in dict, however
-    it depends on `MutableMapping`.
+    it depends on `MutableMapping` (since 2.6 but has significantly evolved).
 
     """
     def __init__(self, *args, **kwargs):
         # abc.MutableMapping.__init__(self)
         super(DerivedDictBase, self).__init__()
         # super(SolutionDict, self).__init__()  # the same
-        try:
-            self.data = collections.OrderedDict()
-            self.data.update(collections.OrderedDict(*args, **kwargs))
-        except Exception:
-            self.data = dict()
-            self.data.update(dict(*args, **kwargs))
+        if sys.version_info >= (3, 7):  # dict is guarantied to be ordered since 3.7
+            self.data = dict(*args, **kwargs)  # dict is faster than OrderedDict
+        else:
+            try:
+                self.data = collections.OrderedDict()  # since Python 3.1
+                self.data.update(collections.OrderedDict(*args, **kwargs))
+            except Exception:
+                self.data = dict()  # may be fine, though we need order in truncate_to
+                self.data.update(dict(*args, **kwargs))
     def __len__(self):
         return len(self.data)
     def __contains__(self, key):
@@ -623,7 +626,7 @@ class SolutionDict(DerivedDictBase):
             # since 2.6 https://docs.python.org/2.6/library/collections.html#abcs-abstract-base-classes
             self.clear()  # is effectively ``for k in self.keys(): del self[k]``
             return
-        for k in list(self.keys()):
+        for k in list(self.keys()):  # relies on insertion time ordering
             del self[k]  # del treats all stored elements
             if len(self) <= len_:
                 break
