@@ -9,7 +9,7 @@ import collections as _collections
 range = range  # to allow (trivial) explicit import also in Python 3
 input = input
 
-if sys.version[0] == '2':  # in python 2
+if sys.version_info[0] == 2:  # in python 2
     range = xrange  # clean way: from builtins import range
     input = raw_input  # in py2, input(x) == eval(raw_input(x))
     abc = _collections  # never used

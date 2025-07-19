@@ -236,7 +236,7 @@ def _pass(*args, **kwargs):
     return args[0] if args else None
 
 # use_archives uses collections
-use_archives = sys.version_info[0] >= 3 or sys.version_info[1] >= 6
+use_archives = sys.version_info >= (2, 6)
 # use_archives = False  # on False some unit tests fail
 """speed up for very large population size. `use_archives` prevents the
 need for an inverse gp-transformation, relies on collections module,

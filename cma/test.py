@@ -310,7 +310,7 @@ def various_doctests():
     ...         with cma.optimization_tools.EvalParallel2(cma.ff.elli) as eval_all:
     ...             res = eval_all([[1,2], [3,4]])
     ... except:
-    ...     assert sys.version[0] == '2'
+    ...     assert sys.version_info[0] == 2
 
     """
 

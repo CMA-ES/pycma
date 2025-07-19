@@ -286,7 +286,7 @@ class EvalParallel2(object):
         warning_str = ("`fitness_function` must be a function, not a"
                        " `lambda` or an instancemethod, in order to work with"
                        " `multiprocessing` under Python 2")
-        if sys.version[0] == '2':
+        if sys.version_info[0] == 2:
             if isinstance(fitness_function, type(self.__init__)):
                 warnings.warn(warning_str)
         jobs = [self.pool.apply_async(fitness_function, (x,) + args)
@@ -294,7 +294,7 @@ class EvalParallel2(object):
         try:
             return [job.get(timeout) for job in jobs]
         except:
-            sys.version[0] == '2' and warnings.warn(warning_str)
+            sys.version_info[0] == 2 and warnings.warn(warning_str)
             raise
 
     def terminate(self):
