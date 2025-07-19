@@ -217,6 +217,17 @@ from . import restricted_gaussian_sampler as _rgs
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
 
+use_archives = "not anymore in effect"
+archive_sent_solutions = sys.version_info >= (2,6)
+'''If `cma.evolution_strategy.archive_sent_solutions`, save the genotype in
+   `ask` before the gp-transformation. This can be a considerable speed up
+   with a large population size because it allows to bypass the inverse
+   gp-transformation. When `False`, some unit tests fail, namely of
+   ``boundary_handler, evolution_strategy, fitness_models,
+   optimization_tools, restricted_gaussian_sampler, transformations``'''
+archive_after_sent = None  # was `True` before July 2025
+'''`None` ==> active when popsize < 33, for historical reasons, not really useful?'''
+
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
 
@@ -235,17 +246,15 @@ def _pass(*args, **kwargs):
     """a callable that does nothing and return args[0] in case"""
     return args[0] if args else None
 
-# use_archives uses collections
-use_archives = sys.version_info >= (2, 6)
-# use_archives = False  # on False some unit tests fail
-"""speed up for very large population size. `use_archives` prevents the
-need for an inverse gp-transformation, relies on collections module,
-not sure what happens if set to ``False``. """
+def get_CMASolutionDict(functional=True):
+    """return a functional or a template "empty" class.
+    """
+    return _CMASolutionDict_functional if functional else _CMASolutionDict_empty
 
 class _CMASolutionDict_functional(_SolutionDict):
     def __init__(self, *args, **kwargs):
         # _SolutionDict.__init__(self, *args, **kwargs)
-        super(_CMASolutionDict, self).__init__(*args, **kwargs)
+        super(_CMASolutionDict_functional, self).__init__(*args, **kwargs)
         self.last_solution_index = 0
 
     # TODO: insert takes 30% of the overall CPU time, mostly in def key()
@@ -256,6 +265,12 @@ class _CMASolutionDict_functional(_SolutionDict):
         ``value if value is not None else {'geno':key}`` and
         ``self[key]['kwarg'] = kwarg if kwarg is not None`` for the further kwargs.
 
+        TODO: this looks overdesigned. Only the keyword `iteration` is
+        currently used and not even necessary anymore because
+        `SolutionDict` is now ordered. Just using `SolutionDict` would be
+        good enough with insertions done using a `dict` as value if
+        desired, or a single `info` argument could be implemented in
+        `SolutionDict` for any additional information.
         """
         # archive returned solutions, first clean up archive
         if iteration is not None and iteration > self.last_iteration and (iteration % 10) < 1:
@@ -297,13 +312,14 @@ class _CMASolutionDict_empty(dict):
         pass
     def get(self, key):
         return None
+    def truncate(self, *args, **kwargs):
+        pass
+    def truncate_to(self, *args, **kwargs):
+        pass
     def __getitem__(self, key):
-        return None
+        return {}
     def __setitem__(self, key, value):
         pass
-
-_CMASolutionDict = _CMASolutionDict_functional if use_archives else _CMASolutionDict_empty
-# _CMASolutionDict = _CMASolutionDict_empty
 
 # ____________________________________________________________
 # ____________________________________________________________
@@ -1109,8 +1125,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.noiseS = 0  # noise "signal"
         self.hsiglist = []
 
-        self.sent_solutions = _CMASolutionDict()
-        self.archive = _CMASolutionDict()
+        self.sent_solutions = get_CMASolutionDict(archive_sent_solutions)()
+        self.archive = get_CMASolutionDict(self.sp.popsize < 33
+                                               if archive_after_sent is None
+                                           else archive_after_sent)()
         self._injected_solutions_archive = _SolutionDict()
         self.best = ot.BestSolution()
 
@@ -1555,7 +1573,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             xmean = self.mean
         else:
             try:
-                xmean = self.archive[xmean]['geno']
+                xmean = self.archive[xmean]['geno']  # xmean is never inserted!?
                 # noise handling after call of tell
             except KeyError:
                 try:
@@ -2239,11 +2257,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             from_bounds=self.boundary_handler.inverse,
                             repair=(self.repair_genotype if check_points not in (False, 0, [], ()) else None),
                             archive=self.sent_solutions)]  # takes genotype from sent_solutions, if available
-                try:
-                    self.archive.insert(s, value=self.sent_solutions.pop(s), fitness=function_values[k])
-                    # self.sent_solutions.pop(s)
-                except KeyError:
-                    pass
+            s_geno = self.sent_solutions.pop(s, None)
+            if archive_after_sent and s_geno is not None:
+                self.archive.insert(s, value=s_geno, fitness=function_values[k])
+            _len = min((max((2 * sp.popsize, 1000)), 30 * sp.popsize))
+            self.sent_solutions.truncate_to(_len)
+            self.archive.truncate_to(_len)
         # check that TPA mirrors are available
         self.pop = pop  # used in check_consistency of CMAAdaptSigmaTPA
         self.adapt_sigma.check_consistency(self)
@@ -2657,7 +2676,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     indices.append(i)  # found injected solution
         for k, s in list(self._injected_solutions_archive.items()):
             if s['iteration'] < self.countiter - 2:
-                if self.integer_mutations.is_none:  # integer_mutations removes some bad solutions
+                if (not hasattr(self, "integer_mutations")
+                    or self.integer_mutations.is_none):  # integer_mutations removes some bad solutions
                     # warn unless TPA injections were messed up by integer centering
                     if (not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA)
                             # self.integer_centering and
