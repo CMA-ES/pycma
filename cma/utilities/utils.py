@@ -492,23 +492,68 @@ class BlancClass(object):
 class DictClass(dict):
     """A class wrapped over `dict` to use class .-notation.
 
-    >>> from cma.utilities.utils import DictClass
-    >>> dict_ = dict((3 * c, c) for c in 'abcd')
-    >>> as_class = DictClass(dict_)
-    >>> assert as_class.__dict__ == dict_ == as_class
-    >>> assert as_class.aaa == 'a'
-    >>> as_class.new = 33
-    >>> assert 'new' in as_class
-    >>> as_class['nnew'] = 44
-    >>> assert as_class.nnew == 44
-    >>> assert len(as_class) == 6
+    Not clear whether tab completion works?
 
-    """
+    >>> from cma.utilities.utils import DictClass
+    >>> dict_ = dict((2 * char, char) for char in 'abcd')
+    >>> d = DictClass(dict_)
+    >>> assert d.__dict__ == dict_ == d
+    >>> assert d.aa == 'a' and len(d) == 4
+    >>> d.new = 33
+    >>> assert 'new' in d
+    >>> d['nnew'] = 44
+    >>> assert d.nnew == 44
+    >>> assert len(d) == 6
+
+"""
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
         self.__dict__ = self
     def __dir__(self):
         return self.keys()
+
+class DictClass2(dict):
+    """A dictionary that allows `.` attribute read access of its entries.
+
+    Assigning an attribute instead of the dictionary entry does not assign
+    (or create) a dictionary value and separates the attribute value from
+    the dictionary value permanently (in contrast to `DictClass`). This may
+    be useful to let the dictionary entry store the initial value and work
+    with the attribute value only, to access the current and possibly
+    changed value.
+
+    If neither the attribute nor the dictionary entry exist, an attempted
+    attribute access raises an `AttributeError` as to be expected.
+
+    By design, this class DOES NOT HAVE INTERACTIVE TAB COMPLETION for
+    attributes derived from the dictionary!?
+
+    Implementation detail: this class is less "intrusive" than `DictClass`
+    and should be entirely safe from under-the-hood surprises. It only
+    relies on the behavior of `__getattr__`: access of a nonexisting
+    attribute triggers (by Python convention) a call of `__getattr__`
+    which is here defined to return the dictionary entry value.
+
+    >>> from cma.utilities.utils import DictClass2
+    >>> d = DictClass2((2 * char, char) for char in 'abcd')
+    >>> list(d)
+    ['aa', 'bb', 'cc', 'dd']
+    >>> assert d.aa == 'a' and len(d) == 4, (list(d.values()), d.__dict__)
+    >>> d.new = 33  # does not go in the dict
+    >>> assert 'new' not in d and len(d) == 4, (list(d.values()), d.__dict__)
+    >>> d['new'] = 55
+    >>> assert (d.new, d['new']) == (33, 55)
+    >>> d['nnew'] = 44
+    >>> assert d.nnew == 44
+    >>> assert len(d) == 6
+
+"""
+    def __getattr__(self, name):
+        """called when ``self.name`` would raise an attribute error"""
+        if name not in self:
+            raise AttributeError("`{0}` is not an attribute. Attributes are {1}"
+                                 .format(name, list(self)))
+        return self[name]
 
 class DerivedDictBase(abc.MutableMapping):
     """for conveniently adding methods/functionality to a dictionary.
