@@ -387,4 +387,8 @@ def main(*args, **kwargs):
     return doctest_files(args if args else files_for_doctest, **kwargs)
 
 if __name__ == "__main__":
-    exit(main(*sys.argv[1:]) > 0)  # 0 if failures == 0 else 1
+    try:
+        exit(main(*sys.argv[1:]) > 0)  # 0 if failures == 0 else 1
+    except NameError:  # "exit" raises a NameError in a notebook
+        main(*sys.argv[1:])
+    
