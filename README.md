@@ -90,7 +90,16 @@ either of these with ``sudo``.
 
 ## Version History
 
-* [Release ``4.2.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.2.0) and [``4.2.1``](https://github.com/CMA-ES/pycma/releases/tag/r4.2.1)
+* [Release ``4.3.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.3.0)
+  - integer variables of candidate solutions are rounded (addressing also [issue
+    #286](https://github.com/CMA-ES/pycma/issues/286))
+  - moved main docstring from `fmin` to `fmin2`
+  - experimental plots for error estimates and sensitivities
+  - fix `numpy` scalar type representations at various places
+  - replace ineffective `use_archives` flag with `archive_sent_solutions`
+    and `archive_after_sent`
+
+* [Release ``4.2.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.2.0)
   - a stand-alone boundary handling function wrapper ``BoundDomainTransform``
   - streamline plot docs, fix symlog plot with newest `matplotlib`, plots display the value of `.stop()` and the version number
   - a few more minor fixes and improvements
@@ -98,11 +107,13 @@ either of these with ``sudo``.
   - [Version ``4.1.0``](https://github.com/CMA-ES/pycma/releases/tag/v4.1.0) (already since `5a30571f`)
     - move boundary handling into a separate module
     - various small-ish fixes and improvements, in particular an edge case in the initialization of the Lagrange multipliers in the constraints handling
+
 * [Release ``4.0.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.0.0)
   - majorly improved mixed-integer handling based on a more concise lower bound
     of variances and on so-called integer centering
   - moved options and parameters code into a new file
   - many small-ish fixes and improvements
+
 * [Release ``3.4.0``](https://github.com/CMA-ES/pycma/releases/tag/r3.4.0)
   - fix compatibility to `numpy` 2.0 (thanks to [Sait Cakmak](https://github.com/saitcakmak))
   - improved interface to `noise_handler` argument which accepts `True` as value
