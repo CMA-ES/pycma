@@ -431,8 +431,9 @@ class _CMAEvolutionStrategyResult(tuple):
             self.best.get() + (  # (x, f, evals) triple
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
-            self.stds))  # 
+            self.to_phenotype(self.mean[:],
+                              into_bounds=self.boundary_handler.repair),
+            self.stds))
 
 class CMAEvolutionStrategy(interfaces.OOOptimizer):
     """CMA-ES stochastic optimizer class with ask-and-tell interface.
@@ -1418,7 +1419,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # return [self.gp.pheno(x, copy=False, into_bounds=self.boundary_handler.repair) for x in pop]  # probably fine
         # return [Solution(self.gp.pheno(x, copy=False), copy=False) for x in pop]  # here comes the memory leak, now solved
         pop_pheno = [self.gp.pheno(x, copy=True,
-                                into_bounds=self.boundary_handler.repair)
+                                   into_bounds=self.boundary_handler.repair)
                         for x in pop_geno]
 
         if gradf is not None:
@@ -1469,7 +1470,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 if xmean is None:
                     xmean = self.mean
                 xpheno = self.gp.pheno(xmean, copy=True,
-                                    into_bounds=self.boundary_handler.repair)
+                                       into_bounds=self.boundary_handler.repair)
                 grad_at_mean = gradf(xpheno, *args)
                 # lift gradient into geno-space
                 if not self.gp.isidentity or (self.boundary_handler is not None
@@ -1763,9 +1764,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             return 1.0
         return np.sum(self.opts['randn'](1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
 
-
     def get_mirror(self, x, preserve_length=False):
-        """return ``pheno(self.mean - (geno(x) - self.mean))``.
+        """return ``_round_int_variables(pheno(self.mean - (geno(x) - self.mean)))``
+
+        and update `sent_solutions` and `_ask_phenotype_archive` archives.
 
         >>> import numpy as np, cma
         >>> es = cma.CMAEvolutionStrategy(np.random.randn(3), 1)  #doctest: +ELLIPSIS
@@ -1803,6 +1805,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         y = self.gp.pheno(x, into_bounds=self.boundary_handler.repair)
         # old measure: costs 25% in CPU performance with N,lambda=20,200
         self.sent_solutions.insert(y, geno=x, iteration=self.countiter)
+        y = self._round_int_variables(y, archive=self._ask_phenotype_archive)
         return y
 
     # ____________________________________________________________
@@ -1960,7 +1963,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
                 f = func(x, *args) if kappa == 1 else \
                     func(xmean + kappa * length_normalizer * (x - xmean),
-                         *args)
+                         *args)  # CAVEAT: kappa != 1 is incompatible with integer variables
                 if is_feasible(x, f) and evaluations > 1:
                     f = aggregation([f] + [(func(x, *args) if kappa == 1 else
                                             func(xmean + kappa * length_normalizer * (x - xmean), *args))
@@ -2080,11 +2083,26 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         dx[i] *= threshold * stds[i] / np.abs(dx[i])
         return dX
 
-    def _round_int_variables(self, solution, copy_when_changed=True):
-        """round integer variables in `solution`
+    def to_phenotype(self, solution, *args, **kwargs):
+        """return integer-rounded phenotype depending on `round_integer_variables` module setting.
 
-        based on the ``integer_variables`` option and depending on the
-        `round_integer_variables` module setting.
+        Without further arguments, `self.gp.pheno` is called with
+        ``copy=True, into_bounds=self.boundary_handler.repair`` as
+        additional arguments, otherwise ``*args, **kwargs`` are passed
+        to `self.gp.pheno`.
+        """
+        return self._round_int_variables(self.gp.pheno(solution, *args, **kwargs)
+                                            if args or kwargs else
+                                         self.gp.pheno(solution, copy=True,
+                                                into_bounds=self.boundary_handler.repair))
+
+    def _round_int_variables(self, solution, copy_when_changed=True, archive=None):
+        """round integer variables in `solution`
+   
+        depending on the `round_integer_variables` module setting and based
+        on the ``integer_variables`` option.
+
+        Insert original solution in `archive` if ``archive is not None``.
         """
         if not round_integer_variables or not len(self.opts['integer_variables']):
             return solution
@@ -2092,10 +2110,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             self.opts['integer_variables'])
         if not len(idx):
             return solution  # can not happen
-        if copy_when_changed:
+        if copy_when_changed or archive:
+            _solution = solution
             solution = np.array(solution)
         for i in idx:
             solution[i] = float(np.round(solution[i]))
+        if archive:
+            archive[solution] = _solution
         return solution
 
     def _population_round_int_variables(self, pop_pheno):
@@ -2878,7 +2899,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             evals,
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
+            self.to_phenotype(self.mean[:], into_bounds=self.boundary_handler.repair),
             self.stds,
             self.stop()
         )
@@ -2901,12 +2922,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         print('final/bestever f-value = %e %e after %d/%d evaluations' % (
             self.best.last.f, fbestever, self.countevals, self.best.evals))
         if self.N < 9:
-            print('incumbent solution: ' + ' '.join(str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)).split())
+            print('incumbent solution: ' + ' '.join(str(self.to_phenotype(self.mean, into_bounds=self.boundary_handler.repair)).split())
                                            .replace(' ', ', ').replace('[,', '['))
             print('std deviation: ' + ' '.join(str(self.stds).split())
                                            .replace(' ', ', ').replace('[,', '['))
         else:
-            print('incumbent solution: %s ...]' % (str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
+            print('incumbent solution: %s ...]' % (str(self.to_phenotype(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
             print('std deviations: %s ...]' % (str(self.stds[:8])[:-1]))
         return self.result
 
@@ -4427,9 +4448,9 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
                         or es.opts['CMA_elitist'] == 'initial'
                         or (es.opts['CMA_elitist'] and
                                     eval_initial_x is None)):
-                    x = es.gp.pheno(es.mean, copy=True,
-                                    into_bounds=es.boundary_handler.repair,
-                                    archive=es.sent_solutions)
+                    x = es.to_phenotype(es.mean, copy=True,
+                                        into_bounds=es.boundary_handler.repair,
+                                        archive=es.sent_solutions)
                     es.f0 = _ifloat(objective_function(x, *args))
                     es.best.update([x], es.sent_solutions,
                                    [es.f0], 1)
@@ -4541,9 +4562,9 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
 
             # end while not es.stop
             if opts['eval_final_mean'] and callable(objective_function):
-                mean_pheno = es.gp.pheno(es.mean, copy=True,
-                                         into_bounds=es.boundary_handler.repair,
-                                         archive=es.sent_solutions)
+                mean_pheno = es.to_phenotype(es.mean, copy=True,
+                                             into_bounds=es.boundary_handler.repair,
+                                             archive=es.sent_solutions)
                 fmean = _ifloat(objective_function(mean_pheno, *args))
                 es.countevals += 1
                 es.best.update([mean_pheno], es.sent_solutions, [fmean], es.countevals)
