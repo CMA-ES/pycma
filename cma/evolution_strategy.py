@@ -4305,6 +4305,12 @@ def fmin(objective_function, x0, sigma0,
                 fmean = _ifloat(objective_function(mean_pheno, *args))
                 es.countevals += 1
                 es.best.update([mean_pheno], es.sent_solutions, [fmean], es.countevals)
+            elif opts['eval_final_mean']:
+                warnings.warn('The final mean was not evaluated (probably due to a'
+                    '\n parallel evaluation setup). Consider checking out'
+                    '\n ``es.result.xfavorite`` which is likely to be better'
+                    '\n than ``es.result.xbest`` (on the sphere function with >= 90%'
+                    '\n for dimension >= 10 or population size >= 2e3/dimension**3)')
 
             best.update(es.best, es.sent_solutions)  # in restarted case
             # es.best.update(best)
