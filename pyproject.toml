@@ -17,9 +17,9 @@ build-backend = "setuptools.build_meta"
 name = "cma"
 description = "CMA-ES, Covariance Matrix Adaptation Evolution Strategy for non-linear numerical optimization in Python"
 authors = [
-    {name = "Nikolaus Hansen", email = "authors_firstname.lastname@inria.fr"},
+    {name = "Nikolaus Hansen"},
     {name = "Youhei Akimoto"},
-    {name = "Petr Baudis"},
+    {name = "Petr Baudis"}
 ]
 dependencies = [
     "numpy",

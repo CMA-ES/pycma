@@ -62,16 +62,18 @@ Loop over tests and distribution and fix code until everything is fine.
 Upload the distribution in ``install-folder``::
 
     # optional: test upload:
-        cd ..
+        cd ..  # back to src
+        backup test-install-folder  # not really necessary
         cp -rp install-folder test-install-folder
         cd test-install-folder
         mv cma cmae
-        # change version directive in pyproject to cmae.__version___
+        # in pyproject.toml:
+        # change "name = cma" and "version = {attr = "cma.__version__"}" to cmae
         python -m build > dist_call_output.txt ...
-        twine upload --repository testpypi dist/*
+        twine upload --repository testpypi dist/cmae*
         cd ../install-folder
 
-    twine upload dist/*  # upload everything as the install folder was clean
+    twine upload dist/*  # upload everything given the install folder was clean
 
 Push new docs to github
 
@@ -86,7 +88,9 @@ Tag and push git branch::
     git tag -a r4.2.1  # fix readme formatting
     git push origin r4.2.1
 
-Create a release on GitHub (click on releases and then new draft, or an r4... tag will do?).
+Create a release on GitHub (click on releases and then new draft).
+
+Push code to master at Github.
 
 Anaconda::
 
