@@ -383,7 +383,7 @@ class CMAEvolutionStrategyResult(collections.namedtuple(
 
     - This class is of purely declarative nature and for providing
       this docstring. It does not provide any further functionality.
-    - ``list(fit.fit).find(0)`` is the index of the first sampled
+    - ``list(.fit.idx).index(0)`` is the index of the first sampled
       solution of the last completed iteration in ``pop_sorted``.
 
     """
@@ -1422,7 +1422,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                    into_bounds=self.boundary_handler.repair)
                         for x in pop_geno]
 
-        if gradf is not None:
+        if gradf is not None:  # TODO: this hasn't been reviewed for a while
             if not isinstance(self.sm, sampler.GaussFullSampler):
                 utils.print_warning("Gradient injection may fail, because\n"
                                     "sampler attributes `B` and `D` are not present",
@@ -1549,6 +1549,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self._population_round_int_variables(pop_pheno)
 
         return pop_pheno
+        # end ask
 
     # ____________________________________________________________
     # ____________________________________________________________
@@ -2122,7 +2123,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def _population_round_int_variables(self, pop_pheno):
         """round integer variables of solutions in `pop_pheno` and store
 
-        the original solutions in `self.__ask_phenotype_archive`.
+        the original solutions in `self._ask_phenotype_archive`.
 
         Fixed variables are not changed by design (they were removed from
         the _pheno_integer_variables index list too).
@@ -2389,8 +2390,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # fitness histories
         fit.hist.insert(0, fit.fit[0])  # FIXED caveat: this may neither be the best nor the best in-bound fitness
-        fit.median = (fit.fit[len(fit.fit) // 2] if len(fit.fit) % 2
-                      else np.mean(fit.fit[len(fit.fit) // 2 - 1: len(fit.fit) // 2 + 1]))
+        i = len(fit.fit) // 2
+        fit.median = float(fit.fit[i] if len(fit.fit) % 2
+                           else (fit.fit[i-1] + fit.fit[i]) / 2)
         # if len(self.fit.histbest) < 120+30*N/sp.popsize or  # does not help, as tablet in the beginning is the critical counter-case
         if ((self.countiter % 5) == 0):  # 20 percent of 1e5 gen.
             fit.histbest.insert(0, fit.fit[0])
