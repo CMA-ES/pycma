@@ -10,7 +10,15 @@ from .python3for2 import range
 del absolute_import, division, print_function  #, unicode_literals
 
 def ifloat(float_):
-    """remove np type of a number, return `int` or `float`"""
+    """remove np type of a number, return `int` or `float`.
+
+    Return the unchanged argument iff ``isinstance(float_, int)``.
+
+    Remark that `np.float64` is an instance of `float` however `np.int64`
+    is not an instance if `int` (for good reasons). That is,
+    ``isinstance(np.array([1])[0], int) is False`` while
+    ``isinstance(np.array([1.])[0], float) is True``, as of numpy 2.x in 2025.
+    """
     return float_ if isinstance(float_, int) else float(float_)  # isinstance(float_, (int, float)) is not faster
 
 def _sqrt_len(x):  # makes randhss option pickable
