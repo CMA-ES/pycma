@@ -21,15 +21,18 @@ Zenodo: 34 points to the latest, this is 35: https://zenodo.org/badge/latestdoi/
 The [Covariance Matrix Adaptation Evolution Strategy](https://en.wikipedia.org/wiki/CMA-ES) 
 ([CMA-ES](http://cma-es.github.io/)) is a stochastic derivative-free numerical optimization
 algorithm for difficult (non-convex, ill-conditioned, multi-modal, rugged, noisy) optimization
-problems in continuous search spaces.
+problems in continuous and mixed-integer search spaces.
 
-Useful links:
+## Documentation and Getting Started (Links)
 
 * [A quick start guide with a few usage examples](https://pypi.python.org/pypi/cma)
 
-* [The above `notebooks` folder has some example code in Jupyter notebooks](https://github.com/CMA-ES/pycma/tree/master/notebooks)
+* [The `notebooks` folder](https://github.com/CMA-ES/pycma/tree/development/notebooks) provides example code in Jupyter notebooks, namely
+  * [Basic use cases notebook](https://github.com/CMA-ES/pycma/tree/development/notebooks/notebook-usecases-basics.ipynb)
+  * [Constraints handling notebook](https://github.com/CMA-ES/pycma/tree/development/notebooks/notebook-usecases-constraints.ipynb)
+  * [Noise handling notebook](https://github.com/CMA-ES/pycma/tree/development/notebooks/notebook-usecases-noise.ipynb)
 
-* [The API Documentation](http://cma-es.github.io/apidocs-pycma)
+* [API Documentation](http://cma-es.github.io/apidocs-pycma)
 
 * [Hints for how to use this (kind of) optimization module in practice](http://cma-es.github.io/cmaes_sourcecode_page.html#practical)
 
@@ -44,13 +47,10 @@ In a system shell, type
 ```
 
 to install the [latest release](https://pypi.python.org/pypi/cma)
-from the [Python Package Index (PyPI)](https://pypi.python.org/pypi). The [release link](https://pypi.python.org/pypi/cma) also provides more installation hints and a quick start guide.
-
-```sh
-    conda install --channel cma-es cma
-```
-
-installs from the conda cloud channel `cma-es`. CAVEAT: this distribution is currently not updated!
+from the [Python Package Index (PyPI)](https://pypi.python.org/pypi).
+Type ``install -U`` instead of ``install`` to _upgrade_ a current installation to the latest release.
+The [release link](https://pypi.python.org/pypi/cma) also provides more
+installation hints and a quick start guide.
 
 ## Installation from Github
 
@@ -91,8 +91,8 @@ either of these with ``sudo``.
 ## Version History
 
 * [Release ``4.3.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.3.0)
-  - integer variables of candidate solutions are rounded (addressing also [issue
-    #286](https://github.com/CMA-ES/pycma/issues/286))
+  - integer variables of candidate solutions are rounded (addressing also
+    [issue #286](https://github.com/CMA-ES/pycma/issues/286))
   - moved main docstring from `fmin` to `fmin2`
   - experimental plots for error estimates and sensitivities
   - fix `numpy` scalar type representations at various places
