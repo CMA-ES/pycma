@@ -2426,9 +2426,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             s_geno = self.sent_solutions.pop(s, None)
             if archive_after_sent and s_geno is not None:
                 self.archive.insert(s, value=s_geno, fitness=function_values[k])
-            _len = min((max((2 * sp.popsize, 1000)), 30 * sp.popsize))
-            self.sent_solutions.truncate_to(_len)
-            self.archive.truncate_to(_len)
+        for arc in [self.sent_solutions, self.archive]:
+            arc.truncate_to(min((max((2 * sp.popsize, 1000)), 30 * sp.popsize)))
+
         # check that TPA mirrors are available
         self.pop = pop  # used in check_consistency of CMAAdaptSigmaTPA
         self.adapt_sigma.check_consistency(self)
