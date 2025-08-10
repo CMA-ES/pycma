@@ -39,38 +39,48 @@ class IntegerCentering(object):
     expected to fail with a combination of ``bounds`` and
     ``fixed_variables`` set in `CMAOptions`.
 
-    Pseudocode usage hints::
+    By default, integer centering is applied, e.g. with `fmin2` or
+    `CMAEvolutionStrategy`, when the integer variable indices are given
+    via the ``'integer_variables'`` option. Since v4.3.0, candidate
+    solutions delivered by `CMAEvolutionStrategy.ask` have rounded values
+    in all integer variable positions which can be switched off by setting
+    `cma.evolution_strategy.round_integer_variables` to `False`.
 
-        >> es = cma.CMA(...)
-        >> ic = cma.integer_centering.IntegerCentering(es)
-        >> [...]
-        >> ic(es.pop_sorted[0:es.sp.weights.mu], es.mean)  # before the mean update, use es.mean_old after
-        >> es.mean = np.dot(es.sp.weights.positive_weights,  # (re-)assign mean
-        ..                  es.pop_sorted[0:es.sp.weights.mu])
-
-    Pseudocode example via ask-and-tell::
-
-        >> es = cma.CMA(...)  # set integer_variables option here
-        >> ic = cma.integer_centering.IntegerCentering(es)  # read integer_variables
-        >> while not es.stop():
-        >>     X = es.ask()
-        >>     F = [fun(x) for x in X]
-        >>     ic([X[i] for i in np.argsort(F)[:es.sp.weights.mu]], es.mean)
-        >>     es.tell(X, F)
-        >>     es.logger.add()
-        >>     es.disp()
-
-    Working code example:
+    A simple example code:
 
     >>> import cma
     >>>
     >>> def int1_sphere(x):
     ...     return int(x[0] + 0.5 - (x[0] < 0))**2 + 1000 * (sum(xi**2 for xi in x[1:]))
-    >>>
-    >>> es = cma.CMA([2, 0.1], 0.22, {'integer_variables': [0],
-    ...         'tolfun': 0, 'tolfunhist': 0, 'tolflatfitness': 60, 'verbose': -9})
-    >>> _ = es.optimize(int1_sphere)
-    >>> assert int1_sphere(es.mean) < 1e-6, es.stop()
+
+    >>> es = cma.CMAEvolutionStrategy(2 * [2], 0.5,
+    ...             {'integer_variables': [0], 'ftarget': 1e-9, 'verbose': -9})
+    >>> es = es.optimize(int1_sphere)
+    >>> # assert 'ftarget' in es.stop(), es.stop()  # fails sometimes (like 1%-ish)
+    >>> # failure is less likely with options ``'tolfun': 0, 'tolfunhist': 0, 'tolflatfitness': 60``
+
+    The following pseudocode shows a direct use case to explicitly see
+    how/where integer centering is applied, namely before the state
+    variables are updated in `tell`:
+
+    >>> import numpy as np
+
+    >>> # set dimension dependent lower bound on sample standard deviations
+    >>> es = cma.CMAEvolutionStrategy(2 * [2], 0.5,
+    ...             {'minstd': [0.2, 0], 'popsize_factor': 1.5, 'ftarget': 1e-9, 'verbose': -9})
+    >>> # when integer_variables were passed in the above options,
+    >>> # we can inactivate the internal integer centering like
+    >>> es.integer_centering = lambda *args: args[0] if args else None
+    >>> ic = cma.integer_centering.IntegerCentering([0])
+    >>> while not es.stop():
+    ...     X = es.ask()
+    ...     F = [int1_sphere(x) for x in X]
+    ...     # change the mu best solutions in place
+    ...     _ = ic([X[i] for i in np.argsort(F)[:es.sp.weights.mu]], es.mean)
+    ...     es.tell(X, F, check_points=False)  # don't check for changes in X
+    ...     # es.logger.add()
+    ...     # es.disp()
+    >>> # assert 'ftarget' in es.stop(), es.stop()  # fails sometimes (like 1%-ish)
 
     Details: The default `method2` was used in the below reference and, as
     of version 4.0.0, is activated in `CMAEvolutionStrategy` when
@@ -78,7 +88,7 @@ class IntegerCentering(object):
 
     Reference: Marty et al, LB+IC-CMA-ES: Two simple modiﬁcations of
     CMA-ES to handle mixed-integer problems. PPSN 2024.
-    """
+"""
     def __init__(self, int_indices, method=2, correct_bias=True,
                  repair_into_bounds=True, **kwargs):
         """`int_indices` can also be a `CMAEvolutionStrategy` or `CMAOptions` instance.
@@ -147,6 +157,8 @@ class IntegerCentering(object):
         if self._has_bounds is not None:
             return self._has_bounds
         self._has_bounds = False
+        if 'es' not in self.params:
+            return False
         try:
             bh = self.params['es'].boundary_handler
         except Exception as e:
@@ -234,7 +246,24 @@ class IntegerCentering(object):
         return self._int_mask
 
     def __call__(self, solution_list, mean):
-        """round values of int-variables in `solution_list` ideally without bias to the mean"""
+        """round values of int-variables in `solution_list` and correct for bias.
+
+        Return `solution_list`, however assignment is deprecated as
+        `solution_list` is changed in place and, in particular, because we
+        center usually only the first half of the population.
+
+        Variables are only rounded if their rounded value is different from
+        the mean. Bias correction is only applied if the rounded value is
+        the same as the rounded value of the mean and only towards the
+        rounded value of the mean, not away from it.
+
+        None of these changes change the rounded variable value.
+
+        Details: The bias correction could be applied directly to the mean
+        after the mean update, as it probably does not have any relevant
+        effect on the C update. This would require another call or passing
+        the Delta mean in the return value.
+    """
         if self._int_mask is None:
             self._int_mask = np.asarray([i in self.int_indices
                                          for i in range(len(mean))])
