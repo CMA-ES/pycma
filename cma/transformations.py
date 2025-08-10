@@ -1167,3 +1167,187 @@ class GenoPheno(object):
         if input_type is np.ndarray:
             x = np.asarray(x)
         return x
+
+class RoundIntegerVariables(object):
+    """Round integer variables of solutions at the end of `ask` via
+
+    the `round_population` method and provide an archive to retrieve the
+    unrounded solutions with `unrounded_population` at the beginning of `tell`.
+
+    Also catch possibly changed solutions, depending on the parameters
+    passed to `unrounded_population`.
+"""
+    def __init__(self, options, round_integer_variables):
+        """`CMAOptions`, `bool`, `bool` passed from `cma.evolution_strategy` module"""
+        self.params = {k: v for k, v in locals().items() if k != 'self'}
+        self.archive = _SolutionDict()
+
+    @property
+    def _active(self):
+        """check `'round_integer_variables'` parameter and
+
+        `'integer_variables'` option. Return number of active integer
+        variables or `False`.
+
+        Details: `'_pheno_integer_variables'` don't include indices of
+        fixed variables either, hence the don't need to be checked here.
+    """
+        if not self.params['round_integer_variables']:
+            return False
+        return len(self.params['options']['integer_variables'])
+
+    def _round_int_variables(self, solution, copy_when_changed=True):
+        """round integer variables in `solution` if ``self._active``.
+   
+        See also `CMAEvolutionStrategy._round_int_variables`.
+    """
+        if not self._active:
+            return solution
+        idx = self.params['options'].get('_pheno_integer_variables',
+                                         self.params['options']['integer_variables'])
+        if not len(idx):
+            return solution  # can not happen
+        if copy_when_changed:
+            solution = np.array(solution, copy=True)
+        try:  # works in particular when solution is an array which it always is
+            idx = np.asarray(idx)  # is faster even with a single indexing
+            solution[idx] = np.round(solution[idx])
+        except TypeError:  # should never happen
+            # faster when about less than 10% are integers
+            for i in idx:
+                solution[i] = np.round(solution[i])
+        return solution
+
+    def round_population(self, pop_pheno):
+        """round integer variables of solutions in `pop_pheno` and store
+
+        the original solutions in `self.archive`. `pop_pheno` should be a
+        `list` of arrays. When `pop_pheno` is an array, it is overwritten
+        and its original values may be lost.
+
+        By design, fixed variables are never changed (they were removed
+        from the _pheno_integer_variables index list too). Hence they are
+        not rounded either.
+    """
+        if not self._active:
+            return
+        opts = self.params['options']
+        idx = opts.get('_pheno_integer_variables', opts['integer_variables'])
+        if len(idx):  # should always be true
+            idx = np.asarray(idx)
+            for k in range(len(pop_pheno)):
+                y = np.array(pop_pheno[k], copy=True)
+                y[idx] = np.round(y[idx])
+                self.archive[y] = pop_pheno[k]  # save the original
+                pop_pheno[k] = y  # replace with new, this overwrites self.archive[y] when pop_pheno is an array?
+        else:
+            _warnings.warn("\nask: len(integer_variables) > len(idx) = 0 which"
+                            " looks like a bug. \n integer_variables={0}"
+                            "\n _pheno_integer_variables={1}"
+                            .format(opts['integer_variables'],
+                                    opts.get('_pheno_integer_variables', None)),
+                            RuntimeWarning)
+
+    def unrounded_population(self, solutions,
+                             revert_modified=True, warn=True, final_len=0):
+        """revert `round_population` of `solutions` and return a new `list`
+
+        when integer variables and archived solutions are present,
+        otherwise return `solutions` as is.
+
+        If `revert_modfied`, try to retrieve the nonrounded versions of
+        solutions even when they were modified between `ask` and `tell`.
+        This means that the modification is ignored in `tell`, while it
+        might have been used to compute the fitness.
+
+        Truncate the archive if necessary.
+
+        Details: this method is entirely ignorant about whether or how
+        solutions were rounded or transformed. However, it calls
+        `_catch_modified` which uses `round_integer_variables` and
+        `_round_int_variables` to compute a delta of an unexpected
+        modification to avoid unnecessary warnings when the delta is zero.
+    """
+        # Without integer handling, the archive should be empty
+        if not self._active or len(self.archive) == 0:
+            return solutions
+        if len(self.archive) < len(solutions):
+            _warnings.warn("\ntell: solutions passed to `tell` = {0} > {1} = solutions"
+                " phenotype-archived by `ask`. \n  Consider using the ``.inject``"
+                " method for outside solution proposals."
+                .format(len(solutions), len(self.archive)))
+        # CAVEAT: if solutions is an array, then solutions[k] = 2 *
+        # np.array(solutions[k]) changes the content of solutions[k] which
+        # is not intended. This may have been a bug?
+        # keep original to catch inplace changed solutions (hence with a changed key)
+        u_solutions = [self.archive.pop(s, s) for s in solutions]
+        # amend u_solutions if necessary (usually not) and clear archive
+        if revert_modified or warn:
+            self._catch_modified(u_solutions, solutions,
+                                 revert=revert_modified, warn=warn)
+        self.archive.truncate_to(final_len)
+        return u_solutions
+
+    def _catch_modified(self, popped_solutions, solutions, revert=True, warn=True):
+        """catch modified `solutions` to revert their rounding too and/or
+
+        warn of inconcistencies. This should normally do nothing as the
+        archive should be empty. Elements of `popped_solutions` are the
+        nonrounded versions of `solutions` and may be reassigned (which
+        changes the reference when it is a `list`, but the content when it
+        is an ndarray).
+
+        Modifications between storing and retrieving a solution are found
+        by comparing to the unhashed key which only reflects inplace
+        modifications.
+
+        Uses `round_integer_variables` which is an argument of the class
+        instance constructor and then `._round_int_variables` to compute a
+        delta to warn only when the delta is nonzero.
+
+        TODO: instead of using `._round_int_variables` pass an optional
+        `transformation` making this much more generic.
+    """
+        # catch inplace modified solutions
+        if len(self.archive):
+            for key, val in list(self.archive._unhashed_keys.items()):
+                aval = np.asarray(val)
+                for k, s in enumerate(solutions):
+                    if val is s or np.all(aval == s):
+                        # we did not to find this solution in the archive before
+                        # because it was modified and hence its key had changed
+                        s_archived = self.archive.pop(key)
+                        if revert:
+                            popped_solutions[k] = s_archived
+                            s3 = ("\n Because ``cma.evolution_strategy."
+                                    "round_integer_revert_changes is True``,"
+                                    "\n the modification is ignored.")
+                        else:
+                            s3 = ""
+                        if self.params['round_integer_variables']:  # recompute the delivered value
+                            s_delta = np.asarray(s) - self._round_int_variables(s_archived)
+                        else:  # can't currently happen
+                            s_delta = '`unkown`'
+                        if warn and any(s_delta):
+                            _warnings.warn("\n_catch_modified<-unrounded_population<-tell:"
+                                " solution with index {0} = "
+                                "\n    {1}\n was modified by "
+                                "\n    {2}\n between calling `ask` and `tell`."
+                                "\n Modifications often lead to unexpected"
+                                " and/or undesired results.{3}"
+                                .format(k, s, s_delta, s3))
+                        break  # solution found and key is consumed
+        # warn of (still) unconsumed solutions
+        if len(self.archive):
+            _warnings.warn("\ntell: {0} solution(s) of round int archive have not been"
+                " consumed.\n These have been delivered by ask but not been passed to tell: {1}"
+                .format(len(self.archive),
+                        list(self.archive.values())))
+        if len(self.archive.data_with_same_key):
+            _warnings.warn("\ntell, _catch_modified: {0} keys with seemingly"
+                          " identical solutions were found (as delivered in `ask`)"
+                          " which is highly unusual. Namely\n  {1}\n"
+                          "(shown are only the second and further identical solutions)."
+                          .format(len(self.archive.data_with_same_key),
+                                  self.archive.data_with_same_key))
+            self.archive.data_with_same_key = {}

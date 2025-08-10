@@ -233,11 +233,12 @@ round_integer_variables = sys.version_info >= (2,6)
    `ask`) for the evaluation on the objective function. This takes about
    15% CPU time with option ``verbose=-9``, partly due to array copies?'''
 
-ask_phenotype_archive_revert_changes = True
-'''When detected, ignore inplace changes of solutions delivered by `ask`
-   for updating in `tell`. Currently, solutions are (only) archived in
-   `_ask_phenotype_archive` when integer variables were rounded at the end
-   of `ask`.'''
+round_integer_variables_revert_changes = True
+'''When detected, try to ignore inplace changes of solutions delivered by
+   `ask` for updating in `tell`. Solutions are reverted from
+   `_round_integer_variables.archive` which stores solutions before integer
+   variables are rounded at the end of `ask`. Renamed from
+   `ask_phenotype_archive_revert_changes` since v4.3.1.'''
 
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
@@ -1141,11 +1142,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         '''archive solutions close to the end of `ask`, this archive is
            passed to ``gp.geno`` to bypass calling the inverse geno-pheno
            transformation in `tell`'''
-        self._ask_phenotype_archive = utils.SolutionDict()
+        self._round_integer_variables = transformations.RoundIntegerVariables(
+                            self.opts, round_integer_variables)
         '''archive solutions at the very end of `ask` when and before
            integer rounding is applied. Retrieve them at the very beginning
            of `tell` before the inverse geno-pheno transformation is
-           applied'''
+           applied. The order of these transformations may change in
+           future.'''
         self.archive = get_CMASolutionDict(self.sp.popsize < 33
                                                if archive_after_sent is None
                                            else archive_after_sent)()
@@ -1543,10 +1546,22 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         for i in rglen((pop_geno)):
             self.sent_solutions.insert(pop_pheno[i], geno=pop_geno[i],
                                         iteration=self.countiter)
+
         ### iiinteger handling could come here
 
         # round integer variables
-        self._population_round_int_variables(pop_pheno)
+        # TODO: this could be separated in
+        # 1) rounding using self._round_int_variables and
+        # 2) archiving original solutions with rounded solutions as keys
+        #    (which could be done by passing the archive in 1)??)
+        #    see `transformations.ChangeTracker` class draft
+        # Remark: self.to_phenotype applies gp.geno and _round_int_variables
+        # without archiving.
+        # Between retrieving later first _round_integer_variables.archive and
+        # then sent_solutions, boundary_handler.update is called.
+        # If this call can be done before or after both retrievals, the
+        # archives could be combined in one!?
+        self._round_integer_variables.round_population(pop_pheno)
 
         return pop_pheno
         # end ask
@@ -1768,7 +1783,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def get_mirror(self, x, preserve_length=False):
         """return ``_round_int_variables(pheno(self.mean - (geno(x) - self.mean)))``
 
-        and update `sent_solutions` and `_ask_phenotype_archive` archives.
+        and update `sent_solutions` and `_round_integer_variables.archive` archives.
 
         >>> import numpy as np, cma
         >>> es = cma.CMAEvolutionStrategy(np.random.randn(3), 1)  #doctest: +ELLIPSIS
@@ -1806,7 +1821,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         y = self.gp.pheno(x, into_bounds=self.boundary_handler.repair)
         # old measure: costs 25% in CPU performance with N,lambda=20,200
         self.sent_solutions.insert(y, geno=x, iteration=self.countiter)
-        y = self._round_int_variables(y, archive=self._ask_phenotype_archive)
+        y = self._round_int_variables(y, archive=self._round_integer_variables.archive)
         return y
 
     # ____________________________________________________________
@@ -2098,112 +2113,42 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                                 into_bounds=self.boundary_handler.repair))
 
     def _round_int_variables(self, solution, copy_when_changed=True, archive=None):
-        """round integer variables in `solution`
+        """return `solution` with integer variables rounded
    
         depending on the `round_integer_variables` module setting and based
-        on the ``integer_variables`` option.
+        on the ``integer_variables`` option. `solution` is interpreted as
+        phenotype. Fixed variables are not rounded.
 
-        Insert original solution in `archive` if ``archive is not None``.
-        """
+        Insert original solution in `archive` like ``archive[rounded_solution]
+        = solution`` if ``archive is not None``.
+
+        When archiving, create a new solution array copy first, as with
+        `copy_when_changed`.
+
+        Details: This method relies somewhat on
+        ``len(opts['integer_variables']) ==
+        len(opts['_pheno_integer_variables'])``.
+
+        TODO: inserting in the archive here may be too obfuscating?
+        However, the conditional copying looks more practical here than
+        outside.
+    """
         if not round_integer_variables or not len(self.opts['integer_variables']):
             return solution
-        idx = self.opts.get('_pheno_integer_variables',
-                            self.opts['integer_variables'])
-        if not len(idx):
-            return solution  # can not happen
-        if copy_when_changed or archive:
-            _solution = solution
-            solution = np.array(solution)
-        for i in idx:
-            solution[i] = float(np.round(solution[i]))
+        idx = np.asarray(self.opts.get('_pheno_integer_variables',
+                                       self.opts['integer_variables']))
+        solution_ = (np.array(solution, copy=True)
+                        if copy_when_changed or archive else
+                     solution)
+        try:  # works in particular when solution is an array which it always is
+            solution_[idx] = np.round(solution_[idx])
+        except TypeError:  # should never happen
+            # tends to be slower when len(idx) / len(solutions) >= 0.1
+            for i in idx:
+                solution_[i] = np.round(solution[i])
         if archive:
-            archive[solution] = _solution
-        return solution
-
-    def _population_round_int_variables(self, pop_pheno):
-        """round integer variables of solutions in `pop_pheno` and store
-
-        the original solutions in `self._ask_phenotype_archive`.
-
-        Fixed variables are not changed by design (they were removed from
-        the _pheno_integer_variables index list too).
-        """
-        if round_integer_variables and len(self.opts['integer_variables']):
-            idx = self.opts.get('_pheno_integer_variables',
-                                self.opts['integer_variables'])
-            if len(idx):  # should always be true
-                idx = np.asarray(idx)
-                for k in range(len(pop_pheno)):
-                    y = np.array(pop_pheno[k])
-                    y[idx] = np.round(y[idx])
-                    self._ask_phenotype_archive[y] = pop_pheno[k]  # save the original
-                    pop_pheno[k] = y  # replace with new
-            else:
-                warnings.warn("\nask: len(integer_variables) > len(idx) = 0 which"
-                              " looks like a bug. \n integer_variables={0}"
-                              "\n _pheno_integer_variables={1}"
-                              .format(self.opts['integer_variables'],
-                                      self.opts.get('_pheno_integer_variables', None)),
-                              RuntimeWarning)
-
-    def _catch_and_truncate_ask_phenotype_archive(self,
-                popped_solutions, solutions, final_len=0):
-        """catch modified `solutions` to revert rounding and warn of inconcistencies.
-
-        Elements of `popped_solutions` are the noninteger versions of
-        `solutions` and may be reassigned (which changes the reference
-        when it is a `list`, but the content when it is an ndarray).
-
-        Truncate `self._ask_phenotype_archive` to `final_len`.
-
-        Hidden input parameters are `self._ask_phenotype_archive` and
-        `round_integer_variables` and `ask_phenotype_archive_revert_changes`.
-        """
-        # catch inplace modified solutions
-        if len(self._ask_phenotype_archive):
-            for key, val in list(self._ask_phenotype_archive
-                                        ._unhashed_keys.items()):
-                aval = np.asarray(val)
-                for k, s in enumerate(solutions):
-                    if val is s or np.all(aval == s):
-                        # we did not to find this solution in the archive before
-                        # because it was modified and hence its key had changed
-                        s_archived = self._ask_phenotype_archive.pop(key)
-                        if ask_phenotype_archive_revert_changes:
-                            popped_solutions[k] = s_archived
-                            s3 = ("\n Because ``cma.evolution_strategy."
-                                    "ask_phenotype_archive_revert_changes is True``,"
-                                    "\n the modification is ignored.")
-                        else:
-                            s3 = ""
-                        if round_integer_variables:  # recompute the delivered value
-                            s_delta = np.asarray(s) - self._round_int_variables(s_archived)
-                        else:  # can't currently happen
-                            s_delta = '`unkown`'
-                        warnings.warn("\ntell: solution with index {0} = "
-                            "\n    {1}\n was modified by "
-                            "\n    {2}\n between calling `ask` and `tell`."
-                            "\n Modifications often lead to unexpected"
-                            " and/or undesired results.{3}"
-                            .format(k, s, s_delta, s3))
-                        break  # solution found and key is consumed
-        # warn of (still) unconsumed solutions
-        if len(self._ask_phenotype_archive):
-            warnings.warn("\ntell: {0} solution(s) of _ask_phenotype_archive have not been"
-                " consumed.\n These have been delivered by ask but not been passed to tell: {1}"
-                .format(len(self._ask_phenotype_archive),
-                        list(self._ask_phenotype_archive.values())))
-        if len(self._ask_phenotype_archive.data_with_same_key):
-            warnings.warn("\ntell, _ask_phenotype_archive: {0} keys with seemingly"
-                          " identical solutions were found (as delivered in `ask`)"
-                          " which is highly unusual. Namely\n  {1}\n"
-                          "(shown are only the second and further identical solutions)."
-                          .format(len(self._ask_phenotype_archive.data_with_same_key),
-                                  self._ask_phenotype_archive.data_with_same_key))
-            self._ask_phenotype_archive.data_with_same_key = {}
-        # truncate to zero
-        self._ask_phenotype_archive.truncate_to(final_len)
-        #  old: min((10, max((0, len(self._ask_phenotype_archive) - 1)))))
+            archive[solution_] = solution
+        return solution_
 
     # ____________________________________________________________
     def tell(self, solutions, function_values, check_points=None,
@@ -2321,6 +2266,30 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 "ask_geno", "CMAEvolutionStrategy", self.countiter)
         self.number_of_solutions_asked = 0
 
+        self.countiter += 1  # >= 1 now
+        self.countevals += lam * self.evaluations_per_f_value
+        self.best.update(solutions,  # caveat: these solutions may be out-of-bounds
+                         self.sent_solutions, function_values, self.countevals)
+
+        # Retrieve preimages from _round_integer_variables.archive
+        # as the first step to get to the genotype.
+        # CAVEAT: if solutions is an array, then solutions[k] = 2 *
+        # np.array(solutions[k]) changes the content of solutions[k] which
+        # is not intended. This may have been a bug?
+        # Without integer handling this returns the unchanged solutions,
+        # otherwise a new list
+        solutions = self._round_integer_variables.unrounded_population(solutions,
+                            revert_modified=round_integer_variables_revert_changes,
+                            warn=check_points not in (0, False))
+        if 11 < 3:  # possible more generic code
+            # assume solutions were added to .archive before
+            solutions_ = solutions  # keep original to catch errors
+            solutions = [self.archive.get(s, s) for s in solutions]
+            self.archive.catch_and_truncate(solutions, solutions_,  # error handling
+                            revert_modified=round_integer_variables_revert_changes,
+                            transformation=self._round_int_variables,
+                            warn=check_points not in (0, False))
+
         # ## prepare
         N = self.N
         sp = self.sp
@@ -2335,33 +2304,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                 "\n  To suppress this warning execute"
                                 "\nwarnings.filterwarnings('ignore', message='{3}.*')"
                                 "\n".format(m, len(solutions), sp.popsize, m),
-                                'tell', 'CMAEvolutionStrategy', self.countiter+1)
+                                'tell', 'CMAEvolutionStrategy', self.countiter)
         if lam < sp.weights.mu:  # rather decrease cmean instead of having mu > lambda//2
             raise ValueError('not enough solutions passed to function tell'
                              ' (passed solutions={0} < mu={1})'
                              .format(lam, sp.weights.mu))
-
-        self.countiter += 1  # >= 1 now
-        self.countevals += lam * self.evaluations_per_f_value
-        self.best.update(solutions,  # caveat: these solutions may be out-of-bounds
-                         self.sent_solutions, function_values, self.countevals)
-
-        # Retrieve preimages from _ask_phenotype_archive
-        # as the first step to get to the genotype.
-        # Without integer handling, the archive should be empty
-        if 0 < len(self._ask_phenotype_archive) < len(solutions):
-            warnings.warn("\ntell: solutions passed to `tell` = {0} > {1} = solutions"
-                " phenotype-archived by `ask`. \n  Consider using the ``.inject``"
-                " method for outside solution proposals."
-                .format(len(solutions), len(self._ask_phenotype_archive)))
-        # CAVEAT: if solutions is an array, then solutions[k] = 2 *
-        # np.array(solutions[k]) changes the content of solutions[k] which
-        # is not intended. This may have been a bug? Now solutions becomes
-        # invariably a `list`.
-        _solutions = solutions  # to catch changed solutions (hence changed key)
-        solutions = [self._ask_phenotype_archive.pop(s, s) for s in solutions]
-        # amend solutions if necessary (usually not) and clear archive
-        self._catch_and_truncate_ask_phenotype_archive(solutions, _solutions)
 
         flg_diagonal = self.opts['CMA_diagonal'] is True \
                        or self.countiter <= self.opts['CMA_diagonal']
@@ -2389,7 +2336,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # self.out['recent_f'] = fit.fit[0]
 
         # fitness histories
-        fit.hist.insert(0, fit.fit[0])  # FIXED caveat: this may neither be the best nor the best in-bound fitness
+        fit.hist.insert(0, fit.fit[0])  # FIXED?: this may neither be the best nor the best in-bound fitness
         i = len(fit.fit) // 2
         fit.median = float(fit.fit[i] if len(fit.fit) % 2
                            else (fit.fit[i-1] + fit.fit[i]) / 2)
@@ -2412,7 +2359,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.median_got_worse += 1
         fit.median_previous = fit.median
 
-        ### line 2665
+        ### line 2362, was: 2415, was: 2665
 
         # TODO: clean up inconsistency when an unrepaired solution is available and used
         # now get the genotypes
