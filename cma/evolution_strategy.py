@@ -1413,6 +1413,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.timer.tic
         pop_geno = self.ask_geno(number, xmean, sigma_fac)
 
+        # Round integer variables before gp-transformation
+        self._population_round_int_variables_geno(pop_geno)
+
         # N,lambda=20,200: overall CPU 7s vs 5s == 40% overhead, even without bounds!
         #                  new data: 11.5s vs 9.5s == 20%
         # TODO: check here, whether this is necessary?
@@ -1543,10 +1546,6 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         for i in rglen((pop_geno)):
             self.sent_solutions.insert(pop_pheno[i], geno=pop_geno[i],
                                         iteration=self.countiter)
-        ### iiinteger handling could come here
-
-        # round integer variables
-        self._population_round_int_variables(pop_pheno)
 
         return pop_pheno
 
@@ -1802,10 +1801,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             # dx *= sum(self.opts['randn'](1, self.N)[0]**2)**0.5 / self.mahalanobis_norm(dx)
             dx *= self._random_rescaling_factor_to_mahalanobis_size(dx)
         x = self.mean - dx
+        
+        # Rounding of integer variables in genotype space before gp-transformation
+        x = self._round_int_variables_geno(x)
+        
         y = self.gp.pheno(x, into_bounds=self.boundary_handler.repair)
         # old measure: costs 25% in CPU performance with N,lambda=20,200
         self.sent_solutions.insert(y, geno=x, iteration=self.countiter)
-        y = self._round_int_variables(y, archive=self._ask_phenotype_archive)
         return y
 
     # ____________________________________________________________
@@ -2117,6 +2119,44 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             solution[i] = float(np.round(solution[i]))
         if archive:
             archive[solution] = _solution
+        return solution
+
+    def _population_round_int_variables_geno(self, pop_geno):
+        """round integer variables of solutions in `pop_geno` (genotype space).
+        
+        Rounds integer variables in the genotype space before the conversion
+        to genotype-space. Effectively mimicks `self._population_round_int_variables`
+        but doesn't store any archive, and doesn't implement the same checks for
+        default args such as the same pheno default e.g., self.opts.get('_pheno_integer_variables')
+        
+        The genotype coordinates correspond directly to the 'integer_variables'
+        option indices.
+        """
+        if round_integer_variables and len(self.opts['integer_variables']):
+            idx = self.opts['integer_variables']
+            if len(idx):  # should always be true
+                idx = np.asarray(idx)
+                for k in range(len(pop_geno)):
+                    y = np.array(pop_geno[k])
+                    y[idx] = np.round(y[idx])
+                    pop_geno[k] = y  # replace with rounded genotype
+            else:
+                warnings.warn("\nask: len(integer_variables) = 0 which"
+                              " looks like a bug.", RuntimeWarning)
+
+    def _round_int_variables_geno(self, solution_geno):
+        """round integer variables in a single genotype solution
+        
+        Returns a copy of the solution with integer variables rounded.
+        Used by get_mirror method.
+        """
+        if not round_integer_variables or not len(self.opts['integer_variables']):
+            return solution_geno
+        idx = self.opts['integer_variables']
+        if not len(idx):
+            return solution_geno
+        solution = np.array(solution_geno)
+        solution[idx] = np.round(solution[idx])
         return solution
 
     def _population_round_int_variables(self, pop_pheno):
