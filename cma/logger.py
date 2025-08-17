@@ -1523,13 +1523,23 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     np.abs(dfit[i]) + foffset, '.r')
             # postcondition: dfit, idx = dfit1, ...
 
-        # fat red dot for overall minimum
-        i = np.argmin(dat.f[:, 5])
-        semilogy(_x[i], np.abs(dat.f[i, 5]), 'ro',
-                 markersize=9)
-        if any(idx):  # another fat red dot
-            semilogy(_x[i], dfit[idx][np.argmin(dfit[idx])]
-                 + 1e-98, 'ro', markersize=9)
+        # fat red dot for overall minimum (fitness and
+        # feasible only with ask-and-tell interface)
+        for icol, sym in [(5, 'ro'), (10, 'rh')]:
+            try:
+                i = np.nanargmin(dat.f[:, icol])
+            except (IndexError, ValueError):
+                if icol == 10:
+                    continue
+                raise
+            # print(icol, i, _x[i], dat.f[i, icol])
+            # is almost always the same index, except on
+            # 9-D cigar with con(x) = x + 1.1 after 111 iterations
+            semilogy(_x[i], np.abs(dat.f[i, icol]), sym,
+                    markersize=9)
+            if any(idx):  # another fat red dot
+                semilogy(_x[i], dfit[idx][np.argmin(dfit[idx])]
+                    + 1e-98, sym, markersize=9)
         # semilogy(dat.f[-1, iabscissa]*np.ones(2), dat.f[-1,4]*np.ones(2), 'rd')
 
         # AR and sigma
