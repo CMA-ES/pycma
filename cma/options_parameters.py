@@ -696,7 +696,12 @@ class CMAOptions(dict):
                 self['tolfunhist'] = 0
 
     def amend_integer_variables(self, dimension):
-        """removed fixed variables from the integer variable index values"""
+        """remove fixed variables from the integer variable index list
+
+        and change the index values accordingly to refer to a genotype.
+        Create an `'_pheno_integer_variables'` entry of the same length but
+        with the unchanged index values.
+    """
         if not self['fixed_variables']:
             return
         # CAVEAT: this has not be thoroughly tested
