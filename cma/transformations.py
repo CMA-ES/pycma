@@ -1105,9 +1105,10 @@ class GenoPheno(object):
         projection into the bound domain (if necessary) and ``pheno``
         is reverted. ``repair`` is applied last, and is usually the
         method ``CMAEvolutionStrategy.repair_genotype`` that limits the
-        Mahalanobis norm of ``geno(y) - mean``.
-
-        """
+        Mahalanobis norm of ``geno(y) - mean``. `repair` is only applied to
+        an unknown solution for which no genotype solution was found in the
+        archive!
+    """
         def repair_and_flag_change(self, repair, x, copy):
             if repair is None:
                 return x
@@ -1127,6 +1128,7 @@ class GenoPheno(object):
                 x = None
             if x is not None:
                 if archive[y]['iteration'] < archive.last_iteration:
+                    # no current archived genotype was found!?
                     x = repair_and_flag_change(self, repair, x, copy)
                     # x = repair(x, copy_if_changed=copy)
                 return x

@@ -2421,6 +2421,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 pop += [self.gp.geno(s,
                             from_bounds=self.boundary_handler.inverse,
                             # gp.geno manages copy in repair_genotype, by default True_if_changed
+                            # we may call repair later again in another loop
+                            # here, repair is only applied to unknown solutions,
+                            # namely when no archived genotype was found
                             repair=(self.repair_genotype if check_points not in (False, 0, [], ()) else None),
                             archive=self.sent_solutions)]  # takes genotype from sent_solutions, if available
             s_geno = self.sent_solutions.pop(s, None)
@@ -2442,7 +2445,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # check_points is a flag (None is default: check non-known solutions) or an index list
         # should also a number possible (first check_points points)?
         if check_points not in (None, False, 0, [], ()):
-            # useful in case of injected solutions and/or adaptive encoding, however is automatic with use_sent_solutions
+            # call repair_genotype which was already applied above to unkown solutions 
+            # already (unknown to `.sent_solutions` or if it is None)
+            # this is not a bug, because repair_genotype is idempotent.
+            # useful in case of injected solutions and/or adaptive encoding,
+            # ?however is automatic with use_sent_solutions (now self.archive)?
             # by default this is not executed
             try:
                 if len(check_points):
@@ -2972,6 +2979,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """make sure that solutions fit to the sample distribution.
 
         This interface is versatile and likely to change.
+
+        We currently assume that this is idempotent.
 
         The Mahalanobis distance ``x - self.mean`` is clipping at
         ``N**0.5 + 2 * N / (N + 2)``, but the specific repair
