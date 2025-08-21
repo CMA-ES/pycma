@@ -214,6 +214,20 @@ from .utilities.math import Mh, ifloat as _ifloat
 from .sigma_adaptation import *
 from . import restricted_gaussian_sampler as _rgs
 
+tell_augmented_lagrangian_logging = None
+'''only used when constraints values are passed to `tell` or `tell2`, not in `fmin_con2`'''
+tell_initial_infeasibility_foffset = 1e4
+'''added to penalized and displayed function values before any feasible
+   solution was found, only used when constraints values are passed to
+   `tell` or `tell2`, not in `fmin_con2`'''
+tell_find_feasible_first = 22
+'''number of initial iterations to minimize positive (violated) constraints,
+   only used when constraints values are passed to `tell` or `tell2`, not in `fmin_con2`'''
+tell_find_feasible_only = False
+'''only used when constraints values are passed to `tell` or `tell2`, not in `fmin_con2`'''
+tell_constraints_archives = True
+'''only used when constraints values are passed to `tell` or `tell2`, not in `fmin_con2`'''
+
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
 
@@ -2173,11 +2187,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     # ____________________________________________________________
     def tell(self, solutions, function_values, check_points=None,
-             copy=False):
-        """pass objective function values to prepare for next
-        iteration. This core procedure of the CMA-ES algorithm updates
-        all state variables, in particular the two evolution paths, the
-        distribution mean, the covariance matrix and a step-size.
+             copy=False, constraints_values=None):
+        """pass objective function values to prepare for next iteration.
+
+        This core procedure of the CMA-ES algorithm updates all state
+        variables, in particular the two evolution paths, the distribution
+        mean, the covariance matrix and a step-size.
+
+        CAVEAT: the argument positions are different for `tell` and `tell2`.
 
         Arguments
         ---------
@@ -2190,6 +2207,11 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             corresponding to the respective points. Beside for termination
             decisions, only the ranking of values in `function_values`
             is used.
+        `constraints_values`
+            can be used as _positional_ argument in 3rd position only with
+            `tell2`. A list of inequality constraints values for each
+            solution in `solutions`. Feasible solutions have a nonpositive
+            value of all constraints.
         `check_points`
             If ``check_points is None``, only solutions that are not generated
             by `ask()` are possibly clipped (recommended). ``False`` does not clip
@@ -2221,19 +2243,40 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         >>> import cma
         >>> func = cma.ff.sphere  # choose objective function
-        >>> es = cma.CMAEvolutionStrategy(np.random.rand(2) / 3, 1.5)
-        ... # doctest:+ELLIPSIS
+        >>> funb = cma.BoundDomainTransform(func, [1, None])  # set bounds
+        >>> def cons(x):  # define constraints
+        ...     return [2 - x[0]]
+        >>> consb = cma.BoundDomainTransform(cons, [1, None])
+        >>> es = cma.CMAEvolutionStrategy(np.random.rand(2) / 3, 1.5)  # doctest:+ELLIPSIS
         (3_...
         >>> while not es.stop():
         ...    X = es.ask()
-        ...    es.tell(X, [func(x) for x in X])
-        >>> es.result  # result is a `namedtuple` # doctest:+ELLIPSIS
-        CMAEvolutionStrategyResult(xbest=array([...
+        ...    es.tell2(X, [funb(x) for x in X], [consb(x) for x in X])
+        >>> assert all(funb.transform(es.best_feasible.x) >= [2 - 1e-5, 1 - 1e-5])
+        >>> assert all(funb.transform(es.best_feasible.x) <= [2 + 1e-5, 1 + 1e-5])
+
+        The value of `es.result.xbest` is not reliable with constraints,
+        because a dynamic augmented Lagrangian is optimized. Instead, use
+        `es.result.xfavorite` or `es.best_feasible.x`.
 
         :See: class `CMAEvolutionStrategy`, `ask`, `ask_and_eval`, `fmin`
     """
+        return self.tell2(solutions, function_values,
+                          constraints_values=constraints_values,
+                          check_points=check_points,
+                          copy=copy)
+    # ____________________________________________________________
+    def tell2(self, solutions, function_values,
+              constraints_values=None,
+              check_points=None,
+              copy=False):
+        """see `tell`"""  # the below assignment doesn't show up in the api
         if self._flgtelldone:
             raise RuntimeError('tell can currently only be called once per iteration')
+
+        # this takes about 500ns when len(locals()) == 40
+        # ``np.array(8 * [1.1])`` takes the same and ``np.ones(2)`` takes 800ns
+        self._tell2_args = {k: v for k, v in locals().items() if k != 'self'}
 
         lam = len(solutions)
         if lam != len(function_values):
@@ -2276,6 +2319,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             utils.print_warning("function values with index %s are not finite but %s."
                                 % (str(idx), str([function_values[i] for i in idx])), 'ask',
                                 'CMAEvolutionStrategy', self.countiter)
+        if constraints_values is not None and lam != len(constraints_values):
+            raise ValueError('#constraints_values = %d must equal #solutions = %d'
+                             % (len(constraints_values), lam))
+
         if self.number_of_solutions_asked <= self.number_of_injections or (
                 not sum(self._is_independent_sample)):
             utils.print_warning("""no independent samples generated because the
@@ -2291,6 +2338,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.countevals += lam * self.evaluations_per_f_value
         self.best.update(solutions,  # caveat: these solutions may be out-of-bounds
                          self.sent_solutions, function_values, self.countevals)
+
+        if constraints_values is not None:  # compute fake function values
+            function_values = self._constraints_handling(function_values,
+                                        constraints_values, solutions)
 
         # Retrieve preimages from _round_integer_variables.archive
         # as the first step to get to the genotype.
@@ -2315,6 +2366,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # ## prepare
         N = self.N
         sp = self.sp
+
+        # warn or bail on unexpected population size
         if 11 < 3 and lam != sp.popsize:  # turned off, because mu should stay constant, still not desastrous
             utils.print_warning('population size has changed, recomputing parameters')
             self.sp.set(self.opts, lam)  # not really tested
@@ -2381,7 +2434,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             fit.median_got_worse += 1
         fit.median_previous = fit.median
 
-        ### line 2362, was: 2415, was: 2665
+        ### line 2437, was: 2362, 2415, 2665
 
         # TODO: clean up inconsistency when an unrepaired solution is available and used
         # now get the genotypes
@@ -2743,6 +2796,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         self.more_to_write.check()
     # end tell()
+    tell2.__doc__ = tell.__doc__
 
     def _record_rankings(self, vals, function_values):
         "do nothing by default, otherwise assign to `_record_rankings_` after instantiation"
@@ -2910,6 +2964,138 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             print('std deviations: %s ...]' % (str(self.stds[:8])[:-1]))
         return self.result
 
+    def _tear_up_constraints_handling(self):
+        """assign `augmented_lagrangian` and `best_feasible` attributes"""
+        if self.countiter > 1:
+            warnings.warn(
+                "Late initialization of constraints handling at iteration {0}"
+                .format(self.countiter))
+        if hasattr(self, 'augmented_lagrangian'):
+            warnings.warn('overwriting augmented_lagrangian = {0}'
+                            .format(self.augmented_lagrangian))
+        self.augmented_lagrangian = _constraints_handler.AugmentedLagrangian(self.N)
+        if tell_augmented_lagrangian_logging is not None:
+            self.augmented_lagrangian.logging = tell_augmented_lagrangian_logging
+        if self.opts['verbose'] < -8:
+            self.augmented_lagrangian.logging = False
+        self.best_feasible = ot.BestFeasibleSolution()
+        self._last_feasible_f = None
+        self._first_feasible_f = None
+        if tell_constraints_archives:
+            self._con_archives = []  # depending on option, but how?
+            self._con_archives = [
+                    _constraints_handler.ConstrainedSolutionsArchive(_constraints_handler._g_pos_max),
+                    _constraints_handler.ConstrainedSolutionsArchive(_constraints_handler._g_pos_sum),
+                    _constraints_handler.ConstrainedSolutionsArchive(_constraints_handler._g_pos_squared_sum),
+                ]
+
+    def _constraints_handling(self, function_values, constraints_values, solutions):
+        """return "fake" `function_values` when `constraints_values` are given
+
+        and update the augmented Lagrangian coefficients before. `solutions`
+        are passed only to record the best feasible solution.
+
+        The returned fitness values are the augmented Lagrangians with an
+        offset such that the value is never below the function value of the
+        last seen feasible solution (best per iteration). If no feasible
+        solution was seen yet, add `initial_infeasibility_foffset` and the
+        current maximal penalty as offsets.
+
+        Use also module settings `tell_find_feasible_first` and
+        `tell_find_feasible_only`.
+    """
+        if constraints_values is None:  # nothing to do
+            return function_values
+
+        if not hasattr(self, 'augmented_lagrangian'):
+            self._tear_up_constraints_handling()
+
+        self.augmented_lagrangian.set_coefficients(
+            function_values, constraints_values)
+
+        # update augmented_lagrangian, "penalties" for feasible constraints are negative
+        al_penalties = [self.augmented_lagrangian(g) for g in constraints_values]
+        al_values = [f + sum(p) for (f, p) in zip(function_values, al_penalties)]
+        imin = np.argmin(al_values)  # TODO: option to use xmean or .get_new_mean instead of xbest
+        self.augmented_lagrangian.update(function_values[imin],
+                                         constraints_values[imin])
+        al_penalties = [self.augmented_lagrangian(g) for g in constraints_values]
+        al_penalty_sums = [sum(p) for p in al_penalties]
+        assert len(function_values) == len(al_penalty_sums), (function_values, al_penalty_sums)
+        al_values = [f + p for (f, p) in zip(function_values, al_penalty_sums)]
+
+        # update last and best feasible
+        feasible_indices = [i for (i, v) in enumerate(constraints_values)
+                            if all(vi <= 0 for vi in v)]
+        if feasible_indices:
+            # update first and last feasible
+            self._last_feasible_f = min(function_values[i] for i in feasible_indices)
+            if self._first_feasible_f is None:
+                self._first_feasible_f = self._last_feasible_f
+            # update best feasible
+            for i in feasible_indices:
+                self.best_feasible.update(
+                        function_values[i], constraints_values[i], al_penalties[i],
+                        solutions[i], info={'al_penalties': al_penalties[i]})
+
+        # Set f_offset to make fit.fit resemble feasible f-values.
+        # After the first feasible solution is observed, the constructed
+        # f-values are never smaller than the smallest most recent best
+        # feasible f-value.
+        if tell_find_feasible_only:
+            f_offset = 0
+        elif self._first_feasible_f is None:
+            f_offset = tell_initial_infeasibility_foffset + np.max(
+                        np.abs(al_penalty_sums)) + max((0, max(function_values)))
+        else:
+            # map the smallest al_value to the current feasible objective value
+            # this gives more informative values and should remove the need to set
+            # kwargs_fmin.setdefault('options', {}).setdefault('tolstagnation', 0)
+            f_offset = self._last_feasible_f - min(al_values)
+            #  add the smallest penalty when none was feasible
+            if not feasible_indices:  # add some sort of distance to the decision boundary
+                f_offset += np.min(np.abs(al_penalty_sums))
+
+        if tell_constraints_archives and hasattr(self, '_con_archives') and self._con_archives:
+            for x, fval, gvals, alvals in zip(
+                        solutions, function_values, constraints_values, al_penalties):
+                info = _constraints_handler.constraints_info_dict(
+                            self.augmented_lagrangian.count_calls, x, fval, gvals, alvals)
+                for a in self._con_archives:  # should be part of AugmentedLagrangian?
+                    a.update(fval, gvals, info)
+
+        # return fake function values
+        if tell_find_feasible_only or (self.countiter < tell_find_feasible_first
+                                       and self._first_feasible_f is None):
+            # using max((gi, 0)) instead seems as good, but lets bad values escape a little more
+            return [float(sum(gi**2 for gi in g if gi > 0) + f_offset)
+                    for g in constraints_values]
+        return [float(val + f_offset) for val in al_values]
+
+        ''' # timing of the find_feasible return loop:
+            g = np.random.randn(10) + 1
+            gl = list(g)
+
+            %timeit sum(gi**2 for gi in gl if gi > 0)  # fastest with 10 constraints and 15 % feasibility
+            %timeit sum((gi > 0) * gi**2 for gi in gl) # unreasonably slow
+            %timeit sum(max((gi, 0))**2 for gi in gl)
+            %timeit np.sum(np.maximum(g, 0)**2)        # fastest with 100 constraints
+            %timeit np.sum((g > 0) * g**2)
+            """
+            10-D:
+            1.09 μs ± 13.6 ns per loop (mean ± std. dev. of 7 runs, 1,000,000 loops each)
+            9.74 μs ± 775 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+            1.71 μs ± 18 ns per loop (mean ± std. dev. of 7 runs, 1,000,000 loops each)
+            2.77 μs ± 790 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+            3.41 μs ± 914 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+            100-D:
+            9.85 μs ± 180 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+            96.6 μs ± 7.65 μs per loop (mean ± std. dev. of 7 runs, 10,000 loops each)
+            16.2 μs ± 328 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+            2.84 μs ± 742 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+            3.49 μs ± 796 ns per loop (mean ± std. dev. of 7 runs, 100,000 loops each)
+            """        
+        '''
     def pickle_dumps(self):
         """return ``pickle.dumps(self)``,
 
