@@ -571,13 +571,20 @@ class SolutionDict(DerivedDictBase):
     like a stack (see setitem and delitem). Thereby the last assignment
     ``self[key] = ...`` determines, as to be expected, the value of
     ``self[key]`` even when ``self.data_with_same_key[key]`` is not empty.
+    If the attribute `behave_as_queue` is set to True, it behaves like a
+    queue (FIFO).
 
-    CAVEAT: after a same-key item was removed, ``self[key]`` returns the
-    previous value, however ``self._unhashed_keys[key]`` raises a
-    `ValueError` as the unhashed entries for the remaining items with this
-    key are not available as unhashed keys are not stacked.
+    Technical detail: after a same-key item was removed, ``self[key]``
+    returns the stacked (or queued) previous value, however
+    ``self._unhashed_keys[key]`` still returns the last unhashed key which
+    could be a different object than the previous but with the same hash
+    key. However, the object has most likely the correct content because
+    the hash was the same. This happens because only the last unhashed key
+    is kept. As long as the content of ``self._unhashed_keys[key]`` is not
+    changed, this should be fine.
 
-    TODO: iteration key is used to clean up without error management
+    TODO: in `.truncate`, the iteration key is used to clean up without
+    error management.
 
     """
     def __init__(self, *args, **kwargs):
@@ -586,6 +593,7 @@ class SolutionDict(DerivedDictBase):
         self.data_with_same_key = {}  # del truncates this too
         self._unhashed_keys = {}      # ditto
         self.last_iteration = 0
+        self.behave_as_queue = False
     def key(self, x):
         """compute key of ``x``"""
         if isinstance(x, int):
@@ -611,25 +619,33 @@ class SolutionDict(DerivedDictBase):
         """define ``self[key] = value``"""
         unhashed_key, key = key, self.key(key)
         self._unhashed_keys[key] = unhashed_key  # overwrite, keep only the last
-        if key in self.data_with_same_key:
-            self.data_with_same_key[key] += [self.data[key]]
-        elif key in self.data:
-            self.data_with_same_key[key] = [self.data[key]]
-        self.data[key] = value
+        if self.behave_as_queue:
+            if key not in self.data:
+                self.data[key] = value
+            elif key not in self.data_with_same_key:
+                self.data_with_same_key[key] = [value]
+            else:
+                self.data_with_same_key[key].insert(0, value)
+        else:
+            if key in self.data_with_same_key:
+                self.data_with_same_key[key] += [self.data[key]]
+            elif key in self.data:
+                self.data_with_same_key[key] = [self.data[key]]
+            self.data[key] = value
     def __getitem__(self, key):  # 50% of time of
         """define access ``self[key]``"""
         return self.data[self.key(key)]
     def __delitem__(self, key):
         """remove only most current key-entry of list with same keys"""
         key = self.key(key)
-        if key in self._unhashed_keys:
-            del self._unhashed_keys[key]
         if key in self.data_with_same_key:
             if len(self.data_with_same_key[key]) == 1:
                 self.data[key] = self.data_with_same_key.pop(key)[0]
             else:
                 self.data[key] = self.data_with_same_key[key].pop(-1)
         elif key in self.data:
+            if key in self._unhashed_keys:  # should always be True
+                del self._unhashed_keys[key]
             del self.data[key]
     def truncate_to(self, len_):
         """truncate to length `len_` removing the oldest entries"""
