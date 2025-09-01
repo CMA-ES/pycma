@@ -1387,6 +1387,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 direction ``np.dot(C, gradf(xmean, *args))``.
             `args`
                 additional arguments passed to gradf
+            `kwargs`
+                if `ignore_integer_variables` do not change integer
+                variables at all which is in particular useful when a small
+                mutation is added to a given solution and integer values
+                are not supposed to be disturbed at all and/or moved across
+                a plateau boundary.
 
         Return
         ------
@@ -1405,16 +1411,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         :See: `ask_and_eval`, `ask_geno`, `tell`
     """
         assert self.countiter >= 0
-        if kwargs:
-            utils.print_warning("""Optional argument%s \n\n  %s\n\nignored""" % (
-                                    '(s)' if len(kwargs) > 1 else '', str(kwargs)),
-                                "ask", "CMAEvolutionStrategy",
-                                self.countiter, maxwarns=1)
+        # if kwargs:
+        #     utils.print_warning("""Optional argument%s \n\n  %s\n\nignored""" % (
+        #                             '(s)' if len(kwargs) > 1 else '', str(kwargs)),
+        #                         "ask", "CMAEvolutionStrategy",
+        #                         self.countiter, maxwarns=1)
         if self.countiter == 0:
             self.timer = utils.ElapsedWCTime()
         else:
             self.timer.tic
-        pop_geno = self.ask_geno(number, xmean, sigma_fac)
+        pop_geno = self.ask_geno(number, xmean, sigma_fac, **kwargs)
 
         # N,lambda=20,200: overall CPU 7s vs 5s == 40% overhead, even without bounds!
         #                  new data: 11.5s vs 9.5s == 20%
@@ -1568,7 +1574,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     # ____________________________________________________________
     # ____________________________________________________________
-    def ask_geno(self, number=None, xmean=None, sigma_fac=1):
+    def ask_geno(self, number=None, xmean=None,
+                 sigma_fac=1, ignore_integer_variables=False):
         """get new candidate solutions in genotyp.
 
         Solutions are sampled from a multi-variate normal distribution.
@@ -1582,6 +1589,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             `sigma_fac`
                 multiplier for internal sample width (standard
                 deviation)
+            `ignore_integer_variables`
+                allows to not change integer variables at all which is in
+                particular useful when a (small) mutation is added to a
+                given solution.
 
         `ask_geno` returns a list of N-dimensional candidate solutions
         in genotyp representation and is called by `ask`.
@@ -1718,6 +1729,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if Niid > 0:  # should better be true
             ary = self.sigma_vec * np.asarray(self.sm.sample(Niid))
             self._updateBDfromSM(self.sm)  # sm.sample invoked lazy update
+            if ignore_integer_variables and len(self.opts['integer_variables']) > 0:
+                ary[:, self.opts['integer_variables']] = 0
             # unconditional mirroring
             if self.sp.lam_mirr and self.opts['CMA_mirrormethod'] == 0:
                 for i in range(Mh.sround(self.sp.lam_mirr * number / self.popsize)):
