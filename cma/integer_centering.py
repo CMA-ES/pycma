@@ -7,6 +7,9 @@ handle mixed-integer problems. PPSN 2024.
 import warnings as _warnings
 import numpy as np
 
+centering_on = True
+'''convenience flag to turn centering off, read on instantiation of `IntegerCentering`'''
+
 class IntegerCentering(object):
     """round values of int-variables that are different from the int-mean.
 
@@ -139,6 +142,7 @@ class IntegerCentering(object):
         self.mahalanobis1 = []  # after modification
         self.last_changes = []
         self.last_changes_iteration = []
+        self.centering_on = centering_on
 
     def bound(self, i):
         """return lower and upper bound on variable `i`, not in use.
@@ -264,6 +268,8 @@ class IntegerCentering(object):
         effect on the C update. This would require another call or passing
         the Delta mean in the return value.
     """
+        if not self.centering_on:
+            return solution_list
         if self._int_mask is None:
             self._int_mask = np.asarray([i in self.int_indices
                                          for i in range(len(mean))])
