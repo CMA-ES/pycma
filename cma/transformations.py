@@ -1181,6 +1181,7 @@ class RoundIntegerVariables(object):
         """`CMAOptions`, `bool`, `bool` passed from `cma.evolution_strategy` module"""
         self.params = {k: v for k, v in locals().items() if k != 'self'}
         self.archive = _SolutionDict()
+        self.count = 0
 
     @property
     def _active(self):
@@ -1271,11 +1272,17 @@ class RoundIntegerVariables(object):
         # Without integer handling, the archive should be empty
         if not self._active or len(self.archive) == 0:
             return solutions
-        if len(self.archive) < len(solutions):
-            _warnings.warn("\ntell: solutions passed to `tell` = {0} > {1} = solutions"
-                " phenotype-archived by `ask`. \n  Consider using the ``.inject``"
+        self.count += 1
+        if len(self.archive) < len(solutions) and len(self.archive.data_with_same_key) == 0:
+            # TODO: len(self.archive) + len(self.archive.data_with_same_key) < len(solution)
+            #       when the same solutions occur, but why?
+            _warnings.warn("\n unrounded_population(iteration={2}): solutions passed"
+                " to `tell` = {0} > {1} = solutions phenotype-archived by `ask`"
+                " (len(.data_with_same_key) = {3})."
+                "\n  Consider using the ``.inject``"
                 " method for outside solution proposals."
-                .format(len(solutions), len(self.archive)))
+                .format(len(solutions), len(self.archive), self.count,
+                        len(self.archive.data_with_same_key)))
         # CAVEAT: if solutions is an array, then solutions[k] = 2 *
         # np.array(solutions[k]) changes the content of solutions[k] which
         # is not intended. This may have been a bug?
