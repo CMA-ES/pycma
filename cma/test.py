@@ -254,7 +254,8 @@ def various_doctests():
 
     Integer handling:
 
-    >>> import warnings
+    >>> x, es = cma.fmin2(cma.ff.rosen, 2 * [-10], 1,
+    ...                   {'integer_variables': [0, 1], 'verbose': -9})
     >>> idx = [0, 1, -1]
     >>> f = cma.s.ft.IntegerMixedFunction2(cma.ff.elli, idx)
     >>> for i, more_opts in enumerate(2 * [{}] +
