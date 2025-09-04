@@ -213,8 +213,9 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         if not self.is_initialized:
             self.initialize(es)
         if self._ps_updated_iteration == es.countiter:
-            return
+            return  # don't update twice
         z = es.isotropic_mean_shift
+        ### clip length of z in case
         if es.opts['CSA_clip_length_value'] is not None:
             vals = es.opts['CSA_clip_length_value']
             try: len(vals)
@@ -231,7 +232,9 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
                 z *= new_len / act_len
                 # z *= (es.N / sum(z**2))**0.5  # ==> sum(z**2) == es.N
                 # z *= es.const.chiN / sum(z**2)**0.5
-        self.ps = (1 - self.cs) * self.ps + _sqrt(self.cs * (2 - self.cs)) * z
+        ### update ps
+        self.ps *= (1 - self.cs)
+        self.ps += _sqrt(self.cs * (2 - self.cs)) * z
         self._ps_updated_iteration = es.countiter
     def update2(self, es, **kwargs):
         """call ``self._update_ps(es)`` and update self.delta.
@@ -499,13 +502,13 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
                             dmi_div_dx0i, dm / dx0, expected_precision) or \
                             not Mh.equals_approximately(
                                     dmi_div_dx1i, dm / dx1, expected_precision):
-                        print()
-                        print(i, expected_precision, es.mean[i])
                         m = utils.format_warning(
                             'TPA: apparent inconsistency with mirrored'
                             ' samples, where dmi_div_dx0i, dm/dx0=%f, %f'
-                            ' and dmi_div_dx1i, dm/dx1=%f, %f' % (
-                                dmi_div_dx0i, dm/dx0, dmi_div_dx1i, dm/dx1),
+                            ' and dmi_div_dx1i, dm/dx1=%f, %f'
+                            ' \n i=%d expected precision=%f mean[i]=%f' % (
+                                dmi_div_dx0i, dm/dx0, dmi_div_dx1i, dm/dx1,
+                                i, expected_precision, es.mean[i]),
                             'check_consistency',
                             'CMAAdaptSigmaTPA', es.countiter); m and _warnings.warn(m)
                 else:

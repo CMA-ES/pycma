@@ -1273,6 +1273,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if np.isscalar(bnds):
                 return bnds
             return bnds[i]
+        warning_data = []
         for i, s in enumerate(self.stds):
             found = False
             if is_min:
@@ -1291,9 +1292,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     self.sigma_vec.set_i(i, self.sigma_vec.scaling[i] * sb / s)
                     self.pc2[i] *= sb / s  # fixes issue #264
                 if warn:
-                    warnings.warn("Sampling standard deviation i={0} at iteration {1}"
-                                  " change by {2} to stds[{3}]={4}"
-                                  .format(i, self.countiter, sb / s, i, self.stds[i]))
+                    warning_data.append((i, sb/s))
+        if warning_data:
+            i, ss = warning_data[0]
+            warnings.warn("Sampling standard deviation i={0}{4} at iteration {1}"
+                            " multiplied by {2} to stds[{0}]={3}"
+                            .format(i, self.countiter, ss, self.stds[i],
+                                    ' (and {0} others)'.format(len(warning_data) - 1
+                                    if len(warning_data) > 1 else '')))
 
     def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
@@ -2034,8 +2040,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ary = []
         if self.mean_shift_samples:
             ary = [self.mean - self.mean_old]
-            ary.append(self.mean_old - self.mean)  # another copy!
-            if np.all(ary[-1] == 0.0):
+            ary.append(-ary[0])  # another copy!
+            try: assert ary[1].base is None  # make sure it's a copy
+            except AttributeError: pass  # make sure we don't bail for no good reason
+            if ary[-1][0] == 0 and np.all(ary[-1] == 0.0):
                 utils.print_warning('zero mean shift encountered',
                                '_prepare_injection_directions',
                                'CMAEvolutionStrategy', self.countiter)
@@ -2286,11 +2294,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # Retrieve preimages from _round_integer_variables.archive
         # as the first step to get to the genotype.
-        # CAVEAT: if solutions is an array, then solutions[k] = 2 *
-        # np.array(solutions[k]) changes the content of solutions[k] which
-        # is not intended. This may have been a bug?
         # Without integer handling this returns the unchanged solutions,
-        # otherwise a new list
+        # otherwise a new list.
+        # CAVEAT: when all variables are integer, double archive entries
+        # are likely to occur at some point. In this case, the code relies
+        # on the order of solutions inserted in the archive in FIFO-mode,
+        # in particular to keep the TPA solutions in order.
         solutions = self._round_integer_variables.unrounded_population(solutions,
                             revert_modified=round_integer_variables_revert_changes,
                             warn=check_points not in (0, False))
@@ -2416,7 +2425,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             try:
                 if len(check_points):
                     idx = check_points
-            except:
+            except TypeError:
                 idx = range(sp.popsize)
 
             for k in idx:
