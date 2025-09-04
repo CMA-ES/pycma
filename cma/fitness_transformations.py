@@ -195,6 +195,10 @@ class StackFunction(Function):
         self.f2 = f2
         self.n1 = n1
     def _eval(self, x, *args, **kwargs):
+        if self.n1 == 0:
+            return self.f2(x, *args, **kwargs)
+        if len(x) == self.n1:
+            return self.f1(x, *args, **kwargs)
         return self.f1(x[:self.n1], *args, **kwargs) + self.f2(x[self.n1:], *args, **kwargs)
 
 class GlueArguments(Function):
