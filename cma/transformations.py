@@ -1181,6 +1181,7 @@ class RoundIntegerVariables(object):
         """`CMAOptions`, `bool`, `bool` passed from `cma.evolution_strategy` module"""
         self.params = {k: v for k, v in locals().items() if k != 'self'}
         self.archive = _SolutionDict()
+        self.archive.behave_as_queue = True
         self.count = 0
 
     @property
@@ -1286,7 +1287,8 @@ class RoundIntegerVariables(object):
         # CAVEAT: if solutions is an array, then solutions[k] = 2 *
         # np.array(solutions[k]) changes the content of solutions[k] which
         # is not intended. This may have been a bug?
-        # keep original to catch inplace changed solutions (hence with a changed key)
+        # Now, we keep the original also to catch inplace changed solutions
+        # (hence with a changed key)
         u_solutions = [self.archive.pop(s, s) for s in solutions]
         # amend u_solutions if necessary (usually not) and clear archive
         if revert_modified or warn:
