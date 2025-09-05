@@ -541,24 +541,8 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
             val **= 1. / len(x)
         return val
 
-    binary_optimum_interval = (0.5, 1.5)
-    '''default interval where the optimum is assumed on binary functions.
-
-        The interval is chosen such that the value from round(.) or floor(.
-        + 1/2) or int(. + 1/2) is in the interval middle. This prevents
-        some unexpected outcomes with algorithms that search on the
-        continuous values. The most logical domain boundary values are now
-        [-0.5, 1.5] or [0, 1].
-
-       Details: Changing this *default* is only effective *before* import.
-    '''
-    binary_foffset = 1e-3 - 1e-4
-    '''default f-offset for binary functions at the optimum.
-
-        Changing this *default* is only effective *before* import.
-    '''
     @staticmethod
-    def binval(x, foffset=binary_foffset, optimum=binary_optimum_interval):
+    def binval(x, foffset=None):
         """return ``sum_i(0 if (optimum[0] <= x[i] <= optimum[1]) else 2**i)``
 
         to be minimized.
@@ -568,31 +552,46 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         bit anymore. Because we minimize, this is not necessarily a big
         problem.
         """
+        optimum = binary_optimum_interval
         s = sum_(0 if optimum[0] <= val <= optimum[1] else 2**i
                  for i, val in enumerate(x))
-        return s if s else foffset
+        return s if s else binary_foffset if foffset is None else foffset
     @staticmethod
-    def leadingones(x, foffset=binary_foffset, optimum=binary_optimum_interval):
+    def leadingones(x, foffset=None):
         """return ``len(x) - nb of leading-ones-in-x`` to be minimized,
 
         where only values in [optimum[0], optimum[1]] are considered to be "equal to" 1.
         """
+        optimum = binary_optimum_interval
         s = len(x)  # worst value
         for xi in x:
             if optimum[0] <= xi <= optimum[1]:
                 s -= 1
             else:
                 break
-        return s if s else foffset
+        return s if s else binary_foffset if foffset is None else foffset
     @staticmethod
-    def onemax(x, foffset=binary_foffset, optimum=binary_optimum_interval):
+    def onemax(x, foffset=None):
         """return ``sum_i(0 if (optimum[0] <= x[i] <= optimum[1]) else 1)``
 
         to be minimized.
         """
+        optimum = binary_optimum_interval
         s = sum_(0 if optimum[0] <= val <= optimum[1] else 1 for val in x)
-        return s if s else foffset
+        return s if s else binary_foffset if foffset is None else foffset
 
+binary_optimum_interval = (0.5, 1.5)
+'''default interval where the optimum is assumed on binary functions.
+
+    The interval is chosen such that the value from round(.) or floor(.
+    + 1/2) or int(. + 1/2) is in the interval middle. This prevents
+    some unexpected outcomes with algorithms that search on the
+    continuous values. The most logical domain boundary values are now
+    between [-0.499, 1.499] and [0, 1].
+    '''
+binary_foffset = 1e-3 - 1e-4
+'''default f-offset for binary functions at the optimum.
+    '''
 
 class _coco_F_0(object):
     """return a "normalized" BBOB function, funID=1..24 when suite='bbob'.
