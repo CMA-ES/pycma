@@ -237,7 +237,13 @@ tell_constraints_archives = True
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
 
-_record_hsig = False
+mean_towards_boundary_factor = False  # next default: -0.95
+'''Drag the mean by `mean_towards_boundary_factor` towards the pre_bound,
+   in the coordinates where the mean is outside the pre-bounds of the
+   `BoundTransform` boundary handler. When the value is negative, this is
+   only applied to integer variables. If `mean_towards_boundary_factor` is
+   small (in particular < 0.2 and > 0), nonconvergence has been
+   observed.'''
 
 use_archives = "not anymore in effect"
 archive_sent_solutions = sys.version_info >= (2,6)
@@ -261,6 +267,8 @@ round_integer_variables_revert_changes = True
    `_round_integer_variables.archive` which stores solutions before integer
    variables are rounded at the end of `ask`. Renamed from
    `ask_phenotype_archive_revert_changes` since v4.3.1.'''
+
+_record_hsig = False
 
 _redistribute_sigma_above = 1e9
 '''when ``..._above > 1`` and `sigma` becomes too large, push variance from `sigma` to `sigma_vec`'''
@@ -3045,17 +3053,37 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # Uncertainty noise measurement is done on an upper level
 
-        if CMAOptions._stationary_sphere:
-            if callable(CMAOptions._stationary_sphere):
-                self.mean *= (CMAOptions._stationary_sphere(self.mean_old) /
-                              CMAOptions._stationary_sphere(self.mean))
-            else:
-                self.mean *= np.sqrt(sum(np.square(self.mean_old)) /
-                                     sum(np.square(self.mean)))
-
+        # move mean onto the phenotype boundary, leads to weird behavior on
+        # 40-D tablet with bound 0.1
+        # mean_towards_boundary_factor=0.1 consistently fails on the 20D
+        # bbob F10 (elli) in [-4, 4] where variables float out-of-bounds
+        # and sigma does not converge
+        # any factor seems to make this worse at least sometimes by a factor 1.5 or so:
+        # fmin2(cma.ff.ellrot, 20 * [1], 1, {'bounds': [-0.1, 5], 'ftarget': 1e-8)
+        if (mean_towards_boundary_factor != 0 and 
+                isinstance(self.boundary_handler, BoundTransform) and
+                (mean_towards_boundary_factor > 0 or
+                        len(self.opts['integer_variables'])) and
+                not self.boundary_handler.is_in_pre_bounds(self.mean)):
+            inb_mean = self.boundary_handler.into_pre_bounds(
+                                self.mean, check_first=False)
+            if mean_towards_boundary_factor > 0:  # all variables
+                if mean_towards_boundary_factor == 1:
+                    self.mean = inb_mean
+                else:
+                    self.mean *= 1 - mean_towards_boundary_factor
+                    self.mean += mean_towards_boundary_factor * inb_mean
+            elif len(self.opts['integer_variables']):  # only integer variables
+                idx = np.asarray(self.opts['integer_variables'])
+                if mean_towards_boundary_factor == -1:
+                    self.mean[idx] = inb_mean[idx]
+                else:
+                    self.mean[idx] *= 1 + mean_towards_boundary_factor  # is < 1
+                    self.mean[idx] -= mean_towards_boundary_factor * inb_mean[idx]
         # move mean into "feasible preimage", leads to weird behavior on
         # 40-D tablet with bound 0.1, not quite explained (constant
         # dragging is problematic, but why doesn't it settle), still a bug?
+        # replaced by mean_towards_boundary_factor code above, was never active?:
         if 11 < 3 and isinstance(self.boundary_handler, BoundTransform) \
                 and not self.boundary_handler.is_in_bounds(self.mean):
             self.mean = array(self.boundary_handler.inverse(
