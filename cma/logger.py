@@ -1008,7 +1008,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         subplot(2, 2 + addcols, 2)
         if plot_mean:
-            self.plot_mean(iabscissa, x_opt, xsemilog=False if plot_mean=='linear' else xsemilog, xnormalize=xnormalize)
+            if plot_mean == "log":
+                xsemilog = True
+            elif plot_mean == "linear":
+                xsemilog = False
+            self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         else:
             self.plot_xrecent(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         pyplot.xlabel('')
