@@ -507,6 +507,7 @@ class BoundTransform(BoundaryHandlerBase):
         # BoundaryHandlerBase.__init__(self, bounds)
         super(BoundTransform, self).__init__(bounds)
         self.bounds_tf = BoxConstraintsLinQuadTransformation(self.to_dim_times_two(bounds))
+        self._prebounds_dict = dict()  # store computed arrays
 
     def repair(self, x, copy_if_changed=True):
         """transforms ``x`` into the bounded domain.
@@ -528,6 +529,43 @@ class BoundTransform(BoundaryHandlerBase):
                                    self.bounds[1] is None):
             return x
         return np.asarray(self.bounds_tf.inverse(x, copy_if_changed))  # this doesn't exist
+
+    def _pre_bounds(self, dim):
+        """return lower and upper pre-bound arrays.
+
+        >>> import cma
+        ...
+        >>> bt = cma.BoundTransform([-1, 2])
+        >>> assert(bt._pre_bounds(2)[0][1] == -1.05), bt._pre_bounds(2)
+        >>> assert(bt._pre_bounds(2)[1][1] == 2.1), bt._pre_bounds(2)
+
+    """
+        try:
+            return self._prebounds_dict[dim]
+        except KeyError:
+            pass  # need to compute prebounds
+        def idx(a, i):
+            return min((i, len(a) - 1))
+        b = self.bounds_tf
+        self._prebounds_dict[dim] = [
+            np.asarray([b._lb[idx(b._lb, i)] - b._al[idx(b._al, i)]
+                        for i in range(dim)]),
+            np.asarray([b._ub[idx(b._ub, i)] + b._au[idx(b._au, i)]
+                        for i in range(dim)])
+        ]
+        return self._prebounds_dict[dim]
+
+    def is_in_pre_bounds(self, x):
+        """return `True` if x is in the invertible box of the preimage"""
+        pb = self._pre_bounds(len(x))
+        return np.all(pb[0] <= x) and np.all(pb[1] >= x)
+
+    def into_pre_bounds(self, x, check_first=True):
+        """return x projected on the invertible box of the preimage"""
+        if check_first and self.is_in_pre_bounds(x):
+            return x
+        pb = self._pre_bounds(len(x))
+        return np.minimum(np.maximum(x, pb[0]), pb[1])
 
 class BoundPenalty(BoundaryHandlerBase):
     """Compute a bound penalty and update coordinate-wise penalty weights.
