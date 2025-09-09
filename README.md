@@ -90,6 +90,15 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``4.4.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.0)
+  - constraints handling is available also in the <tt>ask</tt>-and-<tt>tell</tt> interface (addressing issues [#258](https://github.com/CMA-ES/pycma/issues/258), [#287](https://github.com/CMA-ES/pycma/issues/287), and [#167](https://github.com/CMA-ES/pycma/issues/167))
+  - `ask` has an `ignore_integer_variables` argument to not mutate integer variables
+  - an on/off switch for integer centering, `cma.integer_centering.centering_on` (by default `True`)
+  - polishing and minor bug fixes
+  - code internals:
+    - move integer rounding code (applied to delivered solutions) to the `cma.transformations.RoundIntegerVariables` class
+    - `utils.SolutionDict` can behave like a queue too
+
 * [Release ``4.3.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.3.0)
   - integer variables of candidate solutions are rounded (addressing also
     [issue #286](https://github.com/CMA-ES/pycma/issues/286))
