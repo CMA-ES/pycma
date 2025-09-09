@@ -4,25 +4,30 @@
 
 Switch to the desired branch.
 
+0.
 Run local tests
 
     ./script-test-all-all-arm.sh
     ruff check cma
 
+1.
 Push to a test branch to trigger test:
 
     git push origin :test  # delete remote test branch if necessary
     git push origin HEAD:test
 
+2.
 Check/edit version numbers into (new) commit vX.X.X::
 
     code cma/__init__.py  # edit version number
     code tools/conda.recipe/meta.yaml  # edit version number
 
+3.
 Add a release note (based on git ls, same commit) in::
 
     ./README.md  # add release description and amend v.X.X.X. commit
 
+4.
 To check the apidocs from a dirty code folder:
 
     ./script-make-apidocs.sh
@@ -35,6 +40,7 @@ To check the apidocs from a dirty code folder:
             backup --recover
             less +G pydoctor-messages.txt  # check for errors (which are at the end!)
 
+5.
 Make and check the distribution from a (usual) dirty code folder ==> install-folder::
 
     ./script-prepare-distribution.sh
@@ -46,22 +52,30 @@ Make and check the distribution from a (usual) dirty code folder ==> install-fol
             git checkout -- cma
             cp -rp cma pyproject.toml LICENSE README.rst install-folder
             backup --recover  # recover above moved folder (and backup current, just in case)
+            git tag in-install-folder  # mark commit to be the code in install-folder
 
     cd install-folder
     python -m build > dist_call_output.txt; less +G dist_call_output.txt
-    twine check dist/*  # fails with Python 3.13
+    twine check dist/*  # failed with Python 3.13, now OK
     less +G dist_call_output.txt  # errors are shown in the end
-    tar -tf dist/cma-4.2.0.tar.gz | tree --fromfile | less
-                #   ==> 36 files, check that the distribution folders are clean
+    tar -tf dist/cma-4.4.0.tar.gz | tree --fromfile | less
+                #   ==> 5 directories, 36 files, check that the distribution folders are clean
                 # not really useful anymore as we copy into a clean folder
 
 # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
 
+6.
 Loop over tests and distribution and fix code until everything is fine.
 
+7.
+Draft a release on GitHub: click on releases and then new draft. Use above text added in README.md.
+
+8.a
 Upload the distribution in ``install-folder``::
 
-    # optional: test upload:
+    twine upload dist/*  # upload everything given the install folder was clean
+
+    # optional, before the above: test upload:
         cd ..  # back to src
         backup test-install-folder  # not really necessary
         cp -rp install-folder test-install-folder
@@ -73,8 +87,19 @@ Upload the distribution in ``install-folder``::
         twine upload --repository testpypi dist/cmae*
         cd ../install-folder
 
-    twine upload dist/*  # upload everything given the install folder was clean
+8.b
+EITHER: tag locally and push, mainly to avoid changing any remote branch::
 
+    git tag -a r4.4.1 -m 'r4.4.1 release'
+    git push origin r4.4.1
+
+OR: push code to development and/or master. This must be done at some
+    point anyways, if only to update the README.md.
+
+9.
+Finalize and publish the release drafted on Github.
+
+10.
 Push new docs to github
 
     cp -r apidocs/* /Users/hansen/git/CMA-ES.github.io/apidocs-pycma
@@ -83,14 +108,14 @@ Push new docs to github
     git ci
     git push
 
-Tag and push git branch::
+11. (if necessary)
+Fetch tag in case::
 
-    git tag -a r4.2.1  # fix readme formatting
-    git push origin r4.2.1
+    git fetch --tags
 
-Create a release on GitHub (click on releases and then new draft).
+12. (if not already done)
+Update master and push branches to remote
 
-Push code to master at Github.
 
 Anaconda::
 
