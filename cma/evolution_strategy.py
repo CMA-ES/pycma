@@ -2798,6 +2798,56 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     # end tell()
     tell2.__doc__ = tell.__doc__
 
+    def get_new_mean(self, X, F, G=None):
+        """return an updated mean based on the input arguments,
+
+        namely, the solutions `X` and the ranking implied by `F` and `G`.
+        `G` is only used if the constraints handling is active. Elements of
+        `X` are transformed to the genotype as by default, with repair and
+        with accessing the sent solutions archive.
+
+        This method is meant to give a headsup _before_ to call `tell` of
+        what the updated mean will be and can be useful, for example, for
+        constraints surrogates.
+    """
+        if G is not None and not hasattr(self, 'augmented_lagrangian'):
+            warnings.warn("get_new_mean: was called with constraints values G,"
+                          "\n however `self` has no attribute `augmented_lagrangian`"
+                          "\n to process them. G is hence ignored.")
+        if G is None or not hasattr(self, 'augmented_lagrangian'):
+            idx = np.argsort(F)
+        else:  # use penalized fitness
+            idx = np.argsort([f + sum(self.augmented_lagrangian(g))
+                              for (f, g) in zip(F, G)])
+
+        # revert round_population without clearing the archive,
+        # we only need the mu best to compute the mean
+        X = [self._round_integer_variables.archive.get(X[i], X[i])
+             for i in idx[:self.sp.weights.mu]]
+
+        # get the genotypes
+        if self.integer_centering is _pass:
+            aa = np.asarray
+            copy = True  # copy (only) when changed in geno
+        else:
+            aa = np.array
+            copy = False  # don't copy twice
+        pop = [self.gp.geno(aa(x),
+                            copy=copy,
+                            from_bounds=self.boundary_handler.inverse,
+                            repair=self.repair_genotype,
+                            archive=self.sent_solutions)
+               for x in X]
+        self.integer_centering(pop, self.mean)
+
+        mean = np.dot(self.sp.weights.positive_weights, pop)
+
+        if self.sp.cmean != 1:
+            mean *= self.sp.cmean
+            mean += (1 - self.sp.cmean) * self.mean
+
+        return mean
+
     def _record_rankings(self, vals, function_values):
         "do nothing by default, otherwise assign to `_record_rankings_` after instantiation"
     def _record_rankings_(self, vals, function_values):
