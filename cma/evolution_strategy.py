@@ -2681,8 +2681,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     self.sm *= alpha
                 except:
                     pass
-                else:
+                else:  # change representation / "coordinate system"
                     self.sigma /= alpha**0.5  # adjust only half
+                    self._sigma_old /= alpha**0.5  # semibug, fixed Sep 2025
                     self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
                     self._updateBDfromSM()
 
@@ -4519,7 +4520,8 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
                             #  factor cmean is divided by here, this is
                             #  like only multiplying kappa instead of
                             #  changing cmean and sigma.
-                            es.sp.cmean *= np.exp(-noise_kappa_exponent * np.tanh(noisehandler.noiseS))
+                            es.sp.cmean *= float(np.exp(-noise_kappa_exponent
+                                                        * np.tanh(noisehandler.noiseS)))
                             if es.sp.cmean > 1:    # cmean is now a float, however,
                                 es.sp.cmean = 1.0  # cmean[cmean > 1] would also work with "scalar arrays" like np.array(1.2)
                     for f in callback:
