@@ -89,9 +89,10 @@ def cma_default_options_(  # to get keyword completion back
     scaling_of_variables='None  # deprecated, rather use fitness_transformations.ScaleCoordinates instead (or CMA_stds). WAS: Scale for each variable in that effective_sigma0 = sigma0*scaling. Internally the variables are divided by scaling_of_variables and sigma is unchanged, default is `np.ones(N)`',
     seed='time  # random number seed for `numpy.random`; `None` and `0` equate to `time`,'\
                 ' `np.nan` means "do nothing", see also option "randn"',
-    signals_filename='cma_signals.in  # read versatile options from this file (use `None` or `""` for no file)'\
-                                      ' which contains a single options dict, e.g. ``{"timeout": 0}`` to stop,'\
-                                      ' string-values are evaluated, e.g. "np.inf" is valid',
+    signals_filename=('cma_signals.in  # read versatile options from this file'
+                      ' which contains a single options dict, e.g. ``{"timeout": 0}`` to stop right away,'
+                      ' some string-values are recognized, e.g. "np.inf" is valid,'
+                      ' use `None` or `""` for no file'),
     termination_callback='[]  #v a function or list of functions returning True for termination, called in'\
                               ' `stop` with `self` as argument, could be abused for side effects',
     timeout='inf  #v stop if timeout seconds are exceeded, the string "2.5 * 60**2" evaluates to 2 hours and 30 minutes',
@@ -116,7 +117,8 @@ def cma_default_options_(  # to get keyword completion back
     #       t1 is the (optional) back transformation, see class GenoPheno''',
     typical_x='None  # deprecated, use `cma.fitness_transformations.Shifted` instead',
     updatecovwait='None  #v number of iterations without distribution update, name is subject to future changes',  # TODO: rename: iterwaitupdatedistribution?
-    verbose='3  #v verbosity e.g. of initial/final message, -1 is very quiet, -9 maximally quiet, may not be fully implemented',
+    verbose=('3  #v verbosity e.g. of initial/final message and logging,'
+             '\n -1 is very quiet, <=-9 is maximally quiet, <=-10 ignores the signals_filename'),
     verb_append='0  # initial evaluation counter, if append, do not overwrite output files',
     verb_disp='100  #v verbosity: display console output every verb_disp iteration',
     verb_disp_overwrite='inf  #v start overwriting after given iteration',
