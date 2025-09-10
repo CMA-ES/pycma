@@ -60,9 +60,9 @@ include-package-data = false  # true is default, false doesn't change anything
 
 [tool.setuptools.packages.find]
 exclude = ["notebooks*"]
+include = ["cma*"]
 # [tool.setuptools.packages.find]  # for . works only in a clean folder
-# where = ["src"]  # this doesn't work, it always takes the root too
-# include = ["cma*"]
+# where = ["src"]  # this doesn't work, it always takes the root too?
 # namespaces = false
 
 [project.optional-dependencies]
