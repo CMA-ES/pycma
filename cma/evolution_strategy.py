@@ -2265,6 +2265,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         :See: class `CMAEvolutionStrategy`, `ask`, `ask_and_eval`, `fmin`
     """
+        1/0
         if self._flgtelldone:
             raise RuntimeError('tell can currently only be called once per iteration')
 
