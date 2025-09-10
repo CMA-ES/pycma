@@ -2989,7 +2989,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.stop()
         )
 
-    def result_pretty(self, number_of_runs=0, time_str=None,
+    def result_pretty(self, number_of_restarts=0, time_str=None,
                       fbestever=None):
         """pretty print result.
 
@@ -2998,18 +2998,26 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         if fbestever is None:
             fbestever = self.best.f
-        s = (' after %i restart' + ('s' if number_of_runs > 1 else '')) \
-            % number_of_runs if number_of_runs else ''
-        for k, v in self.stop().items():
-            print('termination on %s=%s%s' % (k, str(v), s +
-                  (' (%s)' % time_str if time_str else '')))
+
+        # print like "termination on {'tolfun': 1e-11} after 1 restart"
+        print('termination on {0}{1}{2}'.format(self.stop(),
+                  ' ({0})'.format(time_str) if time_str else '',
+                  ' after {0} restart{1}'.format(
+                        number_of_restarts, 's' if number_of_restarts > 1 else '')
+                    if number_of_restarts > 0 else ''))
+        # was:
+        # s = (' after %i restart' + ('s' if number_of_runs > 1 else '')) \
+        #     % number_of_runs if number_of_runs else ''
+        # for k, v in self.stop().items():
+        #     print('termination on %s=%s%s' % (k, str(v), s +
+        #           (' (%s)' % time_str if time_str else '')))
 
         print('final/bestever f-value = %e %e after %d/%d evaluations' % (
             self.best.last.f, fbestever, self.countevals, self.best.evals))
         if self.N < 9:
             print('incumbent solution: ' + ' '.join(str(self.to_phenotype(self.mean, into_bounds=self.boundary_handler.repair)).split())
                                            .replace(' ', ', ').replace('[,', '['))
-            print('std deviation: ' + ' '.join(str(self.stds).split())
+            print('std deviations: ' + ' '.join(str(self.stds).split())
                                            .replace(' ', ', ').replace('[,', '['))
         else:
             print('incumbent solution: %s ...]' % (str(self.to_phenotype(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
@@ -4318,7 +4326,7 @@ def fmin2(objective_function, x0, sigma0,
        Covariance matrix is diagonal for 100 iterations (1/ccov=26...
     Iterat #Fevals   function value  axis ratio  sigma ...
         1     10 ...
-    termination on tolfun=1e-11 ...
+    termination on {'tolfun': 1e-11} ...
     final/bestever f-value = ...
     >>> assert es.result.fbest < 1e-12  # f-value of best found solution
     >>> assert es.result.evaluations < 8000  # evaluations
@@ -4470,7 +4478,7 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
        Covariance matrix is diagonal for 100 iterations (1/ccov=26...
     Iterat #Fevals   function value  axis ratio  sigma ...
         1     10 ...
-    termination on tolfun=1e-11 ...
+    termination on {'tolfun': 1e-11} ...
     final/bestever f-value = ...
     >>> assert res[1] < 1e-12  # f-value of best found solution
     >>> assert res[2] < 8000  # evaluations

@@ -156,7 +156,7 @@ def various_doctests():
         >>> assert res[1] < 1e-9
         >>> es = res[-2]
         >>> es.result_pretty()  # doctest: +ELLIPSIS
-        termination on tolfun=1e-11
+        termination on {'tolfun': 1e-11}
         final/bestever f-value = ...
 
     The printed std deviations reflect the actual value in the
