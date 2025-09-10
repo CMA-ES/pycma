@@ -30,6 +30,7 @@ jobs:
         python -m pip install flake8 pytest
         python -m pip install rust
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -m pip install moarchiving
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -38,4 +39,5 @@ jobs:
         # flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test
       run: |
+        rust check cma
         python -m cma.test  # was: pytest
