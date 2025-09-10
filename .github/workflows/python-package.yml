@@ -30,7 +30,7 @@ jobs:
         python -m pip install flake8
         python -m pip install ruff
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        python -m pip install moarchiving
+        # python -m pip install moarchiving
         python -m pip install .  # or install numpy and further dependencies?
     - name: Lint with flake8
       run: |
