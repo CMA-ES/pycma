@@ -210,17 +210,21 @@ class OOOptimizer(object):
                 self.tell(X, fitvals)  # all the work is done here
                 for f in callback:
                     f(self)
-                self.disp(verb_disp)  # disp does nothing if not overwritten
+                self.disp(verb_disp)  # None invokes default, was: disp does nothing if not overwritten
 
         # final output
         self._force_final_logging()
 
-        if verb_disp:  # do not print by default to allow silent verbosity
-            self.disp(1)
-            print('termination by', self.stop())
-            print('best f-value =', self.result[1])
-            print('solution =', self.result[0])
-
+        if verb_disp is None or verb_disp > 0:
+            try:
+                if self.opts['verb_disp'] > 0:
+                    self.result_pretty()  # for the printing side effect
+            except Exception:  # previous code
+                if verb_disp:  # do not print by default, this seems too silent?
+                    self.disp(1)
+                    print('termination by', self.stop())
+                    print('best f-value =', self.result[1])
+                    print('solution =', self.result[0])
         return self
 
     def _prepare_callback_list(self, callback):  # helper function
