@@ -58,9 +58,11 @@ classifiers = [
 # packages = ["cma", "cma.utilities"]  # fails when they are in an src/ folder
 include-package-data = false  # true is default, false doesn't change anything
 
-# [tool.setuptools.packages.find]  # for . works only in a clean folder
-# where = ["src"]  # this doesn't work, it always takes the root too
-# include = ["cma*"]
+[tool.setuptools.packages.find]  # for where=. works only in a clean folder
+# where = ["src"]  # this doesn't work, it always takes the root too?
+include = ["cma*"]
+exclude = ["notebooks*"]
+
 # namespaces = false
 
 [project.optional-dependencies]
