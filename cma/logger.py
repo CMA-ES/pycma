@@ -457,7 +457,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         """
         mod = modulo if modulo is not None else self.modulo
         self.counter += 1
-        if mod == 0 or (self.counter > 3 and (self.counter - 1) % mod):
+        if mod == 0:
             return
         if es is None:
             try:
@@ -466,6 +466,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 raise AttributeError('call `add` with argument `es` or ``register(es)`` before ``add()``')
         elif not self.registered:
             self.register(es)
+
+        # es.stop has the desired side effect to update the termination state
+        if not es.stop() and self.counter > 3 and (self.counter - 1) % mod:
+            return
 
         if self.counter == 1 and not self.append and self.modulo != 0:
             self.initialize()  # write file headers
