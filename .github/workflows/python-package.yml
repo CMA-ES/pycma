@@ -30,12 +30,11 @@ jobs:
         python -m pip install flake8
         python -m pip install ruff
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        # python -m pip install moarchiving
         python -m pip install .  # or install numpy and further dependencies?
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude=cma/utilities/python3for2.py
+        flake8 cma --count --select=E9,F63,F7,F82 --show-source --statistics --extend-exclude=cma/utilities/python3for2.py
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         # flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Ruff
