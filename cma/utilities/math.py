@@ -19,7 +19,16 @@ def ifloat(float_):
     ``isinstance(np.array([1])[0], int) is False`` while
     ``isinstance(np.array([1.])[0], float) is True``, as of numpy 2.x in 2025.
     """
-    return float_ if isinstance(float_, int) else float(float_)  # isinstance(float_, (int, float)) is not faster
+    return float_ if isinstance(float_, int) else float(float_)
+    # isinstance(float_, (int, float)) is not faster, but also,
+    # isinstance(np.float, float) is sometimes(!) True
+
+def lifloat(li, maxlen=100):
+    """make print([np.float64(3.3)]) look nicer"""
+    if (isinstance(li, list) and len(li) <= maxlen and
+            not isinstance(li[0], int) and float(li[0]) is not li[0]):
+        return [ifloat(i) for i in li]
+    return li
 
 def _sqrt_len(x):  # makes randhss option pickable
     return len(x)**0.5
