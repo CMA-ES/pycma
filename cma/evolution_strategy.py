@@ -4987,7 +4987,7 @@ def fmin_con(objective_function, x0, sigma0,
     # _al.chi_domega = 1.1
     # _al.dgamma = 1.5
 
-    best_feasible_solution = ot.BestSolution2()
+    best_feasible_solution = ot.BestFeasibleSolution()
     if archiving:
         archives = [
             _constraints_handler.ConstrainedSolutionsArchive(_constraints_handler._g_pos_max),
@@ -5013,8 +5013,9 @@ def fmin_con(objective_function, x0, sigma0,
         fval, gvals = _ifloat(f(x)), constraints(x)
         alvals = _al(gvals)
         if all([gi <= 0 for gi in gvals]):
-            best_feasible_solution.update(fval, x,
-                info={'x':x, 'f': fval, 'g':gvals, 'g_al':alvals})
+            best_feasible_solution.update(fval, gvals, alvals, x,
+                info={  # for historical reasons
+                      'x':x, 'f': fval, 'g':gvals, 'g_al':alvals})
         info = _constraints_handler.constraints_info_dict(
                     _al.count_calls, x, fval, gvals, alvals)
         for a in archives:
@@ -5049,22 +5050,27 @@ def fmin_con(objective_function, x0, sigma0,
                            **kwargs_post)
         if es_post.best.f == 0:
             f = _ifloat(objective_function(es_post.best.x))
-            es.best_feasible.update(f, x=es_post.best.x, info={
-                'x': es_post.best.x,
-                'f': f,
-                'g': None  # it's a feasible solution, so we don't really care
-            })
+            # we don't know the g-value of best.x, but we know it's feasible
+            # and hence g must be negative (or zero)
+            es.best_feasible.update(f, [-1], None, x=es_post.best.x,
+                        info={  # for historical reasons
+                            'x': es_post.best.x,
+                            'f': f,
+                            'g': None  # it's a feasible solution, so we don't really care
+                        })
             return es.best_feasible.x, es
         x_post = es_post.result.xfavorite
         g_x_post, h_x_post = g(x_post), h(x_post)
         if all([gi <= 0 for gi in g_x_post]) and \
                 all([hi ** 2 <= post_optimization ** 2 for hi in h_x_post]):
             f_x_post = _ifloat(objective_function(x_post))
-            es.best_feasible.update(f_x_post, x=x_post, info={
-                'x': x_post,
-                'f': f_x_post,
-                'g': list(g_x_post) + list(h_x_post)
-            })
+            es.best_feasible.update(f_x_post, g_x_post, None, x=x_post,
+                        info={  # for historical reasons
+                                'x': x_post,
+                                'f': f_x_post,
+                                'g': list(g_x_post) + list(h_x_post),
+                                'h': h_x_post
+                            })
             return x_post, es
         else:
             utils.print_warning('Post optimization was unsuccessful',
@@ -5132,7 +5138,7 @@ def fmin_con2(objective_function, x0, sigma0,
 
     # optimize to feasible solution, in case
     if find_feasible_final:
-        x = fun.find_feasible(es)  # uses es.optimize
+        x = fun.find_feasible(es)  # uses ask-and-tell
         if kwargs_fmin['options'].get('eval_final_mean', None):
             # this doesn't make sense if xfavorite is returned anyway
             g = constraints(es.result.xfavorite)

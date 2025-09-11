@@ -10,7 +10,7 @@ from numpy import logical_and as _and, logical_or as _or, logical_not as _not
 from .utilities import utils
 from .utilities.math import Mh as _Mh, moving_average
 from .logger import Logger as _Logger  # we can assign _Logger = cma.logger.LoggerDummy to turn off logging
-from .optimization_tools import BestSolution2
+from .optimization_tools import BestSolution2, BestFeasibleSolution
 del absolute_import, division, print_function  #, unicode_literals
 
 _warnings.filterwarnings('once', message="``import moarchiving`` failed.*")
@@ -893,7 +893,7 @@ class ConstrainedFitnessAL(object):
         self.F_plus_sum_al_G = []
         self.foffset = 0  # not in use yet
         self.best_aug  = BestSolution2()
-        self.best_feas = BestSolution2()
+        self.best_feas = BestFeasibleSolution()
         self.best_f_plus_gpos = BestSolution2()
         self.count_calls = 0
         self.count_updates = 0
@@ -1013,7 +1013,7 @@ class ConstrainedFitnessAL(object):
         self.best_aug.update(d['f_al'], x, d)
         self.best_f_plus_gpos.update(f + sum([gi for gi in g if gi > 0]), x, d)
         if self._is_feasible(g):
-            self.best_feas.update(f, x, d)
+            self.best_feas.update(f, g, g_al, x, info=d)
         if np.isfinite(f):
             for a in self.archives:
                 a.update(f, g, d)
