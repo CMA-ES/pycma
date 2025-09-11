@@ -43,3 +43,22 @@ if 11 < 3:
         figsave, figclose, figshow = 3 * ['not available']
         _warnings.warn('Could not import matplotlib.pyplot, therefore ``cma.plot()``'
                        ' etc. is not available')
+
+def _cdict(obj, exclude='_'):
+    """return public attributes of `obj` as a `dict`.
+
+    Pass '__' as second argument to see "private" attributes.
+    """
+    return {d[0]:d[1] for d in obj.__dict__.items() if not d[0].startswith(exclude)}
+def clean(obj, exclude='_'):
+    """return "public" elements of a `list` or `dict` or of ``object.__dict__``.
+
+    Ignore entries starting with `exclude`. Return a 'list` when `obj`
+    is a `list` or a `dict`, return a `dict` otherwise. This is versatile
+    and could change in future.
+
+    Typical usage: ``clean(dir())`` or ``clean(obj)`` or ``clean(dir(), '__')``.
+    """
+    if isinstance(obj, (list, dict)):
+        return [d for d in obj if not d.startswith(exclude)]
+    return _cdict(obj, exclude=exclude)
