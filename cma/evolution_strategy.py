@@ -4418,7 +4418,8 @@ def fmin2(objective_function, x0, sigma0,
          noise_kappa_exponent=0,  # TODO: add max kappa value as parameter
          bipop=False,
          callback=None,
-         init_callback=None):
+         init_callback=None,
+         constraints=None):
     """functional interface to the stochastic optimizer CMA-ES
     for non-convex function minimization.
 
@@ -4451,16 +4452,18 @@ def fmin2(objective_function, x0, sigma0,
 
     Arguments
     =========
+    The order of arguments is kept for historical reasons.
+
     ``objective_function``
-        called as ``objective_function(x, *args)`` to be minimized.
-        ``x`` is a one-dimensional `numpy.ndarray`. See also the
-        `parallel_objective` argument.
-        ``objective_function`` can return `numpy.NaN`, which is
-        interpreted as outright rejection of solution ``x`` and invokes
-        an immediate resampling and (re-)evaluation of a new solution
-        not counting as function evaluation. The attribute
+        called as ``objective_function(x, *args)`` to be minimized. ``x``
+        is a one-dimensional `numpy.ndarray`. See also the
+        `parallel_objective` argument. ``objective_function`` can return
+        `numpy.NaN`, which is interpreted as outright rejection of solution
+        ``x`` and invokes an immediate resampling and (re-)evaluation of a
+        new solution not counting as function evaluation. The attribute
         ``variable_annotations`` is passed into the
-        ``CMADataLogger.persistent_communication_dict``.
+        ``CMADataLogger.persistent_communication_dict``. See also
+        ``constraints`` below.
     ``x0``
         list or `numpy.ndarray`, initial guess of minimum solution
         before the application of the geno-phenotype transformation
@@ -4555,6 +4558,9 @@ def fmin2(objective_function, x0, sigma0,
         are given in the `options`) or ``es.integer_centering =
         cma.integer_centering.IntCentering(es, correct_bias=False)``
         disables its bias correction.
+    ``constraints``
+        A function that takes a solution `x` as input and returns a list of
+        constraint values desired to become <= 0.
 
     Optional Arguments
     ==================
@@ -4673,7 +4679,8 @@ def fmin2(objective_function, x0, sigma0,
          noise_kappa_exponent,
          bipop,
          callback,
-         init_callback)
+         init_callback,
+         constraints=constraints)
     return res[0], res[-2]
 
 
@@ -5026,7 +5033,11 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
                                 utils.print_message('%d f-degrading iterations (set verbose<=4 to suppress)'
                                                     % degrading_iterations_count,
                                                     iteration=es.countiter)
-                    es.tell(X, fit)  # prepare for next iteration
+                    if kwargs.get('constraints', None) is not None:
+                        es.tell2(X, fit, [kwargs['constraints'](x) for x in X])
+                    else:
+                        es.tell(X, fit)  # prepare for next iteration
+
                     if noise_handling:  # it would be better to also use these f-evaluations in tell
                         es.sigma *= noisehandler(X, fit, objective_function, es.ask,
                                                  args=args)**fmin_opts['noise_change_sigma_exponent']
