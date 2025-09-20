@@ -96,7 +96,7 @@ EITHER: tag locally and push, mainly to avoid changing any remote branch::
 OR: push code to development and/or master. This must be done at some
     point anyways, if only to update the README.md, and::
 
-    git fetch --tags  # may even be good enough without --tags
+    git fetch  # or with --tags to fetch tags not followed remotely
 
 9.
 Finalize and publish the release drafted on Github.
@@ -110,13 +110,8 @@ Push new docs to github
     git ci
     git push
 
-11. (if necessary)
-Fetch tag in case::
-
-    git fetch --tags
-
-12. (if not already done)
-Update master and push branches to remote
+11. (if not already done)
+Update master and push master and development to remote
 
 
 Anaconda::
