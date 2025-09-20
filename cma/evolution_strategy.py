@@ -3016,6 +3016,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.timer = utils.ElapsedWCTime()
 
         self.more_to_write.check()
+        
+        if 11 < 3:  # passes all tests
+            self.sp.set(self.opts, ccovfac=self.opts['CMA_on'], verbose=0)
     # end tell()
     tell2.__doc__ = tell.__doc__
 
@@ -3163,6 +3166,32 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             """ % str(s), InjectionWarning)
                 self._injected_solutions_archive.pop(k)
         return indices  # in sorted pop
+
+    def reset_options(self, **kwargs):
+        """clear termination and set any `CMAOptions` passed via
+
+        keyword arguments or like ``**opts_dict``. The validity of the option
+        names is checked, the validity of the values is not checked.
+
+        Some resettings will not be effective. For those with a ``'#v'``
+        flag in their description, the effectiveness is guarantied. See
+        `CMAOptions`.
+
+        Return `self`, the new options are in ``self.opts``.
+        """
+        for k, v in kwargs.items():
+            if k in self.opts:
+                if self.opts['verbose'] > 7 and "#v" not in CMAOptions()[k]:
+                    warnings.warn("{0} is not a versatile option, resetting to {1}"
+                                  " may not have the desired effect".format(k, v))
+                self.opts[k] = v
+            else:
+                warnings.warn("option {0} is not recognized (hence value {1} is ignored)\n"
+                              "  Check out `cma.CMAOptions` to see the valid names."
+                              .format(k, v))
+        self.sp.set(self.opts, ccovfac=self.opts['CMA_on'])
+        self.stop().clear()
+        return self
 
     @property
     def stds(self):
