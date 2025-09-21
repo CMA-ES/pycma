@@ -89,6 +89,12 @@ It may be necessary to replace ``pip`` with ``python -m pip`` and/or prefixing
 either of these with ``sudo``.
 
 ## Version History
+* [Release ``4.4.1``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.1)
+  - `fmin2` accepts a constraints function as `constraints` keyword argument
+  - an improved `CMAEvolutionStrategyResult2` class which also contains the best feasible solution
+  - a `reset_options` method which also clears the current termination status
+  - polish the output of ``.optimize()`` and of ``.result_pretty()``
+  - catch final ``.stop()`` value displayed with `cma.plot`
 
 * [Release ``4.4.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.0)
   - constraints handling is available also in the <tt>ask</tt>-and-<tt>tell</tt> interface (addressing issues [#258](https://github.com/CMA-ES/pycma/issues/258), [#287](https://github.com/CMA-ES/pycma/issues/287), and [#167](https://github.com/CMA-ES/pycma/issues/167))

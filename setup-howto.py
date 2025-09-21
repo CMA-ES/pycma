@@ -7,8 +7,8 @@ Switch to the desired branch.
 0.
 Run local tests
 
-    ./script-test-all-all-arm.sh
     ruff check cma
+    ./script-test-all-all-arm.sh
 
 1.
 Push to a test branch to trigger test:
@@ -67,10 +67,10 @@ Make and check the distribution from a (usual) dirty code folder ==> install-fol
 6.
 Loop over tests and distribution and fix code until everything is fine.
 
-7.
+7.a
 Draft a release on GitHub: click on releases and then new draft. Use above text added in README.md.
 
-8.a
+7.b
 Upload the distribution in ``install-folder``::
 
     twine upload dist/*  # upload everything given the install folder was clean
@@ -87,21 +87,21 @@ Upload the distribution in ``install-folder``::
         twine upload --repository testpypi dist/cmae*
         cd ../install-folder
 
-8.b
+7.c
 EITHER: tag locally and push, mainly to avoid changing any remote branch::
 
     git tag -a r4.4.1 -m 'r4.4.1 release'
     git push origin r4.4.1
 
-OR: push code to development and/or master. This must be done at some
-    point anyways, if only to update the README.md, and::
+OR: push code to development and/or main. This must be done at some
+    point anyways, if only to update the README.md. Then, after 9. is done::
 
     git fetch  # or with --tags to fetch tags not followed remotely
 
-9.
+8.
 Finalize and publish the release drafted on Github.
 
-10.
+9.
 Push new docs to github
 
     cp -r apidocs/* /Users/hansen/git/CMA-ES.github.io/apidocs-pycma
@@ -110,8 +110,8 @@ Push new docs to github
     git ci
     git push
 
-11. (if not already done)
-Update master and push master and development to remote
+10. (if not already done)
+Update main and push main and development to remote
 
 
 Anaconda::
