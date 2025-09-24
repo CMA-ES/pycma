@@ -24,6 +24,8 @@ global_verbosity = 1
 # and False for NaN, and an exception for array([0,1]), see also
 # http://google-styleguide.googlecode.com/svn/trunk/pyguide.html#True/False_evaluations
 
+def _id(x, *args, **kwargs):
+    return x
 
 def is_(var):
     """intuitive handling of variable truth value also for `numpy` arrays.
@@ -708,6 +710,17 @@ class DataDict(collections.defaultdict):
         """append data of entries in `dict_` to entries in self"""
         for k in dict_:
             self[k] += dict_[k]  # self is a dict of lists
+        return self
+
+    def replace(self, replace_function=_id):
+        """replace all entries with the return value of `replace_function`.
+
+        The `replace_function` gets the original value, the key, and the
+        list index as arguments.
+        """
+        for k in self:
+            for i in range(len(self[k])):
+                self[k][i] = replace_function(self[k][i], key=k, index=i)
         return self
 
     def save(self):
