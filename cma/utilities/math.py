@@ -761,7 +761,8 @@ class MathHelperFunctions(object):
     @staticmethod
     def minmax(val, min_val, max_val):
         assert min_val <= max_val
-        return min((max_val, max((val, min_val))))
+        return min_val if val < min_val else max_val if val > max_val else val
+        # return min((max_val, max((val, min_val))))  # somewhat slower
     @staticmethod
     def aminmax(val, min_val, max_val):
         return np.array([min((max_val, max((v, min_val)))) for v in val])
