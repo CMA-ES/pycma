@@ -741,12 +741,11 @@ class ExclusionListOfVectors(list):
         return False
 
 class ElapsedWCTime(object):
-    """measure elapsed cumulative time while not paused and elapsed time
-    since last tic.
+    """measure elapsed cumulative time while not paused since creation.
 
-    Use attribute `tic` and methods `pause` () and `reset` ()
-    to control the timer. Use attributes `toc` and `elapsed` to see
-    timing results.
+    To control the timer, use attribute `tic` and methods `pause` () and
+    `reset` (). To see timing results, use attributes `toc` (since last
+    `tic`) and `elapsed` (since creation).
 
     >>> import cma
     >>> e = cma.utilities.utils.ElapsedWCTime().pause()  # (re)start later
@@ -762,12 +761,15 @@ class ElapsedWCTime(object):
         """add time offset in seconds and start timing"""
         self._time_offset = time_offset
         self.reset()
+        self._time_at_creation = self._time_at_reset  # for the record
     def reset(self):
         """reset to initial state and start timing"""
         self.cum_time = self._time_offset
         self.paused = 0
         """time when paused or 0 while running"""
         self.last_tic = time.time()
+        self._last_toc = self.last_tic
+        self._time_at_reset = self.last_tic  # for the record only
         return self
     def pause(self):
         """pause timer, resume with `tic`"""
@@ -801,16 +803,23 @@ class ElapsedWCTime(object):
         return return_
     @property
     def elapsed(self):
-        """elapsed time while not paused, measured since creation or last
-        `reset`
+        """elapsed time since last `reset` while not paused.
+
+        Details: this triggers a `toc` call.
         """
         return self.cum_time + self.toc
     @property
     def toc(self):
-        """return elapsed time since last `tic`"""
+        """elapsed time since last `tic` or `pause` call"""
+        self._last_toc = time.time()
         if self.paused:
             return self.paused - self.last_tic
-        return time.time() - self.last_tic
+        return self._last_toc - self.last_tic
+    @property
+    def wallclock(self):
+        """never used: time between last `reset` and last `toc` (i.e. last usage)
+        """
+        return self._last_toc - self._time_at_reset
 
 class TimingWrapper(object):
     """wrap a timer around a callable.

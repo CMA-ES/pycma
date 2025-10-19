@@ -23,6 +23,25 @@ array = np.array
 def _id(x):
     return x
 
+def seconds2str(sec):
+    """return `*d**h**` or `*h**` or `*m**s` or `*.*sec`"""
+    sec_ = sec
+    d = int(sec_ / (24 * 3600))
+    if d == 1:
+        d = 0
+    sec_ -= 24 * 3600 * d
+    h = int(sec_ / 3600)
+    sec_ -= 3600 * h
+    m = int(sec_ / 60)
+    sec_ -= m * 60
+    if d:
+        return "{0}d{1:02d}h{2:02d}".format(d, h, m)
+    if h:
+        return "{0}h{1:02d}".format(h, m)
+    if m:
+        return "{0}m{1:02.0f}s".format(m, sec_)
+    return "{0:.1f} sec".format(sec_)
+
 def _fix_lower_xlim_and_clipping():
     """minimize space wasted below x=0"""
     from matplotlib.pyplot import gca
@@ -248,6 +267,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                         'interquartile range, ' +
                         '25%tile, ' +
                         'current best feasible f-value, ' +
+                        'elapsed wallclock time [s], ' +
                         'further/more values", ' +
                         strseedtime +
                         ', ' + self.persistent_communication_dict.as_python_tag +
@@ -358,7 +378,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
             self.stoppings = None  # don't keep previous condition
 
-        fn = filenameprefix + 'version.txt'
+        fn = filenameprefix.rstrip('down') + 'version.txt'
         try:
             with open(fn, 'r') as f:
                 self.data_version = f.read().strip()
@@ -506,6 +526,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except Exception:
             if iteration > 0:  # first call without f-values is OK
                 raise
+        time_ = '{0:.1f}'.format(self.timer_all.elapsed)
         try:
             xrecent = es.best.last.x
         except Exception:
@@ -576,6 +597,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + str(float(iqrangef)) + ' '
                             + str(float(p25)) + ' '  # 10th value (index 9)
                             + str(float(feasiblef)) + ' '
+                            + time_ + ' '  # index 11
                             # + str(es.sp.popsize) + ' '
                             # + str(10**es.noiseS) + ' '
                             # + str(es.sp.cmean) + ' '
@@ -706,7 +728,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 pass
             try:  # experimental, WIP
                 from . import __version__
-                with open(self.name_prefix + 'version.txt', 'w') as f:
+                with open(self.name_prefix.rstrip('down') + 'version.txt', 'w') as f:
                     f.write(__version__)
             except Exception:
                 pass
@@ -1422,19 +1444,29 @@ class CMADataLogger(interfaces.BaseDataLogger):
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(_x, abs(dat.f[:, [8]]) + foffset, 'grey', linewidth=0.75)  # darkorange is nice
             text(_x[-2], abs(dat.f[-2, 8]) + foffset, 'IQR(f)', fontsize=fontsize)
-        if dat.f.shape[1] > 11:  # plot the largest columns in yellow
-            # dd = abs(dat.f[:,7:]) + 10*foffset
-            # dd = _where(dat.f[:,7:]==0, np.nan, dd) # cannot be
-            semilogy(_x, np.abs(dat.f[:, 11:]) + 10 * foffset, 'y', linewidth=0.7)
-            # hold(True)
-        # we may now overwrite some yellow lines (currently not)
         # column 9=p25 is not plotted
         # plot feasible f col index 10
         if dat.f.shape[1] > 10 and np.isfinite(dat.f[-1, [10]]):
             # semilogy(dat.f[:, iabscissa], abs(dat.f[:,[6, 7, 10, 12]])+foffset,'-k')
             semilogy(_x, abs(dat.f[:, [10]]) + foffset, 'b', linewidth=0.65)
             text(_x[-2], abs(dat.f[-2, 10]) + foffset, 'feasible f', fontsize=fontsize)
+        # index 11 time is not plotted
         # (larger indices): additional fitness data, for example constraints values
+        remaining_idx = 11
+        if dat.f.shape[1] > 11:  # decide whether to ignore index 11
+            if (  # time is written with 1 digit of precision
+                    np.any(dat.f[:100, 11] != np.round(dat.f[:100, 11]))
+                    and np.all(10 * dat.f[:100, 11] == np.round(10 * dat.f[:100, 11]))
+                ) or (  # ignore constant 0 or -1.1
+                    np.all(dat.f[:, 11] == 0) or np.all(dat.f[:, 11] == -1.1)
+                ):
+                remaining_idx = 12
+        if dat.f.shape[1] > remaining_idx:  # plot the remaining columns in yellow
+            # dd = abs(dat.f[:,7:]) + 10*foffset
+            # dd = _where(dat.f[:,7:]==0, np.nan, dd) # cannot be
+            semilogy(_x, np.abs(dat.f[:, remaining_idx:]) + 10 * foffset, 'y', linewidth=0.7)
+            # hold(True)
+        # we may now overwrite some yellow lines (currently not)
 
         idx = _where(dat.f[:, 5] > 1e-98)[0]  # positive values
         semilogy(_x[idx], dat.f[idx, 5] + foffset, '.b')
@@ -1567,7 +1599,10 @@ class CMADataLogger(interfaces.BaseDataLogger):
             )
              #'.f_recent=' + repr(dat.f[-1, 5]))
         try:
-            text(ax[1], ax[3], 'v' + self.data_version, fontsize=5)
+            time_ = ''
+            if len(dat.f[-1]) > 11 and dat.f[-1, 11] * 10 == int(dat.f[-1, 11] * 10):
+                time_ = seconds2str(dat.f[-1, 11])  # times are rounded to .1 sec
+            text(ax[1], ax[3], '{0}\nby v'.format(time_) + self.data_version, fontsize=5)
         except Exception:
             pass
         self.f[:, 5:8] -= fshift
