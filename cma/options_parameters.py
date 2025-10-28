@@ -11,12 +11,25 @@ from .utilities import utils
 from .logger import CMADataLogger
 from .recombination_weights import RecombinationWeights
 
+integer_std_lower_bound_limit = 0.2
+'''upper limit for the std lower bound'''
+integer_std_lower_bound_distance = 1/2  # <= 1/2, was originally 1/2
+'''smallest distance of the mean value to the next integer values that is
+   assumed as still "in the center". Used to compute the ppf to compute an upper
+   bound for the lower stds bounds. We always have distance <= 1/2. For p < 0.2,
+   std(1/3 one-sided) is always smaller than std(1/2 two-sided), see
+   `integer_lower_bound_target_probability`. When chosen <= 1/3, this makes the
+   binary flag obsolete.
+   '''
 integer_std_lower_bound_factor1 = 1
 '''factor used in `integer_std_lower_bound` as multiplier to ``mueff/N``'''
 integer_std_lower_bound_factor2 = 1
-'''factor used in `integer_std_lower_bound` as multiplier to
-   `integer_std_lower_bound_limit_when_mu_is_large`'''
-integer_std_lower_bound_limit = 0.2
+'''still active but deprecated and superseded by the semantically meaningful
+   `integer_std_lower_bound_distance` which is code-wise the same multiplier.
+
+   was: factor used in `integer_std_lower_bound` as multiplier to ``dist/-ppf``
+   which is effective when mueff/N is large.
+   '''
 
 integer_active_limit_std = inf
 '''limit coordinate stds of solutions in C update, by default off, may go away'''
@@ -154,12 +167,33 @@ def integer_std_lower_bound(N, mueff, N_int=None, binary=False):
     ``ptarget=integer_lower_bound_target_probability(N, N_int)`` (which
     should be roughly 1/N) as input. This bound becomes < 0.2 only when
     ptarget < 1/152 (==> < -2.5-sigma).
+
+    Details: `binary` is never passed when calling hence always `False`.
+
+    The std value ``integer_std_lower_bound_distance / -ppf`` can affect the
+    bound only when it is below mueff/dim and below
+    integer_std_lower_bound_limit=0.2. The latter is the case for a
+    integer_std_lower_bound_distance of 1/2 two sided, 1/2, and 1/3,
+    respectively, for
+
+    dim = dim_int >= 80, 161 and 20 or
+    ptarget <= 1 / 81, 1 / 162 and 1 / 21
     """
+    distance_ratio = integer_std_lower_bound_distance / (
+                        1 - integer_std_lower_bound_distance)
+    '''ratio between short and long distance to the value flip boundary of the mean'''
+    assert distance_ratio <= 1, (integer_std_lower_bound_distance, distance_ratio)
+    bin_fac = 1 if binary else max((1, 2 * distance_ratio))  # bin_fac is in [1, 2]
+    '''a very approximate correction of the binary flag / two-sided correct
+       using `integer_std_lower_bound_distance`. For a distance ratio < 1:2, we
+       have in effect the binary / one-sided scenario.
+       '''
     ptarget = integer_lower_bound_target_probability(N, N_int if N_int else N)
-    ppf = utilities.math.normal_ppf(ptarget / (1 if binary else 2))  # AKA sigma(ptail)
+    ppf = utilities.math.normal_ppf(ptarget / bin_fac)  # AKA sigma(ptail)
     return min((integer_std_lower_bound_limit,
                 integer_std_lower_bound_factor1 * mueff / N,  # TODO: this is too small for 100D-leadingones, add (1+tanh(N_int / N)) / 2 ?
-                integer_std_lower_bound_factor2 * 0.5 / -ppf  # p=1/152.85 -> sigma=0.2
+                integer_std_lower_bound_factor2 * 
+                integer_std_lower_bound_distance / -ppf
                ))
 
 def integer_lower_bound_target_probability(N, N_int):
@@ -169,11 +203,46 @@ def integer_lower_bound_target_probability(N, N_int):
 
     ``2 / (N + N_int)`` should keep at least 37% of the solutions unaffected.
 
-    Details: from ``ptarget`` we can compute ``sigma = 1 / PPF(ptarget/2) /
-    2`` where ``PPF`` is the quantile function of the standard normal
-    distribution and the first ``2`` accounts for two-sided sampling of the
-    tails and the second ``2`` is needed because the distance to the value
-    domain bound is 1/2.
+    Details: from ``ptarget`` we can compute ``sigma = 1 / PPF(ptarget/2) / 2``
+    where ``PPF`` is the quantile function of the standard normal distribution.
+    The first ``2`` accounts for two-sided sampling of the tails. The second
+    ``2`` is for the distance to the value domain bound to be 1/2. If we assume
+    a smaller distance, say 1/3, we can compute the one-sided ``sigma = 1 /
+    PPF(ptarget) / 3``. This is in effect one-sided because the opposite side
+    has twice the distance and hence adds negligible probability::
+
+        import scipy
+        from cma.utilities import math as um
+
+        ppf = scipy.stats.norm.ppf
+        ppf = um.normal_ppf
+
+        print('          ppf            sigma(p) ')
+        print('p  two-sided one-sided d=1/2+two-sided d=1/3+one-sided')
+        for p in np.logspace(-4, -0.5, 17):
+            print("{:.4f} {:.1f} {:.1f}       {:.2f}   {:.2f}".format(
+                p, ppf(p / 2), ppf(p), 1 / -ppf(p / 2) / 2, 1 / -ppf(p) / 3))
+    
+                  ppf            sigma(p) 
+        p  two-sided one-sided d=1/2+two-sided d=1/3+one-sided
+        0.0001 -3.9 -3.7       0.13   0.09
+        0.0002 -3.8 -3.6       0.13   0.09
+        0.0003 -3.6 -3.5       0.14   0.10
+        0.0005 -3.5 -3.3       0.14   0.10
+        0.0007 -3.4 -3.2       0.15   0.10
+        0.0012 -3.2 -3.0       0.15   0.11
+        0.0021 -3.1 -2.9       0.16   0.12
+        0.0034 -2.9 -2.7       0.17   0.12
+        0.0056 -2.8 -2.5       0.18   0.13
+        0.0093 -2.6 -2.4       0.19   0.14
+        0.0154 -2.4 -2.2       0.21   0.15
+        0.0255 -2.2 -2.0       0.22   0.17
+        0.0422 -2.0 -1.7       0.25   0.19
+        0.0698 -1.8 -1.5       0.28   0.23
+        0.1155 -1.6 -1.2       0.32   0.28
+        0.1911 -1.3 -0.9       0.38   0.38
+        0.3162 -1.0 -0.5       0.50   0.70
+
     """
     if N_int > N:
         raise ValueError("{0}=N_int > N = {1} is not a valid cases".format(N_int, N))
