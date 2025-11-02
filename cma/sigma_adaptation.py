@@ -69,6 +69,9 @@ class CMAAdaptSigmaBase(object):
 
         """
         self._update_ps(es)
+        # TODO: the following is executed again in update2
+        #       Possible fix: save ps and use self._ps_updated_iteration == es.countiter
+        #       or a hash es.pc to make the computation conditional?
         if es.opts.get('CSA_invariant_path'):  # was pc_for_ps = 'pc for ps' in es.opts['vv']
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
             ps = es.sm.transform_inverse(es.pc)
@@ -245,11 +248,13 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         """
         self._update_ps(es)  # caveat: if es.B or es.D are already updated and ps is not, this goes wrong!
         p = self.ps
+        cs = self.cs
         if es.opts.get('CSA_invariant_path'):  # was pc_for_ps = 'pc for ps' in es.opts['vv']
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
             if es.opts['verbose'] > 1 and es.countiter == 1:
                 utils.print_message('CSA uses invariant path pc for ps')
             p = es.sm.transform_inverse(es.pc)
+            cs = es.sp.cc
         try:                                 # to filter coordinates or a
             p = es.path_for_sigma_update(p)  # subspace depending on the state
         except AttributeError:
@@ -267,7 +272,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             # divided by 2 to have the derivative d/dx (x**2 / N - 1) for x**2=N equal to 1
         else:
             s = _norm(p) / Mh.chiN(N) - 1
-        s *= self.cs / self.damps
+        s *= cs / self.damps
         if csa_dampdown_fac != 1 and s < 0:
             s /= csa_dampdown_fac
         s_clipped = Mh.minmax(s, -self.max_delta_log_sigma, self.max_delta_log_sigma)
