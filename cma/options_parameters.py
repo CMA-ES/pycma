@@ -558,7 +558,13 @@ class CMAOptions(dict):
         try:
             if utils.is_str(val):
                 val = val.split('#')[0].strip()  # remove comments
-                if key.find('filename') < 0 and not (key == 'seed' and val.startswith('time')):
+                if key == 'CMA_const_trace':
+                    try:  # evaluate 'False', keep 'geo'...
+                        val = eval(safe_str(val), global_env, loc)
+                    except ValueError:
+                        pass
+                elif key.find('filename') < 0 and not (
+                        key == 'seed' and val.startswith('time')):
                         # and key.find('mindx') < 0:
                     val = eval(safe_str(val), global_env, loc)
             # invoke default
