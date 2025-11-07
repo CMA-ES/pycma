@@ -2601,6 +2601,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.pc = (1 - cc) * self.pc + hsig * (
                     (cc * (2 - cc) * self.sp.weights.mueff)**0.5 / self.sigma
                         / cmean) * (self.mean - mold) / self.sigma_vec.scaling
+        if self.opts['CSA_invariant_path']:
+            self._path_for_invariant_update = self.sm.transform_inverse(self.pc)
         dd_params = self.sigma_vec.parameters(self.sp.weights.mueff,
                                         c1_factor=self.opts['CMA_rankone'],
                                         cmu_factor=self.opts['CMA_rankmu']

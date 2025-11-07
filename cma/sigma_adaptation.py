@@ -253,7 +253,7 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
             # was: es.D**-1 * np.dot(es.B.T, es.pc)
             if es.opts['verbose'] > 1 and es.countiter == 1:
                 utils.print_message('CSA uses invariant path pc for ps')
-            p = es.sm.transform_inverse(es.pc)
+            p = es._path_for_invariant_update
             cs = es.sp.cc
         try:                                 # to filter coordinates or a
             p = es.path_for_sigma_update(p)  # subspace depending on the state
