@@ -44,6 +44,12 @@ class GaussSampler(StatisticalModelSamplerWithZeroMeanBaseClass):
             return
         self._right = D**0.5 * B  # == B @ np.diag(D**-0.5)
         self._left = self._right.T  # == np.diag(D**-0.5) @ B.T
+    def update(self, *args, **kwargs):
+        """do nothing by default"""
+        pass
+    def update_now(self, *args, **kwargs):
+        """do nothing by default"""
+        pass
     @property
     def eigenspectrum(self):
         """return eigen spectrum w.r.t. H like sqrt(H) C sqrt(H)"""
@@ -118,10 +124,6 @@ class GaussStandardConstant(GaussSampler):
         if hasattr(self, 'standard_deviations'):
             arz *= self.standard_deviations
         return arz
-
-    def update(self, vectors, weights):
-        """do nothing"""
-        pass
 
     def transform(self, x):
         if hasattr(self, 'standard_deviations'):
