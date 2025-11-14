@@ -20,6 +20,9 @@ from . import restricted_gaussian_sampler as _rgs
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 array = np.array
 
+def _id(x):
+    return x
+
 def _fix_lower_xlim_and_clipping():
     """minimize space wasted below x=0"""
     from matplotlib.pyplot import gca
@@ -2550,7 +2553,8 @@ class Logger(object):
             self.count = len(self.data)
         return self
 
-    def plot(self, plot=None, clear=True, transformations=None):
+    def plot(self, plot=None, clear=True, transformations=None,
+             smoothing=_id, color='plasma', labels=True, **kwargs):
         """plot logged data using the `plot` function.
 
         If `clear`, this calls `matplotlib.pyplot.gca().clear()` before
@@ -2559,6 +2563,10 @@ class Logger(object):
 
         If ``transformations[i]`` is a `callable` it is used to transform the i-th
         data column like ``i_th_column = transformations[i](data[:,i])``.
+
+        `smoothing` (over time) is applied to each data column, a light
+        (though slow) smoothing would be
+        ``functools.partial(cma.utilities.math.moving_average, w=1.1)``.
         """
         try:
             from matplotlib import pyplot as plt
@@ -2578,10 +2586,14 @@ class Logger(object):
         if m < 2:  # data cannot be indexed like data[:,0]
             try: data = transformations[0](self.data)
             except (IndexError, TypeError): data = self.data
-            plot(range(1, n + 1), data,
-                 label=self.labels[0] if self.labels else None)
+            plot(range(1, n + 1), smoothing(data),
+                 label=self.labels[0] if clear and self.labels else None,
+                 **kwargs)
         else:
-            color = iter(plt.get_cmap('plasma')(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
+            if color:
+                colors = iter(plt.get_cmap(color)(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
+            else:
+                colors = None
             idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
             if len(idx_labels) > 1:
                 idx_labels[-1] = m - 1  # last label goes to the line m - 1
@@ -2590,13 +2602,15 @@ class Logger(object):
                 column = self.data[:, i]
                 try: column = transformations[i](column)
                 except (IndexError, TypeError): pass
-                plot(range(1, n + 1), column,
-                    color=next(color),
-                    label=next(labels) if i in idx_labels else None,
-                    linewidth=1 - 0.7 * m / (m + 10))
-                # plt.gca().get_lines()[0].set_color(next(color))
+                plot(range(1, n + 1), smoothing(column),
+                    color=next(colors) if colors else None,
+                    label=next(labels) if clear and i in idx_labels else None,
+                    linewidth=1 - 0.7 * m / (m + 10),
+                    **kwargs)
+                # plt.gca().get_lines()[0].set_color(next(colors))
         if self.labels:
             plt.legend(framealpha=0.3)  # more opaque than not
+        plt.grid(True, which='both')
         plt.gcf().canvas.draw()  # allows online use
         return self
 
