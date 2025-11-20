@@ -16,6 +16,8 @@ environment:
       MINICONDA: C:\Miniconda38
     - PYTHON_VERSION: 3.7
       MINICONDA: C:\Miniconda37
+    - PYTHON_VERSION: 3.14
+      MINICONDA: C:\Miniconda314
     - PYTHON_VERSION: 3.11
       MINICONDA: C:\Miniconda311
     - PYTHON_VERSION: 3.10
