@@ -41,42 +41,41 @@ To check the apidocs from a dirty code folder:
             less +G pydoctor-messages.txt  # less +G = check for errors (which are at the end!)
 
 5.
-Make and check the distribution assuming a clean src/ folder (ln -s ../cma src/cma, was: from a (usual) dirty code folder ==> install-folder)::
+Make and check the distribution 
 
-CAVEAT trouble shooting: remove folders (/bin/rm -r) when they have been created
-    - ./cma-4.4...
-    - src/cma.egg-info... (may not be necessary)
-    - cma.egg-info (may not be necessary)
+    make sure the version number in __init__ is correct, see point 0.
 
     python -m build > dist_call_output.txt; less dist_call_output.txt
-    git tag -f last-build  # not sure whether this is useful
-
     twine check --strict dist/*  # needs py314
-    tar -tf dist/cma-4.4.5.tar.gz | tree --fromfile | less
+    tar -tf dist/cma-4.6.1.tar.gz | tree --fromfile | less
                 #   ==> 6 directories, 40 files, check that the distribution folders are clean
                 #   was: ==> 7 directories, 40 files (includes src folder)
                 #   was: ==> 5 directories, 36 files
+    git tag -f last-build  # to know that we use the right commit later
 
 # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
 
 6.
 Loop over tests and distribution and fix code until everything is fine.
 
-7.a
+7a.
+Draft a release on Github
+
+  - push code to the, say, `test` branch for testing
+  - click on releases and then new draft
+  - copy-paste the text above added in README.md in the body
+  - chose "Select tag" like r4.6.0
+  - chose the above branch as "Target"
+  - save draft
+
+7.b (alternatively)
 Create a tag to pick later for the Github release::
 
-    git tag -a r4.4.1 -m 'r4.4.1 bug fixes and...'
-
-(Alternatively: push code to development and/or main (this must be done at some
-point anyways, if only to update the README.md.) and ``git fetch`` or with
-``--tags`` to fetch tags not followed remotely.)
-
-7b.
-Draft a release on Github (click on releases and then new draft) and use the
-text above added in README.md.
+    git tag -a r4.6.0 -m 'r4.6.0 bug fixes and...'
+    git push r4.6.0
 
 7.c
-Upload the distribution (was: in ``install-folder``)::
+Upload the distribution::
 
     # optional (test upload):
         in pyproject.toml: change "name = cma" to = cmae
@@ -84,11 +83,14 @@ Upload the distribution (was: in ``install-folder``)::
         twine upload --repository testpypi dist/cmae*
         open https://test.pypi.org/project/cmae
 
-    twine upload dist/*4.4.4*
-    git push origin r4.4.1
+    twine upload dist/*4.6.1*
 
 8.
-On Github: select the tag, review and publish the release.
+On Github: review and publish the release (thereby creating the tag)
+
+Locally::
+
+    git fetch --tags
 
 9.
 Push new docs to github
@@ -106,7 +108,7 @@ Update main and push main and development to remote
 conda-forge::
 
     # edit version number in tools/conda.recipe/meta.yaml
-    ./script-prepare-distribution.sh  # make clean install-folder
+    ./script-prepare-distribution.sh  # make clean install-folder (old)
     conda-build -q tools/conda.recipe  # takes about 4 minutes
 
 """

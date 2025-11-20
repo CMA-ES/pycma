@@ -101,6 +101,23 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``4.6.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.6.0)
+  - Provide `set_popsize` method to change the population size during a run.
+  - Allow dynamic setting of learning rates by assigning values or callbacks
+    ``c*_dynamic`` of a `CMAEvolutionStrategy` instance. The callback allows to
+    use the last used value for the new computation.
+  - Option `'verb_disp_overwrite'` remains inactive if `'verb_disp'` is `True`
+    or integer 1.
+  - Change the computation for lower std bounds of integer variables to improve
+    the semantics of `integer_std_lower_bound`, setting
+    ``integer_std_lower_bound_distance=1/3`` and making the `binary` flag
+    obsolete.
+  - Methods to check whether a genotype solution is in the pre-bounds
+  - `CMAOptions._stationary_sphere` can be a function that returns a new mean
+  - Polish various fitness function implementations
+  - Various smaller bug and corner-case fixes including sigma-redistribution,
+    `feed_for_resume`, rotation seed 0, `numpy` quirks.
+
 * [Release ``4.5.0``](https://github.com/CMA-ES/pycma/releases/tag/r4.5.0)
   - console output now starts to overwrite the last line after 4 regular lines,
     see option `verb_disp_overwrite` which now expresses "number of lines"

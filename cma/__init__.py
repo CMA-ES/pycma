@@ -103,8 +103,8 @@ del _ab, _di, _pr
 
 ___author__ = "Nikolaus Hansen and Petr Baudis and Youhei Akimoto"
 __license__ = "BSD 3-clause"
-__version__ = "4.5.0"
-'''version 4.5.0'''  # allows the apidocs to "pick up" the version number
+__version__ = "4.6.0"
+'''version 4.6.0'''  # allows the apidocs to "pick up" the version number
 
 
 import collections as _collections
