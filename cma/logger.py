@@ -2135,13 +2135,16 @@ class CMADataLogger(interfaces.BaseDataLogger):
                               .format(self.name_prefix + name + '.dat'))
                 continue
             with open(newprefix + name + '.dat', 'wt') as f:
-                iline = 0
+                iline = -1
                 cwritten = 0
                 for line in open(self.name_prefix + name + '.dat'):
+                    iline += 1
                     if iline < first or iline % factor < 1:
                         f.write(line)
                         cwritten += 1
-                    iline += 1
+                if iline % factor >= 1:  # write always last line
+                    f.write(line)
+                    cwritten += 1
             if verbose and iline > first:
                 print('%d' % (cwritten) + ' lines written in ' + newprefix + name + '.dat')
         if switch:
