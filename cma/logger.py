@@ -25,6 +25,10 @@ clip_on = False
 corr_in_plot_divers_color = ''
 '''plot format string to plot correlation in `plot_divers`, was `'c'`, could be `'gray'`
    or `'C5'` or `'#008000'` or `'.--c'`, `''` means to plot nothing'''
+cma_logger_plot_x_annotate_idx = range(100)
+'''iterable of variable indices or last index which will be annotated'''
+cma_logger_plot_x_annotation_lines_limit = 1000
+'''number of variables above annotations are omitted'''
 
 def _id(x):
     return x
@@ -2040,7 +2044,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 xsemilog = True  # normalization assumes that zero is meaningful
 
         # modify fake last entry in x for line extension-annotation
-        if dat_x.shape[1] < 100:
+        if dat_x.shape[1] < cma_logger_plot_x_annotation_lines_limit:
             minxend = int(1 + 1.07 * dat_x[-2, iabscissa])
             # write y-values for individual annotation into dat_x
             dat_x[-1, iabscissa] = minxend  # TODO: should be ax[1]
@@ -2067,7 +2071,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 else:  # old kwarg
                     yscale('symlog', linthreshy=np.min(_d_pos))
             smartlogygrid(linthresh=np.min(_d_pos))
-        if dat_x.shape[1] < 100:  # annotations
+        if dat_x.shape[1] < cma_logger_plot_x_annotation_lines_limit:  # annotations
             ax = array(axis())
             axis(ax)
             # yy = np.linspace(ax[2] + 1e-6, ax[3] - 1e-6, dat_x.shape[1] - 5)
@@ -2077,9 +2081,11 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 array([ax[2] + 1e-6, ax[3] - 1e-6]), 'k-')
             # plot(array([dat_x[-1, iabscissa], ax[1]]),
             #      reshape(array([dat_x[-1,5:], yy[idx2]]).flatten(), (2,4)), '-k')
-            for i in range(len(idx)):
+            for i in cma_logger_plot_x_annotate_idx:
                 # TODOqqq: annotate phenotypic value!?
                 # text(ax[1], yy[i], 'x(' + str(idx[i]) + ')=' + str(dat_x[-2,5+idx[i]]))
+                if i >= len(idx):
+                    break
                 text(_x[-1], dat_x[-1, 5 + i],
                     ('' + str(i) + ': ' if annotations is None
                         else str(i) + ':' + annotations[i] + "=")
