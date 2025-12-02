@@ -20,6 +20,9 @@ from . import restricted_gaussian_sampler as _rgs
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 array = np.array
 
+clip_on = False
+'''plot option, sometimes `True` is useful to get a good frame'''
+
 def _id(x):
     return x
 
@@ -47,7 +50,7 @@ def _fix_lower_xlim_and_clipping():
     from matplotlib.pyplot import gca
     a = gca()
     for line in a.get_lines():
-        line.set_clip_on(False)
+        line.set_clip_on(clip_on)
     for key in a.spines:  # avoid border lines hiding data
         a.spines[key].set_zorder(0)  # 1.01 is still below the grid
     a.set_ymargin(0)
