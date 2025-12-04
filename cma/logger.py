@@ -1004,7 +1004,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             self.select_data(iteridx)
 
         if len(dat.f) <= 1:
-            print('nothing to plot')
+            print('too few data to plot (len(dat.f)={0})'.format(len(dat.f)))
             return self
 
         # not in use anymore, see formatter above
@@ -1224,7 +1224,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         _x = _monotone_abscissa(dat.std[:, iabscissa], iabscissa)
         if 1 < 2 and dat.std.shape[1] < 100:
             # use fake last entry in x and std for line extension-annotation
-            minxend = int(1.06 * _x[-2])
+            minxend = int(1 + 1.07 * _x[-2])
             # minxend = int(1.06 * dat.x[-2, iabscissa])
             _x[-1] = minxend  # TODO: should be ax[1]
             idx = np.argsort(dat.std[-2, 5:])
@@ -1296,7 +1296,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         _x = _monotone_abscissa(dat[:, iabscissa], iabscissa)
         if 1 < 2 and dat.shape[1] < 100:
             # use fake last entry in x and std for line extension-annotation
-            minxend = int(1.06 * _x[-2])
+            minxend = int(1 + 1.07 * _x[-2])
             # minxend = int(1.06 * dat.x[-2, iabscissa])
             _x[-1] = minxend  # TODO: should be ax[1]
             idx = np.argsort(dat[-2, 5:])
@@ -1997,7 +1997,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         # modify fake last entry in x for line extension-annotation
         if dat_x.shape[1] < 100:
-            minxend = int(1.06 * dat_x[-2, iabscissa])
+            minxend = int(1 + 1.07 * dat_x[-2, iabscissa])
             # write y-values for individual annotation into dat_x
             dat_x[-1, iabscissa] = minxend  # TODO: should be ax[1]
             if xsemilog or (xsemilog is None and remark and remark.startswith('mean')):
