@@ -838,8 +838,9 @@ class CMAParameters(object):
     """
     def __init__(self, N, opts, ccovfac=1, verbose=True):
         """Compute strategy parameters, mainly depending on
-        dimension and population size, by calling `set`
+        dimension and population size, by calling `set`.
 
+        When ``ccovfac == 1``, we use ``ccovfac=opts['CMA_on']``.
         """
         self.N = N
         if ccovfac == 1:
