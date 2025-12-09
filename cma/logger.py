@@ -81,6 +81,13 @@ def _monotone_abscissa(x, iabscissa=0):
         x[i+1:] -= d[i]  # d[i] is smaller than zero
     return x
 
+def _remove_trailing(s, end='down'):
+    """remove trailing sequence repeatedly"""
+    if not end:
+        return s
+    while s.endswith(end):
+        s = s[:-len(end)]
+    return s
 class CMADataLogger(interfaces.BaseDataLogger):
     """data logger for class `CMAEvolutionStrategy`.
 
@@ -372,7 +379,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             filenameprefix = self.name_prefix
         assert len(self.file_names) == len(self.key_names)
 
-        fn = filenameprefix.rstrip('down') + self.file_stoppings
+        fn = _remove_trailing(filenameprefix, 'down') + self.file_stoppings
         try:
             with open(fn, 'r') as f:
                 self.stoppings = f.read().strip()
@@ -381,7 +388,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
             self.stoppings = None  # don't keep previous condition
 
-        fn = filenameprefix.rstrip('down') + 'version.txt'
+        fn = _remove_trailing(filenameprefix, 'down') + 'version.txt'
         try:
             with open(fn, 'r') as f:
                 self.data_version = f.read().strip()
@@ -389,7 +396,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             if os.path.isfile(fn):
                 warnings.warn('reading from {0} failed with Exception {1}'.format(fn, e))
 
-        fn = filenameprefix.rstrip('down') + self.file_parameters
+        fn = _remove_trailing(filenameprefix, 'down') + self.file_parameters
         try:
             with open(fn, 'r') as f:
                 self.parameters = f.read().strip()
@@ -708,7 +715,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                             + str(float(bestf)) + ' '  # float converts Fraction
                             + ' '.join(map(str, xrecent))
                             + '\n')
-            fn = self.name_prefix.rstrip('down') + self.file_stoppings
+            fn = _remove_trailing(self.name_prefix, 'down') + self.file_stoppings
             with open(fn, 'w') as f:
                 try:
                     f.write(repr(es.stop(check=False)))
@@ -716,7 +723,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
                     pass
             if hasattr(es, 'sp') and self.parameters != es.sp.__dict__:
                 self.parameters = es.sp.__dict__
-                fn = self.name_prefix.rstrip('down') + self.file_parameters
+                fn = _remove_trailing(self.name_prefix, 'down') + self.file_parameters
                 with open(fn, 'w') as f:
                     try:
                         f.write(repr(self.parameters))
@@ -725,13 +732,13 @@ class CMADataLogger(interfaces.BaseDataLogger):
             try:  # experimental, WIP
                 from . import evolution_strategy
                 if hasattr(evolution_strategy, 'all_stoppings'):
-                    with open(self.name_prefix.rstrip('down') + 'all_stoppings.json2', 'w') as f:
+                    with open(_remove_trailing(self.name_prefix, 'down') + 'all_stoppings.json2', 'w') as f:
                         f.write(repr(evolution_strategy.all_stoppings))
             except Exception:
                 pass
             try:  # experimental, WIP
                 from . import __version__
-                with open(self.name_prefix.rstrip('down') + 'version.txt', 'w') as f:
+                with open(_remove_trailing(self.name_prefix, 'down') + 'version.txt', 'w') as f:
                     f.write(__version__)
             except Exception:
                 pass
