@@ -202,7 +202,7 @@ from . import optimization_tools as ot
 from . import sampler
 from .utilities import utils
 from .options_parameters import CMAOptions, cma_default_options
-from . import warnings_and_exceptions as _cma_warnings
+from . import warnings_and_exceptions as _we
 from . import constraints_handler as _constraints_handler
 from cma import fitness_models as _fitness_models
 from .boundary_handler import BoundNone, BoundPenalty, BoundTransform
@@ -275,6 +275,40 @@ _redistribute_sigma_above = 1e9
 
 TPA_dimension = 300
 '''use TPA instead of CSA when dimension>=TPA_dimension'''
+
+def _set_popsize_change_sigma_callback(es, old_mueff=None, **kwargs):
+    """Default callback for `set_popsize` for changing `es.sigma` according
+
+    to the change of the effective parent population size mueff. Uses attributes
+    ``.sp.mueff`` and ``.N`` of `es` and sets ``.sigma``.
+
+    See Nishida and Akimoto 2018, (17). The c^2 for (18) is computed by a simple
+    formula fitted to the estimate with default weights::
+
+        res = {}  # use mueff as key
+        for lam in [2, 5, 10, 30, 100, 300, 1000, 3000]:
+            w = cma.recombination_weights.RecombinationWeights(lam)
+            vals = [sum(-aa(sorted(np.random.randn(lam))) * w) for _ in range(10000)]
+            res[w.mueff] = float(np.mean(vals)) / 2
+
+    1.25 is the limit progress coefficient for ``lam to infty`` and optimal
+    positive weights, we use 1.245 here. For finite dimension, both sigma and
+    progress tend to be larger?
+
+    This method was not thoroughly tested (yet).
+    """
+    if old_mueff is None:
+        warnings.warn("`_set_popsize_change_sigma_callback` not effective"
+                      " because old_mueff was `None`")
+    old_c2, c2 = [1.245**2 - (0.5 / (mu-0.5))**0.5 for mu in [old_mueff, es.sp.weights.mueff]]
+    es.sigma *= es.sp.weights.mueff / old_mueff * (
+            es.N - 1 + old_c2 * old_mueff) / (es.N - 1 + c2 * es.sp.weights.mueff)
+
+set_popsize_callbacks = _set_popsize_change_sigma_callback
+'''called at the end of `set_popsize`, can be a list of callables too'''
+
+adapt_sigma_state_attributes = ('_ps_updated_iteration', 'ps', 's')
+'''state attributes that are recovered after reinitialization by `set_popsize`'''
 
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
@@ -1013,12 +1047,155 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         """
         return self.sp.popsize
 
-    # this is not compatible with python2.5:
-    #     @popsize.setter
-    #     def popsize(self, p):
-    #         """popsize cannot be set (this might change in future)
-    #         """
-    #         raise RuntimeError("popsize cannot be changed")
+    def set_popsize(self, popsize, dimension=None, CMA_recombination_weights=None):
+        """reset popsize and recombination weights and parameters depending on these.
+
+        This method is still experimental and versatile.
+
+        `set_popsize` calls the module variable `set_popsize_callbacks` which
+        may be a `callable` or a `list` of `callable`, for example called like
+        ``callback(self, old_popsize)``. The default changes ``self.sigma``
+        depending on ``self.sp.weights.mueff``, ``old_mueff``, and `dimension`
+        by default ``self.N``.
+
+        The recombination weights option is recomputed based on the
+        `CMA_recombination_weights` parameter, the original option value is
+        discarded.
+
+        Details:
+
+        `.reset_options` may be called before calling `set_popsize`, for example
+        (though unusual) to set `'CMA_mu'`.
+
+        Options ``'maxiter', 'tolstagnation', 'CMA_mirrors'`` depend by default
+        on `popsize` but are not changed for the time being.
+
+        `set_popsize` re-initializes the step-size adaptation class instance via
+        ``self.adapt_sigma.initialize_settings(self, reset=True)`` if possible,
+        otherwise via ``self.adapt_sigma.initialize(self)`` where it preserves
+        the attribute values of attributes given in `global`
+        ``adapt_sigma_state_attributes`` in case the attribute exists.
+
+        >>> import cma
+        >>> 
+        >>> def callback(es):
+        ...     es.set_popsize(10 if es.countiter % 2 else 200)
+        >>> 
+        >>> cma.warnings_and_exceptions.max_warnings["set_popsize never tested"] = 0
+        >>> cma.warnings_and_exceptions.max_warnings["_finalize_reset_params never tested"] = 0
+        >>> es = cma.CMA(5 * [1.5], 2, {'maxiter': 75, 'verbose': -9})
+        >>> es = es.optimize(cma.ff.rastrigin, callback=callback)
+        >>> assert es.popsize in (10, 200), es.popsize
+        >>> assert es.result.fbest < 11
+
+        This is partly a copy-paste from `__init__`.
+    """
+        popsize = int(popsize+1/2)
+        if dimension is None:
+            dimension = self.N
+        if popsize == self.popsize and dimension == self.N:
+            return
+        if _we.deliver_warning(self, "set_popsize never tested"):
+            warnings.warn("`set_popsize` and `_set_popsize_change_sigma_callback2`"
+                        " were never thoroughly tested."
+                        + _we.deliver_warning.message(),
+                        category=_we.NeverTestedWarning)
+        old_popsize = self.popsize
+        old_mueff = self.sp.weights.mueff
+        self.opts['popsize'] = popsize
+        self.opts['popsize_factor'] = 1
+        self.opts['CMA_recombination_weights'] = CMA_recombination_weights
+        self.sp = options_parameters.CMAParameters(dimension, self.opts, verbose=False)
+        assert self.sp.weights.lambda_ == popsize
+        # self.sp.set(self.opts, ccovfac=self.opts['CMA_on'], verbose=False)
+        # assert sp == self.sp.__dict__, (sp, self.sp.__dict__)
+        # assert sp is not self.sp.__dict__, (sp, self.sp.__dict__)
+
+        # TODO: factor out the remaining as `_reset_parameters`? Partly done with _finalize_reset_params.
+
+        # in __init__: adapt_sigma = adapt_sigma(dimension=dimension, popsize=self.sp.popsize)
+        # we could check self.opts['AdaptSigma'] for a refined decision
+        try:
+            self.adapt_sigma.initialize_settings(self, reset=True)
+        except AttributeError:
+            if _we.deliver_warning(self, "no attribute .adapt_sigma.initialize_settings"):
+                warnings.warn("`self.adapt_sigma` of type {0} has no attribute `initialize_settings`"  # noqa: UP030, UP032
+                              .format(type(self.adapt_sigma))
+                              + _we.deliver_warning.message())
+            vars = dict(self.adapt_sigma.__dict__)
+            self.adapt_sigma.initialize(self)
+            for name in adapt_sigma_state_attributes:
+                if name in vars:
+                    setattr(self.adapt_sigma, name, vars[name])
+
+        if len(self.opts['integer_variables']) and not np.isscalar(self['minstd']):
+            old_lower_bound = options_parameters.integer_std_lower_bound(
+                    dimension, old_mueff, len(self.opts['integer_variables']))
+            new_lower_bound = options_parameters.integer_std_lower_bound(
+                    dimension, self.sp.weights.mueff, len(self.opts['integer_variables']))
+            for i in self.opts['integer_variables']:
+                if np.isclose(self.opts['minstd'][i], old_lower_bound):
+                    self.opts['minstd'][i] = new_lower_bound
+
+        self._finalize_reset_params()
+
+        for c in _callable_to_list(set_popsize_callbacks):
+            c(self, old_popsize=old_popsize, old_mueff=old_mueff)
+
+    def _finalize_reset_params(self):
+        """versatile, to be called after ``self.sp`` has been (re-)set.
+
+        Finalize the negative weights of ``self.sp.weights:RecombinationWeights``
+        and reset the lazy update gap of ``self.sm:GaussFullSampler``.
+
+        Parameters can be reset like ``self.sp =
+        options_parameters.CMAParameters(self.N, self.opts, verbose=False)``.
+
+        Details: This code is mainly copy-pasted from `__init__`, however
+        modified such that direct reuse in `__init__` is not immediate. It is
+        only used once and the interface and functionality may change depending
+        on future use cases. It may not be sufficient after ``self.sp`` was
+        reset.
+    """
+        dimension, popsize = self.N, self.sp.popsize
+        if _we.deliver_warning(self, "_finalize_reset_params never tested"):
+            warnings.warn("`_finalize_reset_params` was never thoroughly tested."
+                        + _we.deliver_warning.message(),
+                        category=_we.NeverTestedWarning)
+        # copy-paste from __init__
+        if self.opts['CMA_diagonal']:  # is True or > 0
+            if self.opts['CMA_diagonal'] is True:
+                self.sp.weights.finalize_negative_weights(dimension,
+                                                          self.sp.c1_sep,
+                                                          self.sp.cmu_sep,
+                                                          pos_def=False)
+            # elif self.opts['CMA_diagonal'] == 1:
+            #     raise ValueError("""Option 'CMA_diagonal' == 1 is disallowed.
+            #     Use either `True` or an iteration number > 1 up to which C should be diagonal.
+            #     Only `True` has linear memory demand.""")
+            else:  # would ideally be done when switching from diagonal to full
+                self.sp.weights.finalize_negative_weights(
+                                dimension, self.sp.c1, self.sp.cmu)
+
+        if not isinstance(self.sm, sampler.GaussStandardConstant):
+            try:
+                # if this works, we are probably fine
+                p = self.sm.parameters(mueff=self.sp.weights.mueff, lam=popsize)
+            except Exception as e:
+                raise NotImplementedError(
+                    "setting the popsize is only implemented for samplers allowing a"  # noqa: UP030, UP032
+                    "\n  method call like ``.parameters(mueff=mueff, lam=lam)``, like"
+                    "\n  `GaussFullSampler`, found type {0} raising {1}"
+                    .format(type(self.sm), e))
+            if isinstance(self.sm, sampler.GaussFullSampler):
+                self.sm.lazy_update_gap = (
+                            # copy-paste from __init__
+                            1. / (self.sp.c1 + self.sp.cmu + 1e-23) / dimension / 10
+                            if self.opts['updatecovwait'] is None
+                            else self.opts['updatecovwait'])
+            self.sp.weights.finalize_negative_weights(dimension,
+                                                      p.get('c1', self.sp.c1),
+                                                      p.get('cmu', self.sp.cmu))
 
     def stop(self, check=True, ignore_list=(), check_in_same_iteration=False,
              get_value=None):
@@ -1076,8 +1253,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         `options` is for consistency with `fmin2` options and is only
         in effect if ``inopts is None``.
         """
-        _cma_warnings.filterwarning('once',
-                                    category=_cma_warnings.NeverTestedWarning)
+        _we.filterwarning('once', category=_we.NeverTestedWarning)
         if options and inopts is None:
             inopts = options
         del options
@@ -1348,6 +1524,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if self.opts['CMA_sampler'] is None:
                 self.sm = sampler.GaussFullSampler(stds * np.ones(N),
                     lazy_update_gap=(
+                        # it would be more consistent to use p['c1'], p['cmu'] as below?
                         1. / (self.sp.c1 + self.sp.cmu + 1e-23) / self.N / 10
                         if self.opts['updatecovwait'] is None
                         else self.opts['updatecovwait']),
@@ -1369,16 +1546,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             " deviations are not supported by the current"
                             " sampler and hence ignored")
                     elif stds[0] != 1:
-                        utils.print_warning("""ignoring scaling factor %f
-    for sample distribution""" % stds[0])
+                        utils.print_warning("ignoring scaling factor %f for sample distribution" % stds[0])  # noqa: UP031
                     self.sm = self.opts['CMA_sampler'](N,
                                 **self.opts['CMA_sampler_options'])
             else:  # CMA_sampler is already initialized as class instance
                 self.sm = self.opts['CMA_sampler']
             if not isinstance(self.sm, interfaces.StatisticalModelSamplerWithZeroMeanBaseClass):
-                utils.print_warning("""statistical model sampler did
-    not evaluate to the expected type `%s` but to type `%s`. This is
-    likely to lead to an exception later on. """ % (
+                utils.print_warning("statistical model sampler did not evaluate "  # noqa: UP031
+                                "to the expected type `%s` but to type `%s`. "
+                                "\nThis is likely to lead to an exception later on. " % (
                     str(type(interfaces.StatisticalModelSamplerWithZeroMeanBaseClass)),
                     str(type(self.sm))))
             self._updateBDfromSM(self.sm)
@@ -1727,10 +1903,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                     "sampler attributes `B` and `D` are not present",
                                     "ask", "CMAEvolutionStrategy",
                                     self.countiter, maxwarns=1)
-            warnings.warn("the `gradf` argument to `ask` has not been thoroughly tested,"
-                "\n  consider to use ``es.inject(es.mean - delta * gradf(es.mean)``"
-                " with a large value for delta.",
-                category=_cma_warnings.NeverTestedWarning)
+            if _we.deliver_warning(self, "gradf argument never tested"):
+                warnings.warn("the `gradf` argument to `ask` has not been thoroughly tested,"
+                    "\n  consider to use ``es.inject(es.mean - delta * gradf(es.mean)``"
+                    " with a large value for delta."
+                    + _we.deliver_warning.message(),
+                    category=_we.NeverTestedWarning)
             try:
                 # see Hansen (2011), Injecting external solutions into CMA-ES
                 if not self.gp.islinear:
@@ -1809,13 +1987,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     grad_at_mean = grad_at_mean * gradgp + gradpen
 
                 # DONE: frozen variables break the code (e.g. at grad of map)
-                if self.opts['fixed_variables']:
+                if self.opts['fixed_variables'] and (
+                        _we.deliver_warning(self, "gradient with fixed vars never tested")):
                     warnings.warn("gradient with fixed variables was never tested, consider"
                         "\n  to implement a simple transformation of the objective instead"
-                        "\n  see `cma.fitness_transformations.FixVariables`",
-                        category=_cma_warnings.NeverTestedWarning)
+                        "\n  see `cma.fitness_transformations.FixVariables`."
+                        + _we.deliver_warning.message(),
+                        category=_we.NeverTestedWarning)
                 if len(grad_at_mean) != self.N:
-                    warnings.warn("gradient dimension={0}!={1}=genotype dimension."
+                    warnings.warn("gradient dimension={0}!={1}=genotype dimension."  # noqa: UP030, UP032
                                   "This will lead to an exception soon."
                                   .format(len(grad_at_mean), self.N))
                 v = self.sm.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
