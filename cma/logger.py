@@ -770,8 +770,20 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if nameprefix == self.name_prefix:
             return
 
+        if not os.path.exists(os.path.split(nameprefix)[0]):
+            os.makedirs(os.path.split(nameprefix)[0])
+
         for name in self.file_names:
             open(nameprefix + name + '.dat', 'w').write(open(self.name_prefix + name + '.dat').read())
+
+        if self.parameters is None:
+            self.load()
+
+        with open(nameprefix + self.file_parameters, 'w') as f:
+            try:
+                f.write(repr(self.parameters))
+            except Exception:
+                pass
 
         if switch:
             self.name_prefix = nameprefix
