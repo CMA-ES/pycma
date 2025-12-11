@@ -22,6 +22,9 @@ array = np.array
 
 clip_on = False
 '''plot option, sometimes `True` is useful to get a good frame'''
+corr_in_plot_divers_color = ''
+'''plot format string to plot correlation in `plot_divers`, was `'c'`, could be `'gray'`
+   or `'C5'` or `'#008000'` or `'.--c'`, `''` means to plot nothing'''
 
 def _id(x):
     return x
@@ -1640,14 +1643,16 @@ class CMADataLogger(interfaces.BaseDataLogger):
             semilogy(_x, np.max(dat.sigvec[:, 5:], axis=1) / np.min(dat.sigvec[:, 5:], axis=1),
                     'darkred', label='axis ratio of diagonal decoding')
             text(_x[-1], np.max(dat.sigvec[-1, 5:]) / np.min(dat.sigvec[-1, 5:]), 'dd-AR')
-        if np.size(dat.corrspec) > 1:
+        if corr_in_plot_divers_color and np.size(dat.corrspec) > 1:
             def c_odds(c):
                 cc = (c + 1) / (c - 1)
                 cc[cc < 0] = -1 / cc[cc < 0]
                 return cc
             _x = _monotone_abscissa(dat.corrspec[:, iabscissa], iabscissa)
-            semilogy(_x, c_odds(dat.corrspec[:, 2]), 'c', label=r'$\min (c + 1) / (c - 1)$')
-            semilogy(_x, c_odds(dat.corrspec[:, 5]), 'c', label=r'$\max (c + 1) / (c - 1)$')
+            semilogy(_x, c_odds(dat.corrspec[:, 2]),  # smallest = largest negative correlation
+                     corr_in_plot_divers_color, label=r'$\min (c + 1) / (c - 1)$')
+            semilogy(_x, c_odds(dat.corrspec[:, 5]),  # largest correlation
+                     corr_in_plot_divers_color, label=r'$\max (c + 1) / (c - 1)$')
             text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 2]])), r'$\max (c + 1) / (c - 1)$')
             text(_x[-1], c_odds(np.asarray([dat.corrspec[-1, 5]])), r'$-{\min}^{-1} (c + 1)\dots$')
 
