@@ -300,7 +300,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             fn = self.name_prefix + name
             try:
                 with open(fn, 'w') as f:
-                    f.write('% # columns="iteration, evaluation, min max(neg(.)) min(pos(.))' +
+                    f.write('% # columns="iteration, evaluation, min 25%tile 75%tile' +
                             ' max correlation, correlation matrix principal axes lengths ' +
                             ' (sorted square roots of eigenvalues of correlation matrix)", ' +
                             strseedtime +
