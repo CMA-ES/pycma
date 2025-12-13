@@ -885,6 +885,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              addcols=None,
              load=True,
              message='',
+             remove_sigma=True,
              **kwargs):
         """plot data from a `CMADataLogger` using files written by the logger.
 
@@ -1085,7 +1086,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         # standard deviations
         subplot(2, 2 + addcols, 4 + addcols)
-        self.plot_stds(iabscissa, idx=x_opt)
+        self.plot_stds(iabscissa, idx=x_opt, remove_sigma=remove_sigma)
 
         self.skip_finalize_plotting = False
         self._finalize_plotting()
@@ -1224,7 +1225,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._xlabel(iabscissa)
         self._finalize_plotting()
         return self
-    def plot_stds(self, iabscissa=0, idx=None):
+    def plot_stds(self, iabscissa=0, idx=None, remove_sigma=True):
         """``iabscissa=1`` means vs function evaluations, `idx` picks variables to plot"""
         from matplotlib import pyplot
         if not hasattr(self, 'std'):
@@ -1242,7 +1243,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         except TypeError:
             pass  # idx was not an array
         # remove sigma from stds (graphs become much better readible)
-        dat.std[:, 5:] = np.transpose(dat.std[:, 5:].T / dat.std[:, 2].T)
+        if remove_sigma:
+            dat.std[:, 5:] = np.transpose(dat.std[:, 5:].T / dat.std[:, 2].T)
         # ax = array(pyplot.axis())
         # ax[1] = max(minxend, ax[1])
         # axis(ax)
@@ -1285,7 +1287,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
             pyplot.semilogy(_x, dat.std[:, 5:], '-')
         # pyplot.hold(True)
         smartlogygrid()
-        pyplot.title(r'Standard Deviations $\times$ $\sigma^{-1}$ in All Coordinates')
+        pyplot.title(r'Standard Deviations{0} in All Coordinates'
+                      .format(r' $\times$ $\sigma^{-1}$' if remove_sigma else ''))
         # pyplot.xticks(xticklocs)
         self._xlabel(iabscissa)
         self._finalize_plotting()
