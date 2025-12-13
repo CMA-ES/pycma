@@ -254,6 +254,9 @@ round_integer_variables_revert_changes = True
    variables are rounded at the end of `ask`. Renamed from
    `ask_phenotype_archive_revert_changes` since v4.3.1.'''
 
+_redistribute_sigma_above = 1e9
+'''when ``..._above > 1`` and `sigma` becomes too large, push variance from `sigma` to `sigma_vec`'''
+
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
 
@@ -2955,18 +2958,23 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.sigma * min(self.D) < self.opts['mindx']:  # TODO: sigma_vec is missing here
             self.sigma = float(self.opts['mindx'] / min(self.D))
 
-        if self.sigma > 1e9 * self.sigma0:
-            alpha = float(self.sigma / max(self.sm.variances)**0.5)
-            if alpha > 1:
-                try:
-                    self.sm *= alpha
-                except:
-                    pass
-                else:  # change representation / "coordinate system"
-                    self.sigma /= alpha**0.5  # adjust only half
-                    self._sigma_old /= alpha**0.5  # semibug, fixed Sep 2025
-                    self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
-                    self._updateBDfromSM()
+        if _redistribute_sigma_above > 1 and (
+                self.sigma > _redistribute_sigma_above * self.sigma0):
+            try:
+                alpha = float(self.sigma / max(self.sm.variances)**0.5)
+            except Exception:
+                pass
+            else:
+                if alpha > 1:
+                    try:
+                        self.sm *= alpha
+                    except Exception:
+                        pass
+                    else:  # change representation / "coordinate system"
+                        self.sigma /= alpha**0.5  # adjust only half
+                        self._sigma_old /= alpha**0.5  # semibug, fixed Sep 2025
+                        self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
+                        self._updateBDfromSM()
 
         # TODO increase sigma in case of a plateau?
 
