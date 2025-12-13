@@ -886,6 +886,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
              load=True,
              message='',
              remove_sigma=True,
+             normalize_scaling=False,
              **kwargs):
         """plot data from a `CMADataLogger` using files written by the logger.
 
@@ -941,6 +942,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         as a `CMADataLogger` instance itself does not load data by default.
 
         `message:str`: a message text appearing in the plot
+    
+        `remove_sigma`: disregard `sigma` when plotting individual standard
+        deviations.
+
+        `normalize_scaling`: plot axis scaling normalized with the geometric
+        average in each iteration.
 
         Return `CMADataLogger` itself.
 
@@ -1057,7 +1064,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         # Scaling
         subplot(2, 2 + addcols, 3 + addcols)
-        self.plot_axes_scaling(iabscissa)
+        self.plot_axes_scaling(iabscissa, normalize=normalize_scaling)
 
         # spectrum of correlation matrix
         if 1 < 3 and addcols and hasattr(dat, 'corrspec'):
@@ -1197,7 +1204,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         self._finalize_plotting()
         warnings.warn('please use `plot` instead of `plot_all`')
         return self
-    def plot_axes_scaling(self, iabscissa=0):
+    def plot_axes_scaling(self, iabscissa=0, normalize=False):
         from matplotlib import pyplot
         if not hasattr(self, 'D'):
             self.load()
@@ -1212,8 +1219,15 @@ class CMADataLogger(interfaces.BaseDataLogger):
         color = iter(pyplot.get_cmap('plasma_r')(
                     np.linspace(0.35, 1, dat.D.shape[1] - 5)))
         _x = _monotone_abscissa(dat.D[:, iabscissa], iabscissa)
+        if normalize:
+            dd = dat.D.copy().T  # transpose to allow broadcasting
+            divisor = np.prod(dd[5:, :], axis=0)
+            dd /= divisor**(1 / (dd.shape[0] - 5))  # divisor is broadcasted here
+            dd = dd.T
+        else:
+            dd = dat.D
         for i in range(5, dat.D.shape[1]):
-            pyplot.semilogy(_x, dat.D[:, i],
+            pyplot.semilogy(_x, dd[:, i],
                             '-', color=next(color))
         # pyplot.hold(True)
         smartlogygrid()
