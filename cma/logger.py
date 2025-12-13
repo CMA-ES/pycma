@@ -2258,7 +2258,9 @@ def plot(name=None, fig=None, abscissa=0,
          xsemilog=None,
          xnormalize=None,
          **kwargs):
-    """plot data from files written by a `CMADataLogger`, see `CMADataLogger.plot`.
+    """plot data from files written by a `CMADataLogger`,
+
+    see `cma.CMADataLogger.plot` to see all valid keyword arguments.
 
     ``cma.plot()`` plots the data from the default output folder (which is
     by default always overwritten). ``cma.plot(name, **argsdict)`` is a
@@ -2270,8 +2272,6 @@ def plot(name=None, fig=None, abscissa=0,
     The explictly given arguments are for backwards compatibility of their
     default setting and may disappear. All arguments are documented in
     `CMADataLogger.plot`.
-
-
     """
     global last_figure_number
     if not fig:

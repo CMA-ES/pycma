@@ -3913,7 +3913,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def plot(self, *args, **kwargs):
         """plot current state variables using `matplotlib`.
 
-        Details: calls `self.logger.plot`.
+        This calls `self.logger.plot`, see `cma.CMADataLogger.plot` to see all
+        valid keyword arguments.
         """
         if not hasattr(self.logger, 'es') or self.logger.es is None:
             self.logger.es = self  # let logger extract es.stop()
