@@ -7,6 +7,7 @@ import numpy as np
 from numpy import square as _square, sqrt as _sqrt
 from .utilities import utils
 from .utilities.math import Mh
+from . import warnings_and_exceptions as _cma_warnings
 def _norm(x): return np.sqrt(np.sum(np.square(x)))
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
@@ -125,20 +126,39 @@ class CMAAdaptSigmaNone(CMAAdaptSigmaBase):
         """
         pass
 class CMAAdaptSigmaDistanceProportional(CMAAdaptSigmaBase):
-    """artificial setting of ``sigma`` for test purposes, e.g.
-    to simulate optimal progress rates.
+    """artificial setting of ``sigma`` proportional to ||m||,
 
+    specifically ``sigma = coefficient * mueff * norm(mean) / n / c_m``.
+
+    The optimal `coefficient` in infinite dimension is ``1.253 = (pi/2)**0.5``,
+    the optimal mueff is ``lambda / pi``, hence the optimal phi is ``pi/2 x
+    lambda / pi / 2 = lambda / 4`` where exp(-phi/n) is the (log-)expected
+    converence rate per iteration.
+
+    This is mainly useful for test purposes, e.g. to simulate optimal progress
+    rates.
     """
     def __init__(self, coefficient=1.2, **kwargs):
-        """pass multiplier for normalized step-size"""
+        """pass coefficient multiplier for normalized step-size"""
         super(CMAAdaptSigmaDistanceProportional, self).__init__() # base class provides method hsig()
         self.coefficient = coefficient
         self.is_initialized = True
+        self._direct_mode = False
+        '''experimental: when True, interpret coefficient as sigma / norm(mean)'''
     def update(self, es, **kwargs):
-        """need attributes ``N``, ``sp.weights.mueff``, ``mean``,
-        ``sp.cmean`` of input parameter ``es``
+        """update ``es.sigma`` by calling `update2`.
         """
-        es.sigma = self.coefficient * es.sp.weights.mueff * _norm(es.mean) / es.N / es.sp.cmean
+        es.sigma *= self.update2(es)
+    def update2(self, es, **kwargs):
+        """return sigma update factor.
+
+        Uses attributes ``.N``, ``.sp.weights.mueff``, ``.mean``, and
+        ``.sp.cmean`` of input `es`.
+        """
+        if self._direct_mode:
+            return self.coefficient * _norm(es.mean) / es.sigma
+        else:
+            return self.coefficient * es.sp.weights.mueff * _norm(es.mean) / es.N / es.sp.cmean / es.sigma
 
 csa_dampdown_fac = 1  # for the time being a module global variable
 class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
