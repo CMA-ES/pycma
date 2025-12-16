@@ -904,8 +904,8 @@ class CMADataLogger(interfaces.BaseDataLogger):
         `iteridx`: the iteration indices to plot, e.g. ``range(100)`` for
         the first 100 evaluations.
 
-        `plot_mean:bool` indicates whether to plot the current best x or the
-        mean.
+        ``plot_mean in (True, False, 'log', 'lin', 'linear', 'only')`` indicates
+        whether and how to plot the mean (possibly instead the current best)
 
         `foffset:float` a small value added to f values to improve log-plot
         appearance.
@@ -1016,7 +1016,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
 
         load and self.load()  # load only conditionally
         if addcols is None:
-            addcols = 1 if np.size(self.sigvec) else 0
+            addcols = 1  # if np.size(self.sigvec) else 0
         if self.f.shape[0] > downsample_to:
             self.downsampling(1 + self.f.shape[0] // downsample_to)
             self.load()
@@ -1070,30 +1070,32 @@ class CMADataLogger(interfaces.BaseDataLogger):
         subplot(2, 2 + addcols, 3 + addcols)
         self.plot_axes_scaling(iabscissa, normalize=normalize_scaling)
 
-        # spectrum of correlation matrix
-        if 1 < 3 and addcols and hasattr(dat, 'corrspec'):
-            # figure(fig+10000)
-            # pyplot.gcf().clear()  # == clf(), replaces hold(False)
-            subplot(2, 2 + addcols, 3)
-            self.plot_correlations(iabscissa)
-            pyplot.xlabel('')
-            subplot(2, 2 + addcols, 2 + addcols + 3)  # 3rd column in second row
-            self.plot_sigvec(iabscissa)
-            if addcols > 1:
-                subplot(2, 2 + addcols, 4)
-                self.plot_correlations(iabscissa, name='precspec')
-
+        # xrecent
         subplot(2, 2 + addcols, 2)
-        if plot_mean:
-            if plot_mean == "log":
-                xsemilog = True
-            elif plot_mean == "linear":
-                xsemilog = False
-            self.plot_mean(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
+        _semilog = plot_mean == 'log' if plot_mean in ('log', 'lin', 'linear') else xsemilog
+        if plot_mean == 'only' or (not addcols and plot_mean):
+            self.plot_mean(iabscissa, x_opt, xsemilog=_semilog, xnormalize=xnormalize)
         else:
             self.plot_xrecent(iabscissa, x_opt, xsemilog=xsemilog, xnormalize=xnormalize)
         pyplot.xlabel('')
-        # pyplot.xticks(xticklocs)
+
+        # mean
+        if plot_mean != 'only' and addcols:
+            subplot(2, 2 + addcols, 3)
+            self.plot_mean(iabscissa, x_opt, xsemilog=_semilog, xnormalize=xnormalize)
+            pyplot.xlabel('')
+
+            # standard deviations of diagonal decoding
+            subplot(2, 2 + addcols, 2 + addcols + 3)  # 3rd column in second row
+            if np.size(self.sigvec):
+                self.plot_sigvec(iabscissa)
+            else:
+                self.plot_correlations(iabscissa)
+
+            # spectrum of correlation matrix
+            if addcols > 1 and hasattr(dat, 'corrspec'):
+                subplot(2, 2 + addcols, 4)
+                self.plot_correlations(iabscissa, name='precspec')
 
         # standard deviations
         subplot(2, 2 + addcols, 4 + addcols)
@@ -2264,7 +2266,7 @@ last_figure_number = 324
 last_plot_arguments = {}
 def plot(name=None, fig=None, abscissa=0,
          downsample_to=3e3,
-         xsemilog=None,
+         # xsemilog=None,
          xnormalize=None,
          **kwargs):
     """plot data from files written by a `CMADataLogger`,
@@ -2290,7 +2292,7 @@ def plot(name=None, fig=None, abscissa=0,
         last_figure_number = fig
     return CMADataLogger(name).plot(fig, kwargs.pop('iabscissa', abscissa),
                                     downsample_to=downsample_to,
-                                    xsemilog=xsemilog,
+                                    # xsemilog=xsemilog,
                                     xnormalize=xnormalize,
                                     **kwargs)
 plot.__doc__ = plot.__doc__ + CMADataLogger.plot.__doc__.split('\n', 1)[1]
