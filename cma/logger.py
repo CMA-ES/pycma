@@ -1016,6 +1016,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # dat.f[:,0]==countiter is monotonous
 
         figure(fig)
+        try: gcf().canvas.header_visible = False
+        except Exception: pass
+
         self.skip_finalize_plotting = True  # disable finalize until end of this plot function
         self._enter_plotting(fontsize)
         self.fighandle = gcf()  # fighandle.number
