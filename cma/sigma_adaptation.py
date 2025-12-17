@@ -10,6 +10,18 @@ from .utilities.math import Mh
 def _norm(x): return np.sqrt(np.sum(np.square(x)))
 del absolute_import, division, print_function  #, unicode_literals, with_statement
 
+CSA_dampfac_mueff = 2  # was 2, could be moved to CSA_dampfac_mueff_inner
+'''Damping for large mueff, the default was 2, however 10 would solve issue #231?'''
+CSA_dampfac_mueff_inner = 3  # smaller is worse on the sectorsphere(44) lam=300
+'''Damping for large mueff, the default was 1'''  # see rerun-issue231 and damps-for-mueff-sweeps
+CSA_dampfac_mueff_attenuation_dimension = 10
+'''Damping attenuation for small dimension such that `CSA_dampfac_mueff_inner`
+   is multiplied by [1/2, 3/4, 7/8,...] when ``dimension == [1, 2, 3,...] *
+   attentuation_dimension`` and with a smaller factor in smaller dimension
+   bounded to not get below 1.'''
+_true_inner = True  # for a quick check; False was rejected
+_inner_threshold = 1  # for a quick check, was 1; 2 was rejected
+
 _warnings.filterwarnings('once', message="Missing ``path_for_sigma_update.*")
 
 class CMAAdaptSigmaBase(object):
@@ -175,11 +187,19 @@ class CMAAdaptSigmaCSA(CMAAdaptSigmaBase):
         exponent = es.opts['CSA_damp_mueff_exponent']
         if exponent is None:  # set default
             exponent = 1 if es.opts['CSA_squared'] else 0.5
+        damp_in, ref_dim = CSA_dampfac_mueff_inner, CSA_dampfac_mueff_attenuation_dimension
+        damp_in_eff = damp_in if ref_dim <= 1 else max((1,
+                            damp_in * (1 - 0.5**(es.N / ref_dim))))
+            # max((1, damp_in * 0.5**(n2 / es.N)))  # -> damp_in for es.N -> infty
+            # max((1, damp_in * (1 - n2 / (es.N + n2))))
+            # damp_in**(1 - n2 / (es.N + n2))  # see rerun-issue231
         self.damps = es.opts['CSA_dampfac'] * (
-                0.5 +
-                min([1, (es.sp.lam_mirr / (0.159 * es.sp.popsize) - 1)**2])**1 / 2 +
-                2 * max((0, ((es.sp.weights.mueff-1) / (es.N+1))**exponent - 1)) +
-                self.cs
+                0.5
+                + min((1, (es.sp.lam_mirr / (0.159 * es.sp.popsize) - 1)**2))**1 / 2
+                + CSA_dampfac_mueff * 
+                    damp_in_eff**(1 - _true_inner) * max((0,
+                    damp_in_eff**_true_inner * ((es.sp.weights.mueff-1) / (es.N+1))**exponent - _inner_threshold))
+                + self.cs
                 )
         if csa_dampdown_fac != 1 and es.opts['verbose'] > 1:
             print('CSA damping is asymmetric: dampdown = {0} x dampup'
