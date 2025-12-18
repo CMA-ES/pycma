@@ -169,11 +169,13 @@ class LoggerList(list):
         from matplotlib import pyplot as plt
         # _, axes = plt.gcf().subplots(2, 2)  # gcf().subplots return array of subplots, plt.subplots returns array of axes
         # axes = list(axes[0]) + list(axes[1])
+        plt.subplot(3, 2, 1, frameon=False)
+        plt.gcf().set_figheight(7)
         for i, logger in enumerate(self):
             # plt.sca(axes[i])
             with _warnings.catch_warnings():  # catch misfiring add_subplot warning
                 _warnings.filterwarnings('ignore', message='Adding an axes using the same arguments')
-                plt.subplot(2, 2, i + 1)
+                plt.subplot(3, 2, i + 1, frameon=False)
             logger.plot()
             if len(logger.data.shape) > 1 and logger.data.shape[1] > 1:
                 for j, d in enumerate(logger.data.T):
@@ -203,6 +205,8 @@ def _log_lam(s):
 def _log_mu(s):
     v = np.log10(np.maximum(s.mu, 1e-9))
     return np.hstack([v, 0])  # add column to get same colors as _log_feas_events
+def _log_feas_f(s):
+    return s.f if all(gi <= 0 for gi in s.g) else np.nan
 
 class CountLastSameChanges(object):
     """An array/list of successive same-sign counts.
@@ -422,6 +426,11 @@ class AugmentedLagrangian(object):
                 name='outauglaglam'))
             self.loggers.append(_Logger(self, callables=[_log_mu],
                             labels=['lg(mu)'], name='outauglagmu'))
+            self.loggers.append(_Logger(self, 'f', callables=[_log_feas_f],
+                            labels=['f', 'feasible f'], name='outauglagf'))
+            self.loggers.append(_Logger(self, callables=[_log_feas_f],
+                            labels=['feasible f'],
+                            name='outauglagfeasf'))
             self.logger_mu_conditions = None
             if self.algorithm in (1, 2):
                 self.logger_mu_conditions = _Logger("mu_conditions", labels=[
