@@ -231,6 +231,8 @@ tell_constraints_archives = True
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
 
+_record_hsig = False
+
 use_archives = "not anymore in effect"
 archive_sent_solutions = sys.version_info >= (2,6)
 '''If `cma.evolution_strategy.archive_sent_solutions`, save the genotype in
@@ -2800,7 +2802,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 print('parameters modified')
         # hsig = sum(self.ps**2) / self.N < 2 + 4./(N+1)
 
-        if 11 < 3:  # diagnostic data
+        if _record_hsig:  # diagnostic data
             # self.out['hsigcount'] += 1 - hsig
             if not hsig:
                 self.hsiglist.append(self.countiter)
