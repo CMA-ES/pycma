@@ -123,8 +123,8 @@ class SurrogatePopulation(object):
     ...             es.tell(X, surrogate(X))  # surrogate evaluation
     ...             es.inject([surrogate.model.xopt])
     ...             # es.disp(); es.logger.add()  # ineffective with verbose=-9
-    ...         # print(irun, fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55, 18 68
-    ...         assert 'ftarget' in es.stop()
+    ...         # print(irun, fitfun.evaluations)  # was: (sig=2.2) 12 161, 18 131, 18 150, 18 82, 15 59, 15 87, 15 132, 18 83, 18 55, 18 68, 19 231 75, 
+    ...         assert 'ftarget' in es.stop(), es.result.asdict
     ...         if ifun == 0:
     ...             if fitfun.evaluations < 20:
     ...                 break
