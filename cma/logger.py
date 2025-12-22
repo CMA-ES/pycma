@@ -2636,7 +2636,7 @@ class Logger(object):
                  **kwargs)
         else:
             if color:
-                colors = iter(plt.get_cmap(color)(np.linspace(0.01, 0.9, m)))  # plasma was: winter_r
+                colors = iter(plt.get_cmap(color)(np.linspace(0.01, 0.85, m)))  # plasma was: winter_r
             else:
                 colors = None
             idx_labels = [int(i * m / len(self.labels)) for i in range(len(self.labels))]
