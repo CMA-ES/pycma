@@ -1377,6 +1377,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.noiseS = 0  # noise "signal"
         self.hsiglist = []
 
+        try:  # prevent that late initialization overwrites values during first update call
+            self.adapt_sigma.initialize(self)
+        except Exception:
+            pass
         self.sent_solutions = get_CMASolutionDict(archive_sent_solutions)()
         '''archive solutions close to the end of `ask`, this archive is
            passed to ``gp.geno`` to bypass calling the inverse geno-pheno
@@ -1403,10 +1407,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                     expensive_modulo=opts['verb_log_expensive']).register(self)
 
         self._stopdict = _CMAStopDict()
-        "    attribute for stopping criteria in function stop"
+        '''attribute for stopping criteria in function stop'''
         self._stoptolxstagnation = _StopTolXStagnation(self.mean)
         self.callbackstop = ()
-        "    return values of callbacks, used like ``if any(callbackstop)``"
+        '''return values of callbacks, used like ``if any(callbackstop)``'''
         self.fit = _BlancClass()
         self.fit.fit = None  # objective function values sorted
         self.fit.bndpen = None  # boundary penalty values

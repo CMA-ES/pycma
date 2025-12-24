@@ -423,30 +423,39 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
     def initialize(self, N=None, opts=None):
         """late initialization.
 
-        :param N: is used for the (minor) dependency on dimension,
-        :param opts: is used for hacking
+        :param N: a `CMAEvolutionStrategy` instance or the dimension for backward compatibility
+        :param opts: used for hacking
         """
         if self.initialized is True:
             return self
         self.initialized = False
+        _N = N
+        if hasattr(N, 'N'):
+            if opts is None:
+                opts = N.opts
+            popsize = N.sp.popsize
+            N = N.N
         if N is None:
             N = self.dimension
         if opts is None:
             opts = self.opts
-        try:
-            damp_fac = opts['CSA_dampfac']  # should be renamed to sigma_adapt_dampfac or something
+        try:  # get away without finding options
+            damp_fac = opts['TPA_dampfac']
         except (TypeError, KeyError):
             damp_fac = 1
 
         self.sp = utils.BlancClass()  # just a container to have sp.name instead of sp['name'] to access parameters
         try:
-            self.sp.damp = damp_fac * eval('N')**0.5  # (1) why do we need 10 <-> np.exp(1/10) == 1.1? 2 should be fine!?
-            self.sp.damp = damp_fac * (4 - 3.6/eval('N')**0.5)  # (2) should become new default!?
-            self.sp.damp = damp_fac * eval('N')**0.25
-            self.sp.damp = 0.7 + np.log(eval('N'))  # between 2 and 9 very close to N**1/2, for N=7 equal to (1) and (2)
-            self.sp.damp = 0.7 + 2 * np.log(eval('N'))  # fix issue 231 but barely
+            # self.sp.damp = eval('N')**0.5  # (1) why do we need 10 <-> np.exp(1/10) == 1.1? 2 should be fine!?
+            # self.sp.damp = (4 - 3.6/eval('N')**0.5)  # (2) should become new default!?
+            # self.sp.damp = eval('N')**0.25
+            # self.sp.damp = 0.7 + np.log(eval('N'))  # between 2 and 9 very close to N**1/2, for N=7 equal to (1) and (2)
+            self.sp.damp = 0.7 + 2 * np.log(N)
+            self.sp.damp += 2 * np.log(max((1, popsize - N)))  # fix issue 231
+            self.sp.damp *= damp_fac
             # self.sp.damp = 100
-        except:
+        except Exception as e:
+            _warnings.warn("Setting TPA damping failed with exception {0}".format(e))
             self.sp.damp = 4  # or 1 + np.log(10)
             self.initialized = 1/2
         try:
@@ -484,7 +493,7 @@ class CMAAdaptSigmaTPA(CMAAdaptSigmaBase):
         # Otherwise they should not be used to update the covariance
         # matrix, if the step-size inreases quickly.
         if self.initialized is not True:  # try again
-            self.initialize(es.N, es.opts)
+            self.initialize(es)  # es.N, es.opts)
         if self.initialized is not True:
             utils.print_warning("dimension not known, damping set to 4",
                 'update', 'CMAAdaptSigmaTPA')

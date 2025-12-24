@@ -63,6 +63,7 @@ def cma_default_options_(  # to get keyword completion back
     CSA_clip_length_value='None  #v poorly tested, [0, 0] means const length N**0.5, [-1, 1] allows a variation of +- N/(N+2), etc.',
     CSA_squared='False  #v use squared length for sigma-adaptation ',
     CSA_invariant_path='False  #v pc is invariant and ps (default) is unbiased',
+    TPA_dampfac='1  #v positive multiplier for step-size damping with TPA',
     stall_sigma_change_on_divergence_iterations='False  #v number of iterations of median'
         ' worsenings threshold at which the sigma change is stalled; the default may become 2',
     BoundaryHandler='BoundTransform  # or BoundPenalty, unused when ``bounds in (None, [None, None])``',
