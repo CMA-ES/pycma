@@ -89,6 +89,20 @@ It may be necessary to replace ``pip`` with ``python -m pip`` and/or prefixing
 either of these with ``sudo``.
 
 ## Version History
+
+* [Release ``4.4.2``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.2)
+  - Fix compatibility issues (with [`comocma`](https://github.com/CMA-ES/pycomocma)):
+    - add back the (deprecated) `cma.constraints_handling.BoundTransform` class
+      which was missing since ``4.1.0``, however, `cma.BoundTransform` is the
+      recommended way to access this class
+    - remove dependency of `OOOptimizer.optimize` on `self.result`
+  - fix [issue 337](https://github.com/CMA-ES/pycma/issues/337) where plotting bails
+    with some recent version of `matplotlib>3.8.0`.
+  - Various improvements of the logger and plotting.
+  - Remove default f-offset from binary test functions
+    (``cma.fitness_functions.binary_foffset = 0`` by default now)
+  - A few new module settings to (better) control corner case behavior.
+
 * [Release ``4.4.1``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.1)
   - `fmin2` accepts a constraints function as `constraints` keyword argument
   - an improved `CMAEvolutionStrategyResult2` class which also contains the best feasible solution
