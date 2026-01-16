@@ -1563,17 +1563,6 @@ class CMADataLogger(interfaces.BaseDataLogger):
             semilogy(_x[istart], abs(dat.f[istart, 5]) +
                      foffset, '.r', markersize=7)
 
-        # standard deviations std
-        _x_std = _monotone_abscissa(dat.std[:, iabscissa])
-        semilogy(_x_std[:-1],
-                 np.vstack([list(map(max, dat.std[:-1, 5:])),
-                            list(map(min, dat.std[:-1, 5:]))]).T,
-                     '-m', linewidth=2)
-        text(_x_std[-2], max(dat.std[-2, 5:]), 'max std',
-             fontsize=fontsize)
-        text(_x_std[-2], min(dat.std[-2, 5:]), 'min std',
-             fontsize=fontsize)
-
         # delta-fitness in cyan
         for dfit, label in [
             [dfit2, r'$f_\mathsf{best} - f_\mathsf{last}$'],
@@ -1629,6 +1618,17 @@ class CMADataLogger(interfaces.BaseDataLogger):
                 semilogy(_x[i], dfit[idx][np.argmin(dfit[idx])]
                     + 1e-98, sym, markersize=9)
         # semilogy(dat.f[-1, iabscissa]*np.ones(2), dat.f[-1,4]*np.ones(2), 'rd')
+
+        # standard deviations std
+        _x_std = _monotone_abscissa(dat.std[:, iabscissa])
+        semilogy(_x_std[:-1],
+                 np.vstack([list(map(max, dat.std[:-1, 5:])),
+                            list(map(min, dat.std[:-1, 5:]))]).T,
+                     '-m', linewidth=2)
+        text(_x_std[-2], max(dat.std[-2, 5:]), 'max std',
+             fontsize=fontsize)
+        text(_x_std[-2], min(dat.std[-2, 5:]), 'min std',
+             fontsize=fontsize)
 
         # AR and sigma
         semilogy(_x, dat.f[:, 3], '-r')  # AR
