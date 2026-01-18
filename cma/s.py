@@ -23,6 +23,7 @@ from .utilities import utils
 from .evolution_strategy import CMAEvolutionStrategy as CMAES
 from .utilities.utils import pprint
 from .utilities.math import Mh
+from .utilities.utils import figure
 # from .fitness_functions import elli as felli
 
 if _pyplot:

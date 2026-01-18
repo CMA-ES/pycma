@@ -346,6 +346,11 @@ def version_diff(v1, v2):
             return 1
     return 0
 
+def figure():
+    """created a new figure without the header"""
+    import matplotlib.pyplot as plt
+    plt.figure(np.random.randint(9e9))
+    plt.gcf().canvas.header_visible = False
 
 # todo: this should rather be a class instance
 warnings_counter = collections.defaultdict(int)
