@@ -545,7 +545,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def binval(x, foffset=None):
         """return ``sum_i(0 if (optimum[0] <= x[i] <= optimum[1]) else 2**i)``
 
-        to be minimized.
+        to be minimized and add `binary_foffset` at the optimum.
 
         Details: the result is computed as `int`, because in dimension > 54
         a `float` representation can not account for the least sensitive
@@ -560,7 +560,9 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def leadingones(x, foffset=None):
         """return ``len(x) - nb of leading-ones-in-x`` to be minimized,
 
-        where only values in [optimum[0], optimum[1]] are considered to be "equal to" 1.
+        where only values in [optimum[0], optimum[1]] are considered to be
+        "equal to" 1 and add `binary_foffset` at the optimum.
+
         """
         optimum = binary_optimum_interval
         s = len(x)  # worst value
@@ -574,7 +576,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def onemax(x, foffset=None):
         """return ``sum_i(0 if (optimum[0] <= x[i] <= optimum[1]) else 1)``
 
-        to be minimized.
+        to be minimized and add `binary_foffset` at the optimum.
         """
         optimum = binary_optimum_interval
         s = sum_(0 if optimum[0] <= val <= optimum[1] else 1 for val in x)
@@ -589,7 +591,7 @@ binary_optimum_interval = (0.5, 1.5)
     continuous values. The most logical domain boundary values are now
     between [-0.499, 1.499] and [0, 1].
     '''
-binary_foffset = 1e-3 - 1e-4
+binary_foffset = (1e-3 - 1e-4) * 0
 '''default f-offset for binary functions at the optimum.
     '''
 
