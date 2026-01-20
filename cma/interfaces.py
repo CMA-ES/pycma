@@ -223,8 +223,11 @@ class OOOptimizer(object):
                 if verb_disp:  # do not print by default, this seems too silent?
                     self.disp(1)
                     print('termination by', self.stop())
-                    print('best f-value =', self.result[1])
-                    print('solution =', self.result[0])
+                    try:  # do not depend on .result[i] to work
+                        print('best f-value =', self.result[1])
+                        print('solution =', self.result[0])
+                    except (AttributeError, TypeError, IndexError, KeyError, Exception):
+                        pass
         return self
 
     def _prepare_callback_list(self, callback):  # helper function
