@@ -135,6 +135,7 @@ else:
     from .optimization_tools import NoiseHandler
     from .boundary_handler import BoundPenalty, BoundTransform, BoundNone, BoundDomainTransform
     from .constraints_handler import ConstrainedFitnessAL, AugmentedLagrangian
+    constraints_handler.BoundTransform = BoundTransform  # for backwards compatibility
 
 try:
     version_info = _collections.namedtuple(
