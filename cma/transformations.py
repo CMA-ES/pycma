@@ -1123,11 +1123,12 @@ class GenoPheno(object):
 
         if archive is not None:
             try:
-                x = archive[y]['geno']
+                archive_y = archive[y]
+                x = archive_y['geno']
             except (KeyError, TypeError):
                 x = None
             if x is not None:
-                if archive[y]['iteration'] < archive.last_iteration:
+                if archive_y['iteration'] < archive.last_iteration:
                     # no current archived genotype was found!?
                     x = repair_and_flag_change(self, repair, x, copy)
                     # x = repair(x, copy_if_changed=copy)

@@ -285,6 +285,7 @@ class _CMASolutionDict_functional(_SolutionDict):
 
     # TODO: insert takes 30% of the overall CPU time, mostly in def key()
     #       with about 15% of the overall CPU time
+    # NOTE: Likely improved by reducing calls to def key() on Jan 2026 (PR #336).
     def insert(self, key, geno=None, iteration=None, fitness=None,
                 value=None, cma_norm=None):
         """insert an entry with key ``key`` and value
@@ -308,10 +309,7 @@ class _CMASolutionDict_functional(_SolutionDict):
 
         self.last_solution_index += 1
         if value is not None:
-            try:
-                iteration = value['iteration']
-            except:
-                pass
+            iteration = value.get('iteration', iteration)
         if iteration is not None:
             if iteration > self.last_iteration:
                 self.last_solution_index = 0
@@ -319,18 +317,18 @@ class _CMASolutionDict_functional(_SolutionDict):
         else:
             iteration = self.last_iteration + 0.5  # a hack to get a somewhat reasonable value
         if value is not None:
-            self[key] = value
+            entry = value
         else:
-            self[key] = {'pheno': key}
+            entry = {'pheno': key}
         if geno is not None:
-            self[key]['geno'] = geno
-        if iteration is not None:
-            self[key]['iteration'] = iteration
+            entry['geno'] = geno
+        entry['iteration'] = iteration
         if fitness is not None:
-            self[key]['fitness'] = fitness
+            entry['fitness'] = fitness
         if cma_norm is not None:
-            self[key]['cma_norm'] = cma_norm
-        return self[key]
+            entry['cma_norm'] = cma_norm
+        self[key] = entry
+        return entry
 
 class _CMASolutionDict_empty(dict):
     """a hack to get most code examples running"""
