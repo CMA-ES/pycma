@@ -13,7 +13,7 @@ from .recombination_weights import RecombinationWeights
 
 integer_std_lower_bound_limit = 0.2
 '''upper limit for the std lower bound'''
-integer_std_lower_bound_distance = 1/2  # <= 1/2, was originally 1/2
+integer_std_lower_bound_distance = 1/3  # <= 1/2, was originally 1/2, then 0.45, now 1/3
 '''smallest distance of the mean value to the next integer values that is
    assumed as still "in the center". Used to compute the ppf to compute an upper
    bound for the lower stds bounds. We always have distance <= 1/2. For p < 0.2,
