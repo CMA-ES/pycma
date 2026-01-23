@@ -1622,12 +1622,12 @@ class CMADataLogger(interfaces.BaseDataLogger):
         # standard deviations std
         _x_std = _monotone_abscissa(dat.std[:, iabscissa])
         semilogy(_x_std[:-1],
-                 np.vstack([list(map(max, dat.std[:-1, 5:])),
-                            list(map(min, dat.std[:-1, 5:]))]).T,
+                 np.vstack([list(map(np.max, dat.std[:-1, 5:])),
+                            list(map(np.min, dat.std[:-1, 5:]))]).T,
                      '-m', linewidth=2)
-        text(_x_std[-2], max(dat.std[-2, 5:]), 'max std',
+        text(_x_std[-2], np.max(dat.std[-2, 5:]), 'max std',
              fontsize=fontsize)
-        text(_x_std[-2], min(dat.std[-2, 5:]), 'min std',
+        text(_x_std[-2], np.min(dat.std[-2, 5:]), 'min std',
              fontsize=fontsize)
 
         # AR and sigma
@@ -1668,7 +1668,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
             def c_odds(c):
                 cc = (c + 1) / (c - 1)
                 cc[cc < 0] = -1 / cc[cc < 0]
-                return cc
+                return cc if len(cc) > 1 else cc[0]
             _x = _monotone_abscissa(dat.corrspec[:, iabscissa], iabscissa)
             semilogy(_x, c_odds(dat.corrspec[:, 2]),  # smallest = largest negative correlation
                      corr_in_plot_divers_color, label=r'$\min (c + 1) / (c - 1)$')
