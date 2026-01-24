@@ -7,9 +7,9 @@
 
 [build-system]
 requires = [
-    "setuptools >=70.1",
+    "setuptools >=79",
     # "setuptools-scm",   # if we want to use git versions for versioning
-    # "wheel",  # setuptools doesn't need wheel anymore, see https://pypi.org/project/wheel/
+    "wheel",  # setuptools doesn't need wheel anymore, see https://pypi.org/project/wheel/
 ]
 build-backend = "setuptools.build_meta"
 
@@ -29,6 +29,8 @@ dynamic = ["version",  # see tool.setuptools.dynamic below
           ]
 readme = "README.rst"
 license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+
 keywords = [
     "optimization",
     "CMA-ES",
