@@ -3,9 +3,9 @@
 [![CircleCI](https://circleci.com/gh/CMA-ES/pycma/tree/main.svg?style=shield)](https://circleci.com/gh/CMA-ES/pycma/tree/main)
 ![GitHub Repo stars](https://img.shields.io/github/stars/CMA-ES/pycma?style=flat)
 [![Downloads](https://static.pepy.tech/badge/cma/month)](https://pepy.tech/project/cma)
-[![DOI](https://zenodo.org/badge/68926339.svg)](https://doi.org/10.5281/zenodo.2559634)
-[[BibTeX](https://github.com/CMA-ES/CMA-ES.github.io/blob/master/pycmabibtex.bib)] cite as:
-> Nikolaus Hansen, Youhei Akimoto, and Petr Baudis. CMA-ES/pycma on Github. Zenodo, [DOI:10.5281/zenodo.2559634](https://doi.org/10.5281/zenodo.2559634), February 2019. 
+[DOI](https://doi.org/10.5281/zenodo.2559634)
+[BibTeX](https://github.com/CMA-ES/CMA-ES.github.io/blob/master/pycmabibtex.bib) cite as:
+> Nikolaus Hansen, Youhei Akimoto, and Petr Baudis. CMA-ES/pycma on Github. Zenodo, [DOI:10.5281/zenodo.2559635](https://doi.org/10.5281/zenodo.2559635), February 2019.
 ---
 
 <!--- 
@@ -13,7 +13,10 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/1rge11pwyt55b26k?svg=true)](https://ci.appveyor.com/project/nikohansen/pycma)
 [![Build status](https://ci.appveyor.com/api/projects/status/1rge11pwyt55b26k/branch/master?svg=true)](https://ci.appveyor.com/project/nikohansen/pycma/branch/master)
 
-Zenodo: 34 points to the latest, this is 35: https://zenodo.org/badge/latestdoi/68926339 
+Zenodo: 34 points to the latest release (v4.4.2: https://zenodo.org/records/18356871)
+2019 and polished is 35: https://zenodo.org/records/2559635 https://zenodo.org/badge/latestdoi/68926339
+
+(https://zenodo.org/badge/68926339.svg)
 
 --->
   
@@ -47,8 +50,7 @@ In a system shell, type
     python -m pip install cma
 ```
 
-to install the [latest release](https://pypi.python.org/pypi/cma)
-from the [Python Package Index (PyPI)](https://pypi.python.org/pypi).
+to install the [latest release from the Python Package Index (PyPI)](https://pypi.python.org/pypi/cma).
 Type ``install -U`` instead of ``install`` to _upgrade_ a current installation to the latest release.
 The [release link](https://pypi.python.org/pypi/cma) also provides more
 installation hints and a quick start guide.
