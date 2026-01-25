@@ -5,22 +5,21 @@
 Switch to the desired branch.
 
 0.
+Check/edit version numbers into (new) commit vX.X.X::
+
+    code cma/__init__.py  # edit version number
+    code tools/conda.recipe/meta.yaml  # edit version number
+
+1.
 Run local tests
 
     ruff check cma
     ./script-test-all-all-arm.sh
 
-1.
+2.
 Push to a test branch to trigger test:
 
-    git push origin :test  # delete remote test branch if necessary
-    git push origin HEAD:test
-
-2.
-Check/edit version numbers into (new) commit vX.X.X::
-
-    code cma/__init__.py  # edit version number
-    code tools/conda.recipe/meta.yaml  # edit version number
+    g push origin :test; g push origin HEAD:test
 
 3.
 Add a release note (based on git ls, same commit) in::
@@ -38,7 +37,7 @@ To check the apidocs from a dirty code folder:
             git checkout -- cma
             pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt
             backup --recover
-            less +G pydoctor-messages.txt  # check for errors (which are at the end!)
+            less pydoctor-messages.txt  # less +G = check for errors (which are at the end!)
 
 5.
 Make and check the distribution from a (usual) dirty code folder ==> install-folder::
@@ -47,7 +46,7 @@ Make and check the distribution from a (usual) dirty code folder ==> install-fol
     
         ==>
             backup install-folder --move  # CAVEAT: not the homebrew tool
-            mkdir install-folder  # delete if necessary
+            mkdir install-folder
             backup cma --move    # backup is a self-coded minitool
             git checkout -- cma
             cp -rp cma pyproject.toml LICENSE README.rst install-folder
@@ -55,9 +54,10 @@ Make and check the distribution from a (usual) dirty code folder ==> install-fol
             git tag in-install-folder  # mark commit to be the code in install-folder
 
     cd install-folder
-    python -m build > dist_call_output.txt; less +G dist_call_output.txt
-    twine check dist/*  # failed with Python 3.13, now OK
-    less +G dist_call_output.txt  # errors are shown in the end
+    python -m build > dist_call_output.txt; less dist_call_output.txt
+
+    twine check dist/*
+      less +G dist_call_output.txt  # errors are shown in the end
     tar -tf dist/cma-4.4.0.tar.gz | tree --fromfile | less
                 #   ==> 5 directories, 36 files, check that the distribution folders are clean
                 # not really useful anymore as we copy into a clean folder
@@ -88,13 +88,13 @@ Upload the distribution in ``install-folder``::
         cd ../install-folder
 
 7.c
-EITHER: tag locally and push, mainly to avoid changing any remote branch::
+Create and push a tag, mainly to avoid changing any remote branch to pick for release draft::
 
-    git tag -a r4.4.1 -m 'r4.4.1 release'
+    git tag -a r4.4.1 -m 'r4.4.1 bug fixes and...'
     git push origin r4.4.1
 
-OR: push code to development and/or main. This must be done at some
-    point anyways, if only to update the README.md. Then, after 9. is done::
+    Alternatively: push code to development and/or main (this must be done at some
+    point anyways, if only to update the README.md.) and::
 
     git fetch  # or with --tags to fetch tags not followed remotely
 
