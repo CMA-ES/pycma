@@ -3,11 +3,11 @@ package:
   name: 'cma'
 
 source:
-  path: ../../
+  path: ../../install-folder
 
 build:
   number: 1
-  script: python setup.py install
+  script: python -m pip install .
 
 requirements:
   run:
