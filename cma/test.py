@@ -328,6 +328,17 @@ def various_doctests():
     ... except:
     ...     assert sys.version_info[0] == 2
 
+    Constraints:
+
+    >>> import numpy as np
+    >>> x, es = cma.fmin_con2(cma.ff.sphere, 3 * [1], 1,
+    ...                       lambda x: [x[0] + 0.1],
+    ...                       options={'verbose': -9})
+    >>> assert np.all(es.result.xfavorite < 1e-6), es.result.xfavorite
+    >>> assert np.all(es.result.xfavorite[1:] > -1e-6), es.result.xfavorite
+    >>> assert np.all(es.result.xfavorite[0] < -0.1 + 1e-4), es.result.xfavorite
+    >>> assert np.all(es.result.xfavorite[0] > -0.1 - 1e-4), es.result.xfavorite
+
     """
 
 def doctest_files(file_list=files_for_doctest, **kwargs):
