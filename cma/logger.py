@@ -1958,7 +1958,7 @@ class CMADataLogger(interfaces.BaseDataLogger):
         if self.skip_finalize_plotting:
             return
         from matplotlib import pyplot
-        subplot_adjust and pyplot.subplots_adjust(left=0.05, top=0.96, bottom=0.07, right=0.95)
+        subplot_adjust and pyplot.subplots_adjust(left=0.09, top=0.96, bottom=0.07, right=0.95)
         # pyplot.tight_layout(rect=(0, 0, 0.96, 1))
         pyplot.gcf().canvas.draw()  # update figure immediately
         pyplot.ion()  # prevents that the execution blocks after plotting
