@@ -200,7 +200,8 @@ class LoggerList(list):
                                  color='r', linewidth=0.15)
                 if i == 0:
                     v = np.abs(logger.data)
-                    min_val = max((1e-9, np.min(v[v>0])))
+                    vv = v[v>0]
+                    min_val = max((1e-9, np.min(vv))) if len(vv) else 1e-9
                     if utils.version_diff(matplotlib.__version__, '3.3') >= 0:
                         # a terrible interface change that swallows the new/old parameter and breaks code
                         plt.yscale('symlog', linthresh=min_val)  # see matplotlib.scale.SymmetricalLogScale
