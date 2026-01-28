@@ -70,6 +70,7 @@ exclude = ["notebooks*"]
 [project.optional-dependencies]
 plotting = ["matplotlib"]
 constrained-solution-tracking = ["moarchiving"]
+statistical-tests = ["scipy"]
 
 [project.urls]
 Homepage = "https://github.com/CMA-ES/pycma"

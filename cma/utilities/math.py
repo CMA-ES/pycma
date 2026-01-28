@@ -218,7 +218,6 @@ def normal_ppf(p):
     probabilities (sigma < -7), the probability is quite sensitive: roughly
     speaking, a Delta sigma of 0.05 / 0.25 / 1 changes the probability by a
     factor of 1.4 / 3 / 50, respectively.
-
     """
     if np.any(p > 1/2) or np.any(p <= 0):
         raise ValueError("0 < p <= 1/2 is required but p was {0}".format(p))
@@ -239,6 +238,137 @@ def normal_ppf(p):
     #             * np.maximum(1, -np.log(p) / 14.5)  # correction for sigma < -4.9
     #             / p / 4 + p))
 
+def testchisquare(nsucc1, n1, nsucc2, n2=None, **kwargs):
+    """test (success) frequency nsucc1 of n1 against nsucc2 of n2.
+
+    By default, ``n2 = n1``, hence `n2` can be omitted in this case. The
+    frequency data ``nsucc1, n1, nsucc2, n2`` and the `kwargs` are passed to
+    `scipy.stats.contingency.chi2_contingency` for a chi-square test of
+    independence.
+
+    Return the probability that both success "frequencies" stem from the same
+    underlying distribution (H0). More specifically, return the probability
+    (upper bound) to observe the given or a greater discrepancy between the two
+    success frequency data, given the data stem from the same distribution
+    (formally, are independent of the "row" index (1, 2), hence "test of
+    independence").
+
+    Example: when testing 3 versus 8 successes observed in 25 trials
+    respectively, we find that p=0.17 under H0::
+
+        import cma
+        cma.utilities.math.testchisquare(3, 25, 8)
+
+        0.17207161769462614
+
+    Details: testing the successes ``nsucc1, nsucc2`` is equivalent to testing the
+    respective failures ``n1 - nsucc1, n2 - nsucc2``.
+
+    With ``n1 = n2 = 15``, we test ``nsucc1 = [0, 1, ...]`` against several ``nsucc2``::
+
+        import cma
+        t = cma.utilities.math.testchisquare  # scipy needs to be installed
+
+        n = 15
+        print('nsucc   nfail   p')
+        for p1 in range(6):
+            for delta in [4, 5, 6]:
+                p2 = p1 + (p1 > 1) + delta
+                print(' {} {} (= {} {}) {:.2}'.format(
+                        p1, p2, n-p1, n-p2, t(p1, n, p2)))
+            print(' ')
+
+        nsucc   nfail   p
+         0 4 (= 15 11) 0.11
+         0 5 (= 15 10) 0.05
+         0 6 (= 15 9) 0.022
+         
+         1 5 (= 14 10) 0.17
+         1 6 (= 14 9) 0.084
+         1 7 (= 14 8) 0.039
+         
+         2 7 (= 13 8) 0.11
+         2 8 (= 13 7) 0.053
+         2 9 (= 13 6) 0.023
+         
+         3 8 (= 12 7) 0.13
+         3 9 (= 12 6) 0.062
+         3 10 (= 12 5) 0.027
+         
+         4 9 (= 11 6) 0.14
+         4 10 (= 11 5) 0.067
+         4 11 (= 11 4) 0.028
+         
+         5 10 (= 10 5) 0.14
+         5 11 (= 10 4) 0.067
+         5 12 (= 10 3) 0.027
+
+    Testing 1 (of n=15) versus 6 yields p=0.084 (4-th row), testing 1 versus 7
+    yields p=0.039. The shown p-values are monotonuously increasing(!) with
+    increasing n: with n = 7, the mentioned p-values are smaller (about 0.033
+    and 0.007, respectively), with ``n -> infinity`` they reach about 0.13 and
+    0.077, respectively.
+
+    Remark: under H0, p~U[0,1], hence E ln(p) = -1 and the geometric average p
+    equals 1/e.
+"""
+    try:
+        import scipy.stats
+    except ImportError:
+        _warnings.warn("Please 'pip install scipy' to run the statistical test")
+        return
+    if n2 is None:
+        n2 = n1
+    return float(scipy.stats.contingency.chi2_contingency(
+                        [[nsucc1, n1 - nsucc1], [nsucc2, n2 - nsucc2]],
+                        **kwargs).pvalue)
+
+_testranksum_method_exact_threshold = 55000
+def testranksum(data1, data2, **kwargs):
+    """return p-value computed with `mannwhitneyu` from `scipy.stats`.
+
+    ``testranksum(data1, data2)`` returns the probability that `data1` and
+    `data2`, or more discrepant data, are generated while P(d1 < d2) = P(d1 >
+    d2) = 1/2 is true (AKA H0).
+
+    This function calls `scipy.stats.mannwhitneyu` passing data and `kwargs`,
+    setting by default ``alternative='two-sided'`` and ``method='exact' if
+    len(data1) * len(data2) < 55000 else 'auto'``. Pass ``method='auto'`` when
+    execution speed is an issue.
+
+    The minimal data sizes to possibly get p < 1% two-sided are::
+
+        import cma
+        ranksum = cma.utilities.math.testranksum
+        [(n, 1e-4 * int(0.5 + 1e4 *  # round and remove np type
+             ranksum(range(n[0]), range(n[0], n[0] + n[1]))))
+                for n in [[5, 5], [4, 6], [3, 9], [2, 19], [1, 200]]]
+        # n1, n2, p-value
+        [([5, 5], 0.0079),
+         ([4, 6], 0.0095),
+         ([3, 9], 0.0091),
+         ([2, 19], 0.0095),
+         ([1, 200], 0.01)]
+
+    The probabilities are exactly doubled with ``'alterative='less'`` passed as
+    argument.
+
+    Details: the above threshold for ``method='exact'`` can be changed by
+    assigning `cma.utilities.math._testranksum_method_exact_threshold`.
+
+    Remark: under H0, p~U[0,1], hence E ln(p) = -1 and the geometric average p
+    equals 1/e.
+"""
+    try:
+        import scipy.stats
+    except ImportError:
+        _warnings.warn("Please 'pip install scipy' to run the statistical test")
+        return
+    exact = len(data1) * len(data2) < _testranksum_method_exact_threshold
+    kwargs.setdefault('method', 'exact' if exact else 'auto')
+    kwargs.setdefault('alternative', 'two-sided')
+    return float(scipy.stats.mannwhitneyu(data1, data2, **kwargs).pvalue)
+
 class UpdatingAverage(object):
     """use instead of a `list` when too many values must be averaged"""
     def __init__(self):
@@ -254,15 +384,6 @@ class UpdatingAverage(object):
     def value(self):
         """current average value"""
         return self.sum / self.count
-
-# ____________________________________________________________
-# ____________________________________________________________
-#
-# C and B are arrays rather than matrices, because they are
-# addressed via B[i][j], matrices can only be addressed via B[i,j]
-
-# tred2(N, B, diagD, offdiag);
-# tql2(N, diagD, offdiag, B);
 
 
 # Symmetric Householder reduction to tridiagonal form, translated from JAMA package.
