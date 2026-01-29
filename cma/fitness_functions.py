@@ -93,10 +93,10 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         if 1 < 3 and sum([(10 + i) * x[i] for i in rglen(x)]) > 50e3:
             return np.nan
         return -sum(x)
-    def sphere(self, x):
+    def sphere(self, x, xoffset=0):
         """Sphere (squared norm) test objective function"""
         # return np.random.rand(1)[0]**0 * sum(x**2) + 1 * np.random.rand(1)[0]
-        return sum((x + 0)**2)
+        return sum((np.asarray(x) + xoffset)**2)
     def subspace_sphere(self, x, visible_ratio=1/2):
         """
         """
@@ -274,6 +274,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return felli
     def ellihalfrot(self, x, frac=0.5, cond1=1e6, cond2=1e6):
         """return ellirot(x[:N2]) + elli(x[N2:]) where ``N2`` is roughly ``frac*len(x)``"""
+        x = np.asarray(x)
         N2 = max((2, int(frac * len(x))))
         if len(x) <= N2:
             s = 0
@@ -321,16 +322,19 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         else:
             f += cfac * sum(max(0, c + 1e-3)**2 for c in cvals)
         return f
-    def rosen(self, x, alpha=1e2):
+    def rosen(self, x, alpha=1e2, exponent=2):
         """Rosenbrock test objective function, x0=0"""
         x = [x] if isscalar(x[0]) else x  # scalar into list
         x = np.asarray(x)
-        f = [sum(alpha * (x[:-1]**2 - x[1:])**2 + (1. - x[:-1])**2) for x in x]
+
+        f = [sum(alpha * (np.abs(x[:-1]**2 - x[1:])**exponent if exponent % 2
+                          else (x[:-1]**2 - x[1:])**exponent)
+                 + (1. - x[:-1])**2) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
     def rosen0(self, x, alpha=1e2):
         """Rosenbrock test objective function with optimum in all-zeros, x0=-1"""
-        x = np.asarray(x) + 1
-        return sum(alpha * (x[:-1]**2 - x[1:])**2 + (1. - x[:-1])**2)
+        x1 = np.asarray(x) + 1
+        return sum(alpha * (x1[:-1]**2 - x1[1:])**2 + x[:-1]**2)
     def grad_rosen(self, x, *args):
         N = len(x)
         grad = np.zeros(N)
