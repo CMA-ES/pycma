@@ -1686,6 +1686,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                     "sampler attributes `B` and `D` are not present",
                                     "ask", "CMAEvolutionStrategy",
                                     self.countiter, maxwarns=1)
+            warnings.warn("the `gradf` argument to `ask` has not been thoroughly tested,"
+                "\n  consider to use ``es.inject(es.mean - delta * gradf(es.mean)``"
+                " with a large value for delta.",
+                category=_cma_warnings.NeverTestedWarning)
             try:
                 # see Hansen (2011), Injecting external solutions into CMA-ES
                 if not self.gp.islinear:
@@ -1694,12 +1698,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     coordinate-wise transformation (option ``transformation``)
                     has never been tested.""")
                     # TODO: check this out
+                def _rm_fixed(y):
+                    """return y unchanged or a copy of y without fixed variables"""
+                    if not self.opts['fixed_variables']:
+                        return y
+                    return np.asarray([y[i] for i in range(len(y))
+                                       if i not in self.opts['fixed_variables']])
                 def grad_numerical_of_coordinate_map(x, map, epsilon=None):
                     """map is a coordinate-wise independent map, return
                     the estimated diagonal of the Jacobian.
                     """
                     eps = 1e-8 * (1 + abs(x)) if epsilon is None else epsilon
-                    return (map(x + eps) - map(x - eps)) / (2 * eps)
+                    return _rm_fixed(map(x + eps) - map(x - eps)) / (2 * eps)
                 def grad_numerical_sym(x, func, epsilon=None):
                     """return symmetric numerical gradient of func : R^n -> R.
                     """
@@ -1729,7 +1739,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     xmean = self.mean
                 xpheno = self.gp.pheno(xmean, copy=True,
                                        into_bounds=self.boundary_handler.repair)
-                grad_at_mean = gradf(xpheno, *args)
+                grad_at_mean = _rm_fixed(gradf(xpheno, *args))
                 # lift gradient into geno-space
                 if not self.gp.isidentity or (self.boundary_handler is not None
                         and self.boundary_handler.has_bounds()):
@@ -1742,8 +1752,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         def fpenalty(x):
                             return self.boundary_handler.__call__(
                                 x, _SolutionDict({tuple(x): {'geno': x}}), self.gp)
-                        gradpen = grad_numerical_sym(
-                            xmean, fpenalty)
+                        gradpen = _rm_fixed(grad_numerical_sym(xmean, fpenalty))
                     elif self.boundary_handler is None or \
                             isinstance(self.boundary_handler,
                                         BoundNone):
@@ -1758,11 +1767,16 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     gradgp = grad_numerical_of_coordinate_map(xmean, _gp_for_num_grad)
                     grad_at_mean = grad_at_mean * gradgp + gradpen
 
-                # TODO: frozen variables brake the code (e.g. at grad of map)
-                if len(grad_at_mean) != self.N or self.opts['fixed_variables']:
-                    NotImplementedError("""
-                    gradient with fixed variables is not (yet) implemented,
-                    implement a simple transformation of the objective instead""")
+                # DONE: frozen variables break the code (e.g. at grad of map)
+                if self.opts['fixed_variables']:
+                    warnings.warn("gradient with fixed variables was never tested, consider"
+                        "\n  to implement a simple transformation of the objective instead",
+                        "\n  see `cma.fitness_transformations.FixVariables`",
+                        category=_cma_warnings.NeverTestedWarning)
+                if len(grad_at_mean) != self.N:
+                    warnings.warn("gradient dimension={0}!={1}=genotype dimension."
+                                  "This will lead to an exception soon."
+                                  .format(len(grad_at_mean), self.N))
                 v = self.sm.D * np.dot(self.sm.B.T, self.sigma_vec * grad_at_mean)
                 # newton_direction = sv * B * D * D * B^T * sv * gradient = sv * B * D * v
                 # v = D^-1 * B^T * sv^-1 * newton_direction = D * B^T * sv * gradient
@@ -4687,8 +4701,10 @@ def fmin2(objective_function, x0, sigma0,
 
     We can use the gradient like
 
-    >>> import cma
-    >>> x, es = cma.fmin2(cma.ff.rosen, np.zeros(10), 0.1,
+    >>> import cma, warnings
+    >>> with warnings.catch_warnings():
+    ...     warnings.simplefilter('ignore', category=cma.warnings_and_exceptions.NeverTestedWarning)
+    ...     x, es = cma.fmin2(cma.ff.rosen, np.zeros(10), 0.1,
     ...             options = {'ftarget':1e-8,},
     ...             gradf=cma.ff.grad_rosen,
     ...         )  #doctest: +ELLIPSIS
@@ -4837,8 +4853,10 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
 
     We can use the gradient like
 
-    >>> import cma
-    >>> res = cma.fmin(cma.ff.rosen, np.zeros(10), 0.1,
+    >>> import cma, warnings
+    >>> with warnings.catch_warnings():
+    ...     warnings.simplefilter('ignore', category=cma.warnings_and_exceptions.NeverTestedWarning)
+    ...     res = cma.fmin(cma.ff.rosen, np.zeros(10), 0.1,
     ...             options = {'ftarget':1e-8,},
     ...             gradf=cma.ff.grad_rosen,
     ...         )  #doctest: +ELLIPSIS
