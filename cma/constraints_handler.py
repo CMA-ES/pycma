@@ -169,6 +169,9 @@ class DequeCDF(_collections.deque):
         j0 = int(min((len_ or len(self), len(self))))
         data = np.asarray([self[j][i] for j in range(-j0, 0)])
         return np.mean((data < val) + 0.5 * (data == val))
+    def values(self, i):
+        """return all values of the i-th coordinate as a list"""
+        return [v[i] for v in self]
     def cdf1(self, val=0, len_=None):
         """return ECDF at `val` in case this is a `deque` of scalars"""
         j0 = int(min((len_ or len(self), len(self))))
