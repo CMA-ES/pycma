@@ -202,6 +202,7 @@ from . import optimization_tools as ot
 from . import sampler
 from .utilities import utils
 from .options_parameters import CMAOptions, cma_default_options
+from . import warnings_and_exceptions as _cma_warnings
 from . import constraints_handler as _constraints_handler
 from cma import fitness_models as _fitness_models
 from .boundary_handler import BoundNone, BoundPenalty, BoundTransform
@@ -1045,6 +1046,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         `options` is for consistency with `fmin2` options and is only
         in effect if ``inopts is None``.
         """
+        _cma_warnings.filterwarning('once',
+                                    category=_cma_warnings.NeverTestedWarning)
         if options and inopts is None:
             inopts = options
         del options
