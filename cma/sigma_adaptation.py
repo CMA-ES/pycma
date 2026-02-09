@@ -98,6 +98,10 @@ class CMAAdaptSigmaBase(object):
         # as pc also starts with zero
         return squared_sum / es.N - 1 < 1 + 4. / (es.N + 1)
 
+    def update(self, es, **kwargs):
+        """change `es.sigma` in place, deprecated?"""
+        es.sigma *= self.update2(es, **kwargs)
+
     def update2(self, es, **kwargs):
         """return sigma change factor and update self.delta.
 
@@ -110,15 +114,6 @@ class CMAAdaptSigmaBase(object):
         self._update_ps(es)
         raise NotImplementedError('must be implemented in a derived class')
 
-    def update(self, es, **kwargs):
-        """update ``es.sigma``
-
-        :param es: `CMAEvolutionStrategy` class instance
-        :param kwargs: whatever else is needed to update ``es.sigma``,
-            which should be none.
-        """
-        self._update_ps(es)
-        raise NotImplementedError('must be implemented in a derived class')
     def check_consistency(self, es):
         """make consistency checks with a `CMAEvolutionStrategy` instance
         as input
