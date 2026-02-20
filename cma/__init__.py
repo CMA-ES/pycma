@@ -110,7 +110,7 @@ import collections as _collections
 import warnings as _warnings
 
 # __package__ = 'cma'
-from . import purecma
+from .more_algorithms import purecma
 try:
     import numpy as _np
 except ImportError:
