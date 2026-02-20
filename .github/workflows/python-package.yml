@@ -31,6 +31,10 @@ jobs:
         python -m pip install ruff
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         python -m pip install moarchiving
+        # flat setup only works when we exclude notebooks* in pyproject.toml
+        # which then fails to locally discover the src-layout correctly
+        mkdir src
+        ln -s ../cma src/cma
         python -m pip install .  # or install numpy and further dependencies?
     - name: Lint with flake8
       run: |

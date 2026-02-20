@@ -40,27 +40,20 @@ To check the apidocs from a dirty code folder:
             less pydoctor-messages.txt  # less +G = check for errors (which are at the end!)
 
 5.
-Make and check the distribution from a (usual) dirty code folder ==> install-folder::
+Make and check the distribution assuming a clean src/ folder (ln -s ../cma src/cma, was: from a (usual) dirty code folder ==> install-folder)::
 
-    ./script-prepare-distribution.sh
-    
-        ==>
-            backup install-folder --move  # CAVEAT: not the homebrew tool
-            mkdir install-folder
-            backup cma --move    # backup is a self-coded minitool
-            git checkout -- cma
-            cp -rp cma pyproject.toml LICENSE README.rst install-folder
-            backup --recover  # recover above moved folder (and backup current, just in case)
-            git tag in-install-folder  # mark commit to be the code in install-folder
+CAVEAT trouble shooting: remove folders (/bin/rm -r) when they have been created
+    - ./cma-4.4...
+    - src/cma.egg-info... (may not be necessary)
+    - cma.egg-info (may not be necessary)
 
-    cd install-folder
     python -m build > dist_call_output.txt; less dist_call_output.txt
+    git tag -f last-build  # not sure whether this is useful
 
-    twine check dist/*
-      less +G dist_call_output.txt  # errors are shown in the end
+    twine check dist/*  # needs py314
     tar -tf dist/cma-4.4.0.tar.gz | tree --fromfile | less
-                #   ==> 5 directories, 36 files, check that the distribution folders are clean
-                # not really useful anymore as we copy into a clean folder
+                #   ==> 7 directories, 40 files, check that the distribution folders are clean
+                #   was: ==> 5 directories, 36 files, check that the distribution folders are clean
 
 # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
 
@@ -71,22 +64,16 @@ Loop over tests and distribution and fix code until everything is fine.
 Draft a release on GitHub: click on releases and then new draft. Use above text added in README.md.
 
 7.b
-Upload the distribution in ``install-folder``::
+Upload the distribution (was: in ``install-folder``)::
 
-    twine upload dist/*  # upload everything given the install folder was clean
-
-    # optional, before the above: test upload:
-        cd ..  # back to src
-        backup test-install-folder  # not really necessary
-        cp -rp install-folder test-install-folder
-        cd test-install-folder
-        mv cma cmae
-        # in pyproject.toml:
-        # change "name = cma" and "version = {attr = "cma.__version__"}" to cmae
-        python -m build > dist_call_output.txt ...
+    # optional (test upload):
+        in pyproject.toml: change "name = cma" to = cmae
+        python -m build > dist_call_outpute.txt
         twine upload --repository testpypi dist/cmae*
-        cd ../install-folder
+        open https://test.pypi.org/project/cmae
 
+    twine upload dist/*4.4.4*
+        
 7.c
 Create and push a tag, mainly to avoid changing any remote branch to pick for release draft::
 
@@ -117,7 +104,8 @@ Update main and push main and development to remote
 Anaconda::
 
     # edit version number in tools/conda.recipe/meta.yaml
-    conda-build -q tools/conda.recipe  # takes about 1/2 hour
+    ./script-prepare-distribution.sh  # make clean install-folder
+    conda-build -q tools/conda.recipe  # takes about 1/2 hour, currently again broken
 
 """
 # from distutils.core import setup

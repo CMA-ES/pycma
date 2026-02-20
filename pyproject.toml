@@ -9,7 +9,7 @@
 requires = [
     "setuptools >=79",
     # "setuptools-scm",   # if we want to use git versions for versioning
-    "wheel",  # setuptools doesn't need wheel anymore, see https://pypi.org/project/wheel/
+    # "wheel",  # setuptools doesn't need wheel anymore, see https://pypi.org/project/wheel/
 ]
 build-backend = "setuptools.build_meta"
 
@@ -60,10 +60,11 @@ classifiers = [
 # packages = ["cma", "cma.utilities"]  # fails when they are in an src/ folder
 include-package-data = false  # true is default, false doesn't change anything
 
-[tool.setuptools.packages.find]  # for where=. works only in a clean folder
-# where = ["src"]  # this doesn't work, it always takes the root too?
-include = ["cma*"]
-exclude = ["notebooks*"]
+# [tool.setuptools.packages.find]  # for where=. works only in a clean folder
+# without any directives: finds src folder implying a standard (nonflat) layout
+# # where = ["src"]  # this doesn't work, it always takes the root too?
+# include = ["cma*"]  # cma/* ?
+# exclude = ["notebooks*"]  # , "cma_*" ?
 
 # namespaces = false
 
