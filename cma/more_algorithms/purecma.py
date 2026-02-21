@@ -119,7 +119,7 @@ def fmin(objective_fct, xstart, sigma,
     >>> def felli(x):
     ...     return sum(10**(6 * i / (len(x)-1)) * xi**2
     ...                for i, xi in enumerate(x))
-    >>> res = purecma.fmin(felli, 3 * [0.5], 0.3, verb_disp=100)  # doctest:+SKIP
+    >>> x, es = purecma.fmin(felli, 3 * [0.5], 0.3, verb_disp=100)  # doctest:+SKIP
     evals: ax-ratio max(std)   f-value
         7:     1.0  3.4e-01  240.2716966
        14:     1.0  3.9e-01  2341.50170536
@@ -129,11 +129,11 @@ def fmin(objective_fct, xstart, sigma,
     termination by {'tolfun': 1e-12}
     best f-value = 2.72976881789e-14
     solution = [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-    >>> print(res[0])  # doctest:+SKIP
+    >>> print(x)  # doctest:+SKIP
     [5.284564665206811e-08, 2.4608091035303e-09, -1.3582873173543187e-10]
-    >>> res[1].result[1])  # doctest:+SKIP
+    >>> es.result[1]  # doctest:+SKIP
     2.72976881789e-14
-    >>> res[1].logger.plot()  # doctest:+SKIP
+    >>> es.logger.plot()  # doctest:+SKIP
 
     Details
     =======
@@ -673,6 +673,7 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
         tight_layout()  # avoid superfluous padding
         # draw(), show()  # canvas.draw seem to do the job better
         ion()  # may prevent that everything stops until figure is closed?
+        show()
         # todo: if in the same cell, the subplots are small until the cell is finished
         gcf().canvas.draw()
         CMAESDataLogger.plotted += 1
