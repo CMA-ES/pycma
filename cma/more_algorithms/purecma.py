@@ -114,7 +114,7 @@ def fmin(objective_fct, xstart, sigma,
     =======
     The following example minimizes the function `ff.elli`:
 
-    >>> try: import cma.purecma as purecma
+    >>> try: from cma import purecma
     ... except ImportError: import purecma
     >>> def felli(x):
     ...     return sum(10**(6 * i / (len(x)-1)) * xi**2
@@ -495,7 +495,7 @@ class CMAESDataLogger(_BaseDataLogger):  # could also inherit from object
 
     Use the default logger from `CMAES`:
 
-    >>> try: import cma.purecma as pcma
+    >>> try: from cma import purecma as pcma
     ... except ImportError: import purecma as pcma
     >>> es = pcma.CMAES(3 * [0.1], 1)
     >>> isinstance(es.logger, pcma.CMAESDataLogger)  # type(es.logger)
@@ -880,11 +880,11 @@ def safe_str(s, known_words=None):
 
     Known issues:
 
-    >>> try: from cma.purecma import safe_str
-    ... except ImportError: from purecma import safe_str
-    >>> safe_str('int(p)', {'int': 'int', 'p': 3.1})  # fine
+    >>> try: from cma import purecma
+    ... except ImportError: import purecma
+    >>> purecma.safe_str('int(p)', {'int': 'int', 'p': 3.1})  # fine
     ' int ( 3.1 )'
-    >>> safe_str('int(n)', {'int': 'int', 'n': 3.1})  # unexpected
+    >>> purecma.safe_str('int(n)', {'int': 'int', 'n': 3.1})  # unexpected
     ' i 3.1 t ( 3.1 )'
 
     """
@@ -1250,7 +1250,7 @@ def test():
 
     Currently only based on `doctest`:
 
-    >>> try: import cma.purecma as pcma
+    >>> try: from cma import purecma as pcma
     ... except ImportError: import purecma as pcma
     >>> import random
     >>> random.seed(8)
