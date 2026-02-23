@@ -61,9 +61,19 @@ CAVEAT trouble shooting: remove folders (/bin/rm -r) when they have been created
 Loop over tests and distribution and fix code until everything is fine.
 
 7.a
-Draft a release on GitHub: click on releases and then new draft. Use above text added in README.md.
+Create a tag to pick later for the Github release::
 
-7.b
+    git tag -a r4.4.1 -m 'r4.4.1 bug fixes and...'
+
+(Alternatively: push code to development and/or main (this must be done at some
+point anyways, if only to update the README.md.) and ``git fetch`` or with
+``--tags`` to fetch tags not followed remotely.)
+
+7b.
+Draft a release on Github (click on releases and then new draft) and use the
+text above added in README.md.
+
+7.c
 Upload the distribution (was: in ``install-folder``)::
 
     # optional (test upload):
@@ -73,20 +83,10 @@ Upload the distribution (was: in ``install-folder``)::
         open https://test.pypi.org/project/cmae
 
     twine upload dist/*4.4.4*
-        
-7.c
-Create and push a tag, mainly to avoid changing any remote branch to pick for release draft::
-
-    git tag -a r4.4.1 -m 'r4.4.1 bug fixes and...'
     git push origin r4.4.1
 
-    Alternatively: push code to development and/or main (this must be done at some
-    point anyways, if only to update the README.md.) and::
-
-    git fetch  # or with --tags to fetch tags not followed remotely
-
 8.
-Finalize and publish the release drafted on Github.
+On Github: select the tag, review and publish the release.
 
 9.
 Push new docs to github
@@ -101,11 +101,11 @@ Push new docs to github
 Update main and push main and development to remote
 
 
-Anaconda::
+conda-forge::
 
     # edit version number in tools/conda.recipe/meta.yaml
     ./script-prepare-distribution.sh  # make clean install-folder
-    conda-build -q tools/conda.recipe  # takes about 1/2 hour, currently again broken
+    conda-build -q tools/conda.recipe  # takes about 4 minutes
 
 """
 # from distutils.core import setup

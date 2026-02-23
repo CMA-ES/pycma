@@ -22,9 +22,17 @@ Zenodo: 34 points to the latest release (v4.4.2: https://zenodo.org/records/1835
   
 ``pycma`` is a Python implementation of [CMA-ES](http://cma-es.github.io/) and some related numerical optimization tools.
 
-The [CMA-ES](http://cma-es.github.io) ([Covariance Matrix Adaptation Evolution Strategy](https://en.wikipedia.org/wiki/CMA-ES)) is a stochastic derivative-free numerical optimization
-algorithm for difficult (non-convex, ill-conditioned, multi-modal, rugged, noisy) optimization
-problems in continuous and mixed-integer search spaces.
+The [CMA-ES](http://cma-es.github.io) ([Covariance Matrix Adaptation Evolution
+Strategy](https://en.wikipedia.org/wiki/CMA-ES)) is a randomized derivative-free
+numerical optimization algorithm for difficult (non-convex, ill-conditioned,
+multi-modal, rugged, noisy) optimization problems in continuous and
+mixed-integer search spaces. This package provides an implementation of the
+CMA-ES algorithm that includes the handling of
+
+* bound constraints via the ``'bounds' = [lower, upper]`` option or the `cma.BoundDomainTransform` wrapper
+* linear and nonlinear constraints via the ``constraints`` argument to `fmin2` or `fmin_con2`
+* noise via ``noise_handler=True`` as argument to `fmin2`
+* integer variables for mixed-integer problems via the ``'integer_variables'=index_list`` option
 
 ## Documentation and Getting Started (Links)
 
@@ -92,6 +100,21 @@ It may be necessary to replace ``pip`` with ``python -m pip`` and/or prefixing
 either of these with ``sudo``.
 
 ## Version History
+
+* [Release ``4.4.3``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.3)
+  - Addressing [issue 231](https://github.com/CMA-ES/pycma/issues/231), failures
+    in corner cases with large population size, by increasing the step-size
+    damping of CSA and TPA. This seems also to improve the performance on
+    `bbob-f24` in 10 and 20-D while worsening the performance on `bbob-f23` in 10 and
+    40-D.
+  - Provide option `'TPA_dampfac'` analogous to `'CSA_dampfac'`.
+  - Plots now show the current best solution _and_ the distribution mean in two subplots.
+  - New:
+    - Provide the two (by far) most useful statistical tests with a tidy
+      interface in ``cma.utilities.math.test...``
+    - Provide a `more_algorithms` sub-package containing `purecma` and `CompactGA`.
+    - Provide a provisional `experimentation` module (requires `import cma.experimentation`).
+  - A few smaller fixes and improvements.
 
 * [Release ``4.4.2``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.2)
   - Fix compatibility issues (with [`comocma`](https://github.com/CMA-ES/pycomocma)):
