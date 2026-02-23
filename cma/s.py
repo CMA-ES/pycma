@@ -1,10 +1,11 @@
-"""versatile shortcuts for quick typing in an (i)python shell or even
-``from cma.s import *`` in interactive sessions.
+"""versatile shortcuts for quick typing in an (i)python shell,
+
+ or even using ``from cma.s import *`` in interactive sessions.
 
 Provides various aliases from within the `cma` package, to be reached like
 ``cma.s....``
 
-Don't use for stable code.
+Do not use this module for stable code developments!
 
 This is not actively maintained.
 """
@@ -20,11 +21,17 @@ from . import fitness_transformations as ft
 from . import transformations as tf
 from . import constraints_handler as ch
 from .utilities import utils
-from .evolution_strategy import CMAEvolutionStrategy as CMAES
+from .evolution_strategy import CMAEvolutionStrategy as _CMAES
 from .utilities.utils import pprint
-from .utilities.math import Mh
+from .utilities.math import Mh, testchisquare, testranksum
 from .utilities.utils import figure
 # from .fitness_functions import elli as felli
+
+class CMAES(_CMAES):
+    def __init__(self, *args, **kwargs):
+        _warnings.warn("Deprecated (renamed). Use `cma.CMA` instead of `cma.s.CMAES`",
+                       FutureWarning)
+        super(CMAES, self).__init__(*args, **kwargs)
 
 if _pyplot:
     def figshow():
@@ -51,7 +58,11 @@ def _cdict(obj, exclude='_'):
     Pass '__' as second argument to see "private" attributes.
     """
     return {d[0]:d[1] for d in obj.__dict__.items() if not d[0].startswith(exclude)}
-def clean(obj, exclude='_'):
+def clean(*args, **kwargs):
+    """Deprecated, renamed to `ddir`"""
+    _warnings.warn("Deprecated (renamed). Use `ddir` instead of `clean`", FutureWarning)
+    return ddir(*args, **kwargs)
+def ddir(obj, exclude='_'):
     """return "public" elements of a `list` or `dict` or of ``object.__dict__``.
 
     Ignore entries starting with `exclude`. Return a 'list` when `obj`
