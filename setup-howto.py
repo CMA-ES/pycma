@@ -37,7 +37,7 @@ To check the apidocs from a dirty code folder:
             git checkout -- cma
             pydoctor --docformat=restructuredtext --html-output=apidocs cma > pydoctor-messages.txt
             backup --recover
-            less pydoctor-messages.txt  # less +G = check for errors (which are at the end!)
+            less +G pydoctor-messages.txt  # less +G = check for errors (which are at the end!)
 
 5.
 Make and check the distribution assuming a clean src/ folder (ln -s ../cma src/cma, was: from a (usual) dirty code folder ==> install-folder)::
@@ -92,7 +92,7 @@ On Github: select the tag, review and publish the release.
 Push new docs to github
 
     cp -r apidocs/* /Users/hansen/git/CMA-ES.github.io/apidocs-pycma
-    cd /Users/hansen/git/CMA-ES.github.io
+    z /Users/hansen/git/CMA-ES.github.io
     git add apidocs-pycma  # there may be new files
     git ci
     git push

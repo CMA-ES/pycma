@@ -101,6 +101,9 @@ either of these with ``sudo``.
 
 ## Version History
 
+* [Release ``4.4.4``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.4)
+  - fix the fix of [issue 343](https://github.com/CMA-ES/pycma/issues/343)
+
 * [Release ``4.4.3``](https://github.com/CMA-ES/pycma/releases/tag/r4.4.3)
   - Addressing [issue 231](https://github.com/CMA-ES/pycma/issues/231), failures
     in corner cases with large population size, by increasing the step-size
