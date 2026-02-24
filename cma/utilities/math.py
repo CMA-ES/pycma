@@ -254,7 +254,7 @@ def testchisquare(nsucc1, n1, nsucc2, n2=None, **kwargs):
     independence").
 
     Example: when testing 3 versus 8 successes observed in 25 trials
-    respectively, we find that p=0.17 under H0::
+    respectively, we find that p = 0.17 = 17% or about 1/6 under H0::
 
         import cma
         cma.utilities.math.testchisquare(3, 25, 8)
