@@ -398,6 +398,26 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return 1
         return 1 if np.random.rand(1) < 0.9 else 1.1
         return np.random.randint(1, 30)
+    def bohachevsky(self, x, version=1):
+        """a moderately difficult multimodal function with global structure,
+
+        generalized from 2-D like the Rosenbrock function. The search domain is
+        [-100, 100].
+
+        See https://www.sfu.ca/~ssurjano/boha.html
+        """
+        x = np.asarray(x)
+        n1 = len(x) - 1
+        pi3 = 3 * np.pi
+        pi4 = 4 * np.pi
+        if version == 2:  # simpler version?
+            return np.sum(x[:n1]**2 + 2 * x[1:]**2  # somewhat faster than sum(.) + sum(.)
+                          - 0.3 * np.cos(pi3 * x[:n1]) * np.cos(pi4 * x[1:])) + n1 * 0.3
+        elif version == 3:  # simplest version
+            return np.sum(x[:n1]**2 + 2 * x[1:]**2
+                          - 0.3 * np.cos(pi3 * x[:n1] + pi4 * x[1:])) + n1 * 0.3
+        return np.sum(x[:n1]**2 + 2 * x[1:]**2 - 0.3 * np.cos(pi3 * x[:n1])
+                      - 0.4 * np.cos(pi4 * x[1:])) + n1 * 0.7
     def branin(self, x):
         # in [0,15]**2
         y = x[1]
@@ -409,8 +429,8 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return (1 + (x1 + x2 + 1)**2 * (19 - 14 * x1 + 3 * x1**2 - 14 * x2 + 6 * x1 * x2 + 3 * x2**2)) * (
                 30 + (2 * x1 - 3 * x2)**2 * (18 - 32 * x1 + 12 * x1**2 + 48 * x2 - 36 * x1 * x2 + 27 * x2**2)) - 3
     def griewank(self, x):
-        # was in [-600 600]
-        x = (600. / 5) * x
+        """with search range [-5, 5] instead of [-600, 600]"""
+        x = (600. / 5) * np.asarray(x)
         return 1 - np.prod(np.cos(x / np.sqrt(1. + np.arange(len(x))))) + sum(x**2) / 4e3
     def levy(self, x):
         """a rather benign multimodal function.
