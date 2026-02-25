@@ -1770,7 +1770,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 # DONE: frozen variables break the code (e.g. at grad of map)
                 if self.opts['fixed_variables']:
                     warnings.warn("gradient with fixed variables was never tested, consider"
-                        "\n  to implement a simple transformation of the objective instead",
+                        "\n  to implement a simple transformation of the objective instead"
                         "\n  see `cma.fitness_transformations.FixVariables`",
                         category=_cma_warnings.NeverTestedWarning)
                 if len(grad_at_mean) != self.N:
