@@ -50,10 +50,11 @@ CAVEAT trouble shooting: remove folders (/bin/rm -r) when they have been created
     python -m build > dist_call_output.txt; less dist_call_output.txt
     git tag -f last-build  # not sure whether this is useful
 
-    twine check dist/*  # needs py314
-    tar -tf dist/cma-4.4.0.tar.gz | tree --fromfile | less
-                #   ==> 7 directories, 40 files, check that the distribution folders are clean
-                #   was: ==> 5 directories, 36 files, check that the distribution folders are clean
+    twine check --strict dist/*  # needs py314
+    tar -tf dist/cma-4.4.5.tar.gz | tree --fromfile | less
+                #   ==> 6 directories, 40 files, check that the distribution folders are clean
+                #   was: ==> 7 directories, 40 files (includes src folder)
+                #   was: ==> 5 directories, 36 files
 
 # see https://blog.ganssle.io/articles/2021/10/setup-py-deprecated.html#summary
 

@@ -56,12 +56,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
-[tool.setuptools]
-# packages = ["cma", "cma.utilities"]  # fails when they are in an src/ folder
-include-package-data = false  # true is default, false doesn't change anything
+[tool.setuptools]  # removing this works too when we ln -s ../cma src/cma
+packages = ["cma", "cma.utilities", "cma.more_algorithms"]
+include-package-data = false  # true is default, false doesn't seem to change anything
 
 # [tool.setuptools.packages.find]  # for where=. works only in a clean folder
-# without any directives: finds src folder implying a standard (nonflat) layout
+# # without any directives: finds src folder and implies a standard nonflat layout
 # # where = ["src"]  # this doesn't work, it always takes the root too?
 # include = ["cma*"]  # cma/* ?
 # exclude = ["notebooks*"]  # , "cma_*" ?
