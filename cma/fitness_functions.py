@@ -12,8 +12,10 @@ from __future__ import (absolute_import, division, print_function,
 # from __future__ import collections.MutableMapping
 # does not exist in future, otherwise Python 2.5 would work, since 0.91.01
 
-sum_ = sum  # sum becomes np.sum
+sum_ = sum  # sum becomes np.sum (for legacy reasons)
 
+import warnings as _warnings
+from .warnings_and_exceptions import deliver_warning as _deliver_warning
 import numpy as np
 # arange, cos, size, eye, inf, dot, floor, outer, zeros, linalg.eigh,
 # sort, argsort, random, ones,...
@@ -93,18 +95,78 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         if 1 < 3 and sum([(10 + i) * x[i] for i in rglen(x)]) > 50e3:
             return np.nan
         return -sum(x)
-    def sphere(self, x, xoffset=0):
-        """Sphere (squared norm) test objective function"""
-        # return np.random.rand(1)[0]**0 * sum(x**2) + 1 * np.random.rand(1)[0]
-        return sum((np.asarray(x) + xoffset)**2)
-    def subspace_sphere(self, x, visible_ratio=1/2):
+    def sphere(self, x, xoffset=None, effective_dimensions=None):
+        """Sphere (norm squared) test objective function.
+
+        The optimum is at ``-xoffset=0``.
+
+        `effective_dimensions` can be an `int` or a ratio ``-> max(1, int(ratio
+        * len(x)))``.
+
+        See also `cma.ff.noisysphere`,
+        `cma.fitness_transformations.NoisyFitness`,
+        `cma.fitness_transformations.LowEffectiveDimension` and
+        `cma.fitness_transformations.NeutralVariables`.
         """
+        x = np.asarray(x)
+        if effective_dimensions is not None:
+            if isinstance(effective_dimensions, int):
+                x = x[:effective_dimensions]
+            elif effective_dimensions < 1:
+                x = x[:max((1, int(effective_dimensions * len(x))))]
+        # float(.) takes 1.5% additional time
+        return float(np.sum(np.square(x if xoffset is None else x + xoffset)))
+    def subspace_sphere(self, x, visible_ratio=0.5, same_subspace=False):
+        """random subspace sphere function, may be very difficult to solve
+
+        when the subspace changes with each evaluation.
+        
+        `same_subspace` determines for how many evaluations the subspace remains
+        the same, `True` means always. The call ``subspace_sphere('new
+        subspace')`` resets the subspace such that a callback to `fmin2` like::
+
+            fun = func_tools.partial(cma.ff.subspace_sphere, same_subspace=True)
+            mod = 1
+            cma.fmin2(..., callback=lambda es: (es.countiter % mod) or fun('new subspace'))
+
+        would reset the subspace every ``mod` iterations.
+
+        Caveat: the `same_subspace` parameter has not been thoroughly tested.
+
+        >>> import functools, cma
+        >>> fun = functools.partial(cma.ff.subspace_sphere, same_subspace=True)
+        >>> val = fun(range(200))
+        >>> assert fun(range(200)) == val, val  # fun does not change the subspace
+        >>> perm = cma.ff._subspace_sphere_permutation
+        >>> val2 = cma.ff.subspace_sphere(range(200))  # changes the subspace
+        >>> assert perm is not cma.ff._subspace_sphere_permutation
+        >>> perm = cma.ff._subspace_sphere_permutation
+        >>> assert fun(range(200)) == val2  # fun does not change the subspace
+        >>> assert perm is cma.ff._subspace_sphere_permutation
+        >>> fun('new subspace')
+        >>> assert perm is not cma.ff._subspace_sphere_permutation
+
         """
         # here we could use an init function, that is this would
         # preferably be a class
-        m = int(visible_ratio * len(x) + 1)
-        x = np.asarray(x)[np.random.permutation(len(x))[:m]]
-        return sum(x**2)
+        if not hasattr(self, '_subspace_sphere_count'):
+            self._subspace_sphere_count = 0
+            self._subspace_sphere_changed_count = -np.inf
+        if utils.is_str(x) and x.startswith('new'):
+            self._subspace_sphere_permutation = np.random.permutation(
+                len(self._subspace_sphere_permutation))
+            self._subspace_sphere_changed_count = self._subspace_sphere_count
+            return
+        self._subspace_sphere_count += 1
+        if not hasattr(self, '_subspace_sphere_permutation') or (
+            same_subspace is not True and (
+                self._subspace_sphere_changed_count < 
+                    same_subspace + self._subspace_sphere_count)):
+            m = max((1, int(visible_ratio * len(x))))
+            self._subspace_sphere_permutation = np.random.permutation(len(x))[:m]
+            self._subspace_sphere_changed_count = self._subspace_sphere_count
+        x = np.asarray(x)[self._subspace_sphere_permutation]
+        return float(sum(x**2))
     def pnorm(self, x, p=0.5):
         return sum(np.abs(x)**p)**(1./p)
     def grad_sphere(self, x, *args):
@@ -127,7 +189,13 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return sum((x + 0)**2) if all(array(x) > 1) else np.nan
     # zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
     def noisysphere(self, x, noise=2.10e-9, cond=1.0, noise_offset=0.10):
-        """noise=10 does not work with default popsize, ``cma.NoiseHandler(dimension, 1e7)`` helps"""
+        """``noise/len(x)`` is the multiplicative, `noise_offset` is the additive factor.
+
+        noise=10 does not work with default popsize,
+        ``cma.NoiseHandler(dimension, 1e7)`` helps.
+
+        See also `cma.fitness_transformations.NoisyFitness`.
+        """
         return self.elli(x, cond=cond) * np.exp(0 + noise * np.random.randn() / len(x)) + noise_offset * np.random.rand()
     def spherew(self, x):
         """Sphere (squared norm) with sum x_i = 1 test objective function"""
@@ -375,24 +443,116 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         N = len(x)
         Nhalf = int((N + 1) / 2)
         return self.rosen(x[:Nhalf]) + self.elli(x[Nhalf:], cond=1)
-    def ridge(self, x, expo=2):
+    def ridge(self, x, expo=2, factor=100):
         x = [x] if isscalar(x[0]) else x  # scalar into list
-        f = [x[0] + 100 * np.sum(x[1:]**2)**(expo / 2.) for x in x]
+        f = [x[0] + factor * np.sum(x[1:]**2)**(expo / 2.) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
-    def ridgecircle(self, x, expo=0.5):
-        """a difficult sharp ridge type function.
+    def ridgeopt(self, x, ridge_exponent=1, factor=100, exponent0=2):
+        """ridge with optimum in zero, by default a sharp ridge, namely return
 
-        A modified implementation of HG Beyers `happycat`.
+        ``(x[0]**2)**(2/2) + 100 * sum(x[1:]**2)**(1/2)``. In general, return
+        ``(x[0]**2)**(exponent0 / 2) + 100 * sum(x[1:]**2)**(ridge_exponent / 2)``.
+
+        The exponents reflect the respective shapes with increasing |x|,
+        like 1 for linear, 2 for quadratic, and 0.5 for square root.
+
+        See also `ridgeoncircle`.
         """
+        x = np.asarray(x)
+        return (x[0]**2)**(exponent0 / 2) + factor * np.sum(x[1:]**2)**(ridge_exponent / 2)
+    def ridgecircle(self, x, expo=0.5):
+        """deprecated, see `ridgeoncircle`"""
+        if _deliver_warning(self, 'ridgecircle deprecated', max_warns=1):
+            _warnings.warn("`ridgecircle` is deprecated, see `ridgeoncircle` instead. "
+                "\nTo almost replicate this function (up to |x|^2/n/2 - 0.5), use"
+                "\n``functools.partial(cma.ff.ridgeoncircle, expo=1/2, factor=1, inner_expo=2)``."
+                + _deliver_warning.message(),
+                FutureWarning)
         a = len(x)
         s = sum(x**2)
         return ((s - a)**2)**(expo / 2) + s / a + sum(x) / a
-    def happycat(self, x, alpha=1. / 8):
-        """a difficult sharp ridge type function.
+    def ridgeoncircle(self, x, expo=1, factor=100, inner_expo=1):
+        """A sharp ridge on the hypersphere surface with ``xopt = -1``
 
-        Proposed by HG Beyer.
+        and ``f(xopt) = 0``. The ridge surface is at the radius ``r = sqrt(n)``.
+
+        This is an implementation of `happycat` with a richer and more intuitive
+        parametrization and different defaults. The function is composed of
+        three different terms. Conceptually, while omitting an appropriate
+        weighting of terms, we have with decreasing relevance::
+
+            f(x) = ||x| - r| + linear(x) + |x|^2
+
+        where ``|.|`` means Eucledian norm or absolute value. The purpose of the
+        last term is to prevent domination of the linear term when ``|x| >
+        r``.
+
+        ``expo = 1`` is the exponent for ``||x| - r|``. The `happycat` default
+        is 1/4 (``alpha == 1/8``).
+
+        ``factor = 100`` weighs the towards-ridge component in comparison to the
+        position-along-the-ridge component. By construction, df/dx of the latter
+        converges to zero when approaching the optimum, whereas the former
+        remains constant when ``expo == 1`` and diverges when ``expo < 1``. This
+        discrepancy between vanishing and nonvanishing (potentially infinite)
+        gradients makes this function difficult to solve. For the `happycat`,
+        this factor is not parametrized but equals in effect ``2 * sqrt(n)``,
+        see below.
+
+        ``inner_expo = 1`` is the exponent for both, |x| and r in the first
+        term. It creates an implicit `factor` multiplier which is, close to the
+        ridge, about ``inner_expo * sqrt(n)**(inner_expo - 1)``, hence 1 by
+        default. The `happycat` default is 2 which makes the `factor` multiplier
+        ``2 * sqrt(n)`` and different dimensions slightly incomparable.
+
+        Details
+        -------
+        The most interesting parameter range is probably like 1 <= factor <=
+        1000 and 0.5 <= expo <= 1.5. SLSQP succeeds to get close to the optimum
+        with expo >= 1.5 and, with expo <= 1, fails when factor >= 10 or expo <=
+        0.8.
+
+        This function can be considered as a nonstraight version of `ridgeopt`.
+        The vanishing gradient along the ridge due to the quadratic nature
+        of the hypersphere surface is analogous to ``exponent0 = 2`` for
+        `ridgeopt`.
+
+        The `inner_expo` does not cancel `expo`, because the argument becomes
+        zero at the optimum only for the latter. The idea that these exponents
+        cancel might have lead to the default parameter choice for alpha of the
+        original Happycat function.
+
+        As by default, with expo=1 and factor=100, this looks quite similar to
+        "the curve fitting problem".
+
+        ``functools.partial(cma.ff.ridgeoncircle, expo=1/2, factor=1,
+        inner_expo=2)`` instantiates `ridgecircle` up to a missing ``|x|^2/n/2 -
+        0.5`` which is zero at ``-1``. The `happycat` is instantiated below. The
+        ``expo=0.25`` makes the Happycat much more difficult by default.
+
+        >>> import cma
+        >>> val = cma.ff.ridgeoncircle([-1.01, -1.02])
+        >>> assert 2.12318 < val < 2.12319, val  # ~ 100 * 0.02
+        >>> import functools  # instantiate the happycat function
+        >>> happycat = functools.partial(cma.ff.ridgeoncircle,
+        ...                              expo=0.25, factor=1, inner_expo=2)
+        >>> assert happycat([-1.2,3,4]) == cma.ff.happycat([-1.2,3,4])
+        >>> assert val != happycat([-1.01, -1.02]), val
+
         """
-        s = sum(x**2)
+        x, n, ie = np.asarray(x), len(x), inner_expo / 2
+        s2 = np.sum(x**2)
+        s2r2 = (s2**ie - n**ie)**2  # square avoids using np.abs
+        return float(factor * s2r2**(expo / 2) + np.sum(x) / n + (s2 + n) / n / 2)
+    def happycat(self, x, alpha=1. / 8):
+        """a difficult sharp ridge type function on a circle with ``xopt == -1``.
+
+        See `ridgeoncircle` for a more accessible implementation.
+
+        Reference: Beyer & Finck 2012, Happycat - a simple function class where
+        well-known direct search algorithms do fail.
+        """
+        s = sum(np.asarray(x)**2)
         return ((s - len(x))**2)**alpha + (s / 2 + sum(x)) / len(x) + 0.5
     def flat(self, x):
         return 1

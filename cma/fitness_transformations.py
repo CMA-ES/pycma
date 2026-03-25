@@ -506,37 +506,119 @@ class ScaleCoordinates(ComposedFunction):
             x = x / r(self.multiplier)
         return x
 
+class LowEffectiveDimension(ComposedFunction):
+    """Evaluate a function only in a lower dimensional subspace.
+
+    ``effective_dimensions = 0.1`` can be an `int` (number of effective
+    variables) or a ratio <= 1 (``-> max(1, int(ratio * len(x)))``) or an index
+    array. In the former two cases, the first variables are effective.
+
+    See also `NeutralVariables` for the case when the dimension affects the
+    underlying function definition.
+
+    Caveat: this has never been thoroughly tested.
+
+    >>> from cma import fitness_transformations as ft
+    >>> fun = ft.LowEffectiveDimension(cma.ff.sphere)
+    >>> 1**2 + 2**2 == fun(range(1, 21))
+    True
+
+    """
+    def __init__(self, f, effective_dimensions=0.1):
+        """`effective_dimensions` can be an `int` or a ratio or and index array."""
+        try:
+            effective_dimensions[0]
+            idx = np.asarray(effective_dimensions)
+        except TypeError:
+            idx = None
+        def _select_effective(*args, **kwargs):
+            x = np.asarray(args[0])
+            if idx is not None:
+                return x[idx]
+            if isinstance(effective_dimensions, int):
+                x = x[:effective_dimensions]
+            elif effective_dimensions is not None and np.isscalar(effective_dimensions) and (
+                    effective_dimensions < 1):
+                # this only works when the dimension is known, hence not in __init__
+                x = x[:max((1, int(effective_dimensions * len(x))))]
+            elif effective_dimensions is not None and effective_dimensions != 1:
+                raise ValueError("effective_dimensions = {0} of type {1} is not a valid value."
+                                 " Use an int or a float <= 1."
+                                 .format(effective_dimensions, type(effective_dimensions)))
+            return x
+        self._select_effective = _select_effective  # for the record
+        ComposedFunction.__init__(self, [f, _select_effective])
+
+class NeutralVariables(ComposedFunction):
+    """Overwrite some variables with some given fixed values,
+
+    thereby removing their effect on the resulting composed function, making
+    them a neutral subspace.
+
+    The constructor takes ``indices`` and ``values``. Then, ``x[indices] =
+    values`` is executed (on a copy) each time before the function is called.
+
+    An instance call returns ``f(self.transform(x))``.
+
+    Caveat: this has never been thoroughly tested.
+
+    >>> from cma import fitness_transformations as ft
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [2, 3], 0)
+    >>> 1**2 + 2**2 == fun([1,2,3,4])
+    True
+
+    """
+    def __init__(self, f, indices, values):
+        """return `f` with neutral subspace `indices`"""
+        ComposedFunction.__init__(self, [f, self.transform])
+        self._indices = indices
+        self._values = values
+    def transform(self, x):
+        """copy x and set ``x[indices] = values`` and return x.
+
+        This is the first transformation in this function composition.
+        """
+        x = np.array(x, copy=True)
+        x[self._indices] = self._values
+        return x
+
 class FixVariables(ComposedFunction):
-    """Insert variables with given values, thereby reducing the
-    dimensionality of the resulting composed function.
+    """Insert variables with given values,
+
+    thereby "reducing" the (preimage) dimensionality of the resulting composed
+    function. `FixVariables` is a slight misnomer for this class,
+    `'ExpandSolution'` was maybe a better name.
 
     The constructor takes ``index_value_pairs``, a `dict` or `list` of
     pairs, as input and returns a function with smaller preimage space
     than input function ``f``.
 
-    Fixing variable 3 and 5 works like
+    This class is useful to quick-test subspace optimizations of any given
+    optimization problem.
 
-        >>> from cma.fitness_transformations import FixVariables
-        >>> index_value_pairs = [[2, 0.2], [4, 0.4]]
-        >>> fun = FixVariables(cma.ff.elli, index_value_pairs)
-        >>> fun[1](4 * [1]) == [ 1.,  1.,  0.2,  1.,  0.4, 1.]
-        True
+    Fixing/inserting variable 3 and 5 works like
+
+    >>> from cma.fitness_transformations import FixVariables
+    >>> index_value_pairs = [[2, 0.2], [4, 0.4]]
+    >>> fun = FixVariables(cma.ff.elli, index_value_pairs)
+    >>> fun[1](4 * [1]) == [ 1.,  1.,  0.2,  1.,  0.4, 1.]
+    True
 
     Or starting from a given current solution in the larger space from
     which we pick the fixed values:
 
-        >>> from cma.fitness_transformations import FixVariables
-        >>> current_solution = [0.1 * i for i in range(5)]
-        >>> fixed_indices = [2, 4]
-        >>> index_value_pairs = [[i, current_solution[i]]  # fix these
-        ...                                     for i in fixed_indices]
-        >>> fun = FixVariables(cma.ff.elli, index_value_pairs)
-        >>> fun[1](4 * [1]) == [ 1.,  1.,  0.2,  1.,  0.4, 1.]
-        True
-        >>> assert (current_solution ==  # list with same values
-        ...            fun.transform(fun.insert_variables(current_solution)))
-        >>> assert (current_solution ==  # list with same values
-        ...            fun.insert_variables(fun.transform(current_solution)))
+    >>> from cma.fitness_transformations import FixVariables
+    >>> current_solution = [0.1 * i for i in range(5)]
+    >>> fixed_indices = [2, 4]
+    >>> index_value_pairs = [[i, current_solution[i]]  # fix these
+    ...                                     for i in fixed_indices]
+    >>> fun = FixVariables(cma.ff.elli, index_value_pairs)
+    >>> fun[1](4 * [1]) == [ 1.,  1.,  0.2,  1.,  0.4, 1.]
+    True
+    >>> assert (current_solution ==  # list with same values
+    ...            fun.transform(fun.insert_variables(current_solution)))
+    >>> assert (current_solution ==  # list with same values
+    ...            fun.insert_variables(fun.transform(current_solution)))
 
     Details: this might replace the ``fixed_variables`` option in
     `CMAOptions` in future, but hasn't been thoroughly tested yet.
@@ -554,12 +636,12 @@ class FixVariables(ComposedFunction):
         ComposedFunction.__init__(self, [f, self.insert_variables])
         self.index_value_pairs = dict(index_value_pairs)
     def transform(self, x):
-        """transform `x` such that it could be used as argument to `self`.
+        """transform `x` such that it could be used as argument to `self`,
 
-        Return a list or array, usually dismissing some elements of
-        `x`. ``fun.transform`` is the inverse of
-        ``fun.insert_variables == fun[1]``, that is
-        ``np.all(x == fun.transform(fun.insert_variables(x))) is True``.
+        that is, apply the inverse of the x-transformation of `self`. Return a
+        list or array, usually dismissing some elements of `x`.
+        ``fun.transform`` is the inverse of ``fun.insert_variables == fun[1]``,
+        that is ``np.all(x == fun.transform(fun.insert_variables(x))) is True``.
         """
         res = [x[i] for i in range(len(x))
                 if i not in self.index_value_pairs]
@@ -576,8 +658,7 @@ class FixVariables(ComposedFunction):
         return y
 
 class Expensify(Function):
-    """Add waiting time to each evaluation, to simulate "expensive"
-    behavior"""
+    """Add a waiting time to each evaluation, to simulate "expensive" behavior"""
     def __init__(self, callable_, time=1):
         """add time in seconds"""
         Function.__init__(self)  # callable_ could go here
@@ -601,11 +682,18 @@ class SomeNaNFitness(Function):
         else:
             return self.fitness_function(x, *args)
 
+def _def_rel_noise(dim):
+    return 1.1 * np.random.randn() / dim
+def _def_abs_noise(dim):
+    return 1.1 * np.random.randn()
 class NoisyFitness(Function):
-    """apply noise via ``f += rel_noise(dim) * f + abs_noise(dim)``"""
+    """apply noise via ``f += rel_noise(dim) * f + abs_noise(dim)``.
+
+    ``*_noise in (False, None)`` means no noise for the respective parameter.
+    """
     def __init__(self, fitness_function,
-                 rel_noise=lambda dim: 1.1 * np.random.randn() / dim,
-                 abs_noise=lambda dim: 1.1 * np.random.randn()):
+                 rel_noise=_def_rel_noise,
+                 abs_noise=_def_abs_noise):
         """attach relative and absolution noise to ``fitness_function``.
 
         Relative noise is by default computed using the length of the
