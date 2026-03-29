@@ -4151,6 +4151,7 @@ class _CMAStopDict(dict):
         self.lastiter = 0  # probably not necessary
         self._get_value = None  # a hack to pass some value
         self._value = None  # in iteration zero value is always None
+        self._signals_read_count = 0  # not in use
         try:
             self.stoplist = d.stoplist  # multiple entries
         except:
@@ -4227,6 +4228,7 @@ class _CMAStopDict(dict):
                 opts.update(d)
                 for key in d:
                     opts.eval(key, {'N': N, 'dim': N})
+                self._signals_read_count += 1
 
         # fitness: generic criterion, user defined w/o default
         self._addstop('ftarget',
