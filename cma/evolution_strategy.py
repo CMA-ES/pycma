@@ -271,7 +271,9 @@ round_integer_variables_revert_changes = True
 _record_hsig = False
 
 _redistribute_sigma_above = 1e9
-'''when ``..._above > 1`` and `sigma` becomes too large, push variance from `sigma` to `sigma_vec`'''
+'''when ``sigma > ..._above * sigma0`` and ``..._above > 1`` push variance to `sm`'''
+_redistribute_sigma_vec_above = 1e3
+'''when ``min(sigma_vec) > ..._above > 1``, push variance to `sigma`'''
 
 _alleviate_conditioning_condition = 1e12
 '''compute linear transformation and set C=I when cond(C) is above'''
@@ -1109,15 +1111,18 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.N_pheno = len(self.x0)
 
         if utils.is_str(sigma0):
-            raise ValueError("sigma0 must be a scalar, a string like '{0}' is no longer permitted".format(sigma0))
+            raise ValueError("sigma0 must be a scalar, a string like '{0}' is no longer permitted".format(sigma0))  # noqa: UP030, UP032
             # self.sigma0 = eval(sigma0)  # like '1./N' or 'np.random.rand(1)[0]+1e-2'
         if np.size(sigma0) != 1 or np.shape(sigma0):
-            raise ValueError('input argument sigma0 was {0} but must be (or evaluate to) a scalar,'
-                             ' use `cma.ScaleCoordinates` or option `"CMA_stds"` when'
+            raise ValueError('input argument sigma0 was {0} but must be (or evaluate to)'  # noqa: UP030, UP032
+                             ' a scalar, use `cma.ScaleCoordinates` or option `"CMA_stds"` when'
                              ' different sigmas in each coordinate are in order.'
                              .format(sigma0))
         self.sigma0 = float(sigma0)
         self.sigma = self.sigma0  # goes to inialize
+        self._sigma_rescaled_by = 1
+        '''factor by which sigma has been rescaled'''
+        self._sigma_old = self.sigma  # not necessary, just making sure
 
         # extract/expand options
         N = self.N_pheno
@@ -1574,7 +1579,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if found:
                 self.sigma_vec._init_(self.N)
                 if s == 0 or not np.isfinite(self.sigma_vec.scaling[i] * sb):
-                    warnings.warn('_stds_into_limits: sigmavec update omitted due to '
+                    warnings.warn('_stds_into_limits: sigmavec update omitted due to '  # noqa: UP030, UP032
                         'an inadmissible value s={0}, scaling[i]={1}, sb={2}, stds={3}'
                         .format(s, self.sigma_vec.scaling[i], sb, self.stds))
                 else:
@@ -1587,8 +1592,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             warnings.warn("Sampling standard deviation i={0}{4} at iteration {1}"
                             " multiplied by {2} to stds[{0}]={3}"
                             .format(i, self.countiter, ss, self.stds[i],
-                                    ' (and {0} others)'.format(len(warning_data) - 1
+                                    ' (and {0} others)'.format(len(warning_data) - 1  # noqa: UP030
                                     if len(warning_data) > 1 else '')))
+        if np.min(self.sigma_vec) > _redistribute_sigma_vec_above > 1:
+            fac = np.min(self.sigma_vec)
+            self.sigma *= fac
+            self.sigma_vec.scaling /= fac  # set min(sigma_vec) back to 1
+            self._sigma_old *= fac
+            self._sigma_rescaled_by *= fac
+
 
     def _copy_light(self, sigma=None, inopts=None):
         """tentative copy of self, versatile (interface and functionalities may change).
@@ -3038,6 +3050,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         if _redistribute_sigma_above > 1 and (
                 self.sigma > _redistribute_sigma_above * self.sigma0):
+            # TODO: we may want to check whether to push to sigma_vec instead of sm?
             try:
                 alpha = float(self.sigma / max(self.sm.variances)**0.5)
             except Exception:
@@ -3049,9 +3062,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     except Exception:
                         pass
                     else:  # change representation / "coordinate system"
-                        self.sigma /= alpha**0.5  # adjust only half
+                        self.sigma /= alpha**0.5  # adjust only half, sm multiplied a variance
                         self._sigma_old /= alpha**0.5  # semibug, fixed Sep 2025
-                        self.opts['tolupsigma'] /= alpha**0.5  # to be compared with sigma
+                        self._sigma_rescaled_by /= alpha**0.5
                         self._updateBDfromSM()
 
         # TODO increase sigma in case of a plateau?
@@ -4307,10 +4320,10 @@ class _CMAStopDict(dict):
             # iiinteger: stagnation termination can prevent to find the optimum
         self._addstop('tolxstagnation', es._stoptolxstagnation.stop)
 
-        s = float(es.sigma / es.D.max())
-        self._addstop('tolupsigma', opts['tolupsigma'] and
-                      s > es.sigma0 * opts['tolupsigma'],
-                      s if self._get_value else None)
+        if opts['tolupsigma'] and opts['tolupsigma'] > 1:
+            s = es.sigma / es._sigma_rescaled_by / es.sigma0 / es.D.max()  # dividing finds discrepency
+            self._addstop('tolupsigma', s > opts['tolupsigma'],
+                          float(s) if self._get_value else None)
         try:
             self._addstop('timeout',
                           es.timer.elapsed > opts['timeout'],
