@@ -4410,7 +4410,7 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
         if irun == 0 or not keep_model:
             surrogate = _fitness_models.SurrogatePopulation(objective_function)
         if irun > 0:  # increase popsize
-            options['popsize'] = int(es.sp.popsize * incpopsize + 1/2)
+            options['popsize'] = int(es.sp.popsize * incpopsize + 1/2)  # noqa: F821
         es = CMAEvolutionStrategy(x0, sigma0, options)
         es.surrogate = surrogate  # may be used in callback
         if irun > 0:  # pass counts from previous state

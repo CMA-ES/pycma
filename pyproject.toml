@@ -86,6 +86,7 @@ version = {attr = "cma.__version__"}  # any module attribute compatible with ast
 # In the dynamic table, the attr directive [3] will read an attribute from the given module [4], while file will read the contents of all given files and concatenate them in a single string.
 
 [tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
 ignore = ['F401', 'F403', 'E401', 'E402', 'F405', 'E701', 'E702', 'E722', 'E741',]
 # select = ["NPY201"]
 
