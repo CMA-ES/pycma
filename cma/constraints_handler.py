@@ -537,7 +537,9 @@ class AugmentedLagrangian(object):
             if np.any(idx1):  # decrease
                 iidx1 = self.mu[idx1] > 0
                 if np.any(iidx1):
-                    self.lam[idx1][iidx1] *= mu_new[idx1][iidx1] / self.mu[idx1][iidx1]
+                    full_mask = np.zeros_like(self.lam, dtype=bool)
+                    full_mask[idx1] = iidx1
+                    self.lam[full_mask] *= mu_new[full_mask] / self.mu[full_mask]
                 self.mu[idx1] = mu_new[idx1]
             if np.any(idx2):  # increase
                 self.mu[idx2] = mu_new[idx2]
