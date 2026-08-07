@@ -398,6 +398,38 @@ def various_doctests():
     >>> x, es = cma.fmin2(cma.ff.sphere, [2, 2], 1, dict(opts, maxiter=1))
     >>> assert np.array_equal(x, es.result.xbest)
 
+    Dynamic setting of learning rates:
+
+    >>> def cc(c, *args, **kwargs): return c / 1.1
+    >>> es = cma.CMA(2 * [1], 1, {'verbose':-9})
+    >>> assert es.sp.cmu > 0.08559, es.sp.cmu
+    >>> es.cmu_dynamic = cc
+    >>> es = es.optimize(cma.ff.sphere, iterations=5)
+    >>> assert es._cmu_dynamic_last_value < 0.0532, es._cmu_dynamic_last_value
+    >>> assert not hasattr(es, '_c1_dynamic_last_value')
+    >>> assert not hasattr(es, '_cc_dynamic_last_value')
+    >>> es = cma.CMA(2 * [1], 1, {'verbose':-9})
+    >>> assert es.sp.cmu > 0.08559, es.sp.cmu
+    >>> es.cmu_dynamic = 0.08
+    >>> es = es.optimize(cma.ff.sphere, iterations=5)
+    >>> assert es._cmu_dynamic_last_value == 0.08, es._cmu_dynamic_last_value
+    >>> assert not hasattr(es, '_c1_dynamic_last_value')
+    >>> assert not hasattr(es, '_cc_dynamic_last_value')
+    >>> es = cma.CMA(2 * [1], 1, {'verbose':-9})
+    >>> assert es.sp.c1 > 0.15, es.sp.c1
+    >>> es.c1_dynamic = cc
+    >>> es = es.optimize(cma.ff.sphere, iterations=5)
+    >>> assert es._c1_dynamic_last_value < 0.0962, es._c1_dynamic_last_value
+    >>> assert not hasattr(es, '_cmu_dynamic_last_value')
+    >>> assert not hasattr(es, '_cc_dynamic_last_value')
+    >>> es = cma.CMA(2 * [1], 1, {'verbose':-9})
+    >>> assert es.sp.cc > 0.624, es.sp.cc
+    >>> es.cc_dynamic = cc
+    >>> es = es.optimize(cma.ff.sphere, iterations=5)
+    >>> assert es._cc_dynamic_last_value < 0.3878, es._cc_dynamic_last_value
+    >>> assert not hasattr(es, '_cmu_dynamic_last_value')
+    >>> assert not hasattr(es, '_c1_dynamic_last_value')
+
     """
 
 def doctest_files(file_list=files_for_doctest, **kwargs):
