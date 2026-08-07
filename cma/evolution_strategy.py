@@ -310,6 +310,35 @@ set_popsize_callbacks = _set_popsize_change_sigma_callback
 adapt_sigma_state_attributes = ('_ps_updated_iteration', 'ps', 's')
 '''state attributes that are recovered after reinitialization by `set_popsize`'''
 
+# For the user to be assigned when desired. These are used once in
+# CMAEvolutionStrategy.__init__ to assign the respective class instance attributes
+_c1_dynamic = None         # return new c1 as a function of c1, dim, mueff, lam
+_cc_dynamic = None     # return new cc as a function of cc, c1, dim, mueff, lam
+_cmu_dynamic = None  # return new cmu as a function of cmu, c1, dim, mueff, lam
+c1_dynamic_cc_expo = 0.5  # parameter for cc_from_c1
+'''exponent for the cc change when c1 is changed'''
+def _cc_from_c1(cc, c1, c1_old, dimension, es):
+    """return new cc when c1 changed, where `cc` is the default cc value.
+
+    This function is assigned as a class attribute of `cma.CMAEvolutionStrategy`
+    and called only if ``.c1_dynamic is not None and .cc_dynamic is None`` after
+    `c1` was changed.
+
+    The function can be reassigned, before class instantiation, to change the
+    behavior, for example when no change of `cc` is desired, it may simply
+    return cc like::
+
+        cma.evolution_strategy._cc_from_c1 = lambda cc, *args, **kwargs: cc
+
+    """
+    # return cc  # in case we don't want to change cc
+    if c1_old > 0:
+        cc *= (c1 / c1_old)**c1_dynamic_cc_expo  # this may be "wrong" if c1/c1_old>>1
+    else:
+        cc = c1**0.5  # alternatively we could not change cc here?
+    return Mh.minmax(cc, 1 / dimension / 2, c1**0.5)
+
+
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
 
@@ -1642,6 +1671,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.fit.median_previous = np.inf
         self.fit.median_got_worse = 0
         self.fit.flatfit_iterations = 0
+
+        # these are user-defined and may be assigned later too
+        self.c1_dynamic = _c1_dynamic
+        self.cc_dynamic = _cc_dynamic
+        self.cmu_dynamic = _cmu_dynamic
+        self.cc_from_c1 = _cc_from_c1
 
         self.more_to_write = utils.MoreToWrite()  # [1, 1, 1, 1]  #  N*[1]  # needed when writing takes place before setting
 
@@ -3028,6 +3063,39 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         cmu = self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters().get('cmu', sp.cmu)
         if flg_diagonal:
             cc, c1, cmu = sp.cc_sep, sp.c1_sep, sp.cmu_sep
+
+        _finalize_weights = self.countiter <= 1
+        if self.c1_dynamic is not None:
+            if not hasattr(self, '_c1_dynamic_last_value'):
+                self._c1_dynamic_last_value = c1
+            c1 = (self.c1_dynamic(self._c1_dynamic_last_value,
+                                  dimension=self.N, mueff=sp.weights.mueff, es=self)
+                  if callable(self.c1_dynamic) else self.c1_dynamic)
+            if c1 >= 1:
+                warnings.warn("c1 was set to {0} which will lead to an exception" # noqa: UP030, UP032
+                              .format(c1))
+            if self.cc_dynamic is None:
+                cc = self.cc_from_c1(cc, c1, self._c1_dynamic_last_value,
+                                     dimension=self.N, es=self)
+            _finalize_weights = _finalize_weights or (c1 != self._c1_dynamic_last_value)
+            self._c1_dynamic_last_value = c1
+        if self.cc_dynamic is not None:
+            if not hasattr(self, '_cc_dynamic_last_value'):
+                self._cc_dynamic_last_value = cc
+            cc = (self.cc_dynamic(self._cc_dynamic_last_value, c1=c1, 
+                                  dimension=self.N, mueff=sp.weights.mueff, es=self)
+                  if callable(self.cc_dynamic) else self.cc_dynamic)
+            self._cc_dynamic_last_value = cc
+        if self.cmu_dynamic is not None:
+            if not hasattr(self, '_cmu_dynamic_last_value'):
+                self._cmu_dynamic_last_value = cmu
+            cmu = (self.cmu_dynamic(self._cmu_dynamic_last_value,
+                                    c1=c1, dimension=self.N, mueff=sp.weights.mueff, es=self)
+                   if callable(self.cmu_dynamic) else self.cmu_dynamic)
+            _finalize_weights = _finalize_weights or (cmu != self._cmu_dynamic_last_value)
+            self._cmu_dynamic_last_value = cmu
+        if _finalize_weights:
+            sp.weights.finalize_negative_weights(self.N, c1, cmu, pos_def=not flg_diagonal)
 
         # now the real work can start
 
