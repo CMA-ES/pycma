@@ -191,7 +191,7 @@ def various_doctests():
         >>> fun = cma.ff.ellirot
         >>> x, es = cma.fmin2(fun, 5 * [1], 1, {
         ...            'minstd': 1e-4, 'maxiter': 400, 'verbose': -9,})
-        >>> assert fun(es.mean) < 2e-3, (fun(es.mean), es.mean)
+        >>> assert fun(es.mean) < 9e-3, (fun(es.mean), es.mean)  # observed 0.005362 in less than 1/2000
 
     Test of elitism:
 
