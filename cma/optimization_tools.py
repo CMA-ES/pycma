@@ -286,10 +286,12 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
     where ``evals`` and ``successes`` are `numpy` arrays and ``fval`` is a
     `float`.
 
-    The input argument ``data`` is an array where the first column,
-    ``data[:, 0]``, contains the monotonuously increasing evaluations and
-    the remaining columns, ``data[:,1:]``, are the recorded respective
-    f-values (which do not need to be monotonuous) for several runs.
+    The input argument ``data`` is an array where the first column, ``data[:,
+    0]``, contains the monotonuously increasing evaluations and the remaining
+    columns, ``data[:,1:]``, are the recorded respective f-values (which do not
+    need to be monotonuous) for several runs. In order to compute ERT correctly,
+    f-values in ``data`` should be `nan` (they must not be finite) for
+    not-conducted evaluations of runs that terminated early.
 
     Each output ``fval`` value reflects an entry in the input
     ``data[:,1:]``. When the f-values are monotonously decreasing in the
@@ -449,6 +451,7 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         #         warnings.warn("Non-int evaluation values found. "
         #                       "``evals_type=int`` parameter will remove fractions.")
         self.count = 0
+        self._fval_count = -1  # == .count means _fval is up-to-date
         self.row_indices = np.zeros(self.data.shape[1] - 1, dtype=int)
         '''unsuccessful data have negative indices (which is used in `fval`)'''
         self._current_data = self.data[0, 0] * np.ones(
@@ -467,9 +470,13 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
     @property
     def fval(self):
         """current f-value, bails when no data are available anymore"""
-        return float(max(self.data[i, j+1]
-                            for j, i in enumerate(self.row_indices)
-                            if i >= 0))  # (i >= 0) == self.successes[j]
+        assert self._fval_count <= self.count, (self.count, self._fval_count)
+        if self._fval_count != self.count:  # compute once per iteration
+            self._fval = float(max(self.data[i, j+1]
+                                   for j, i in enumerate(self.row_indices)
+                               if i >= 0))  # (i >= 0) == self.successes[j]
+            self._fval_count = self.count
+        return self._fval
 
     def __next__(self):  # in Python 2 we need def next(self)
         """increment ``i = self.row_indices[j]`` for which ``self.data[i, j] >= fval``
@@ -477,11 +484,13 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         until it surpasses ``fval`` and ``return evals, fval, successes``
         such that ``evals[j] == self.data[self.row_indices[j], 0]``.
         """
-        self.count += 1
-        if self.count == 1:
+        if self.count == 0:
+            self.count += 1
             return self.return_filter(self._current_data, self.fval, self.successes)
-        # advance row index for each column until fval decreased
-        fval = self.fval  # based on the current row_indices
+        # advance row_indices[j] for each column j until data[row_indices[j], j] < fval
+        # that is, change all row_indices[j] with data[row_indices[j], j] == fval
+        # hence change *all* argmax according to the max computed before in self.fval
+        fval = self.fval  # based on the current row_indices, here just an alias
         for j in range(1, 1 + len(self.row_indices)):  # j = column in data
             i = self.row_indices[j-1]
             if i < 0 or self.data[i, j] < fval:  # column did not reach fval previously
@@ -506,6 +515,7 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         assert self._no_asserts or np.all(
                 self.data[self.row_indices, 0] == self._current_data), (
                 self.data[self.row_indices, 0], self._current_data)
+        self.count += 1  # make self.fval recompute ._fval according to the new row_indices
         if np.any(self.successes):
             return self.return_filter(self._current_data, self.fval, self.successes)
         raise StopIteration
