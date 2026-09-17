@@ -11,29 +11,29 @@ The **main functionality** is implemented in
 2. function `fmin` which is a small single-line-usage wrapper around
    `CMAES`.
 
-This code has two **purposes**:
+This code has two **purposes**, namely for:
 
-1. for READING and UNDERSTANDING the basic flow and the details of the
-   CMA-ES *algorithm*. The source code is meant to be read. For a quick
-   glance, study the first few code lines of `fmin` and the code of
-   method `CMAES.tell`, where all the real work is done in about 20 lines
-   of code (search "def tell" in the source). Otherwise, reading from
-   the top is a feasible option, where the codes of `fmin`,
-   `CMAES.__init__`, `CMAES.ask`, `CMAES.tell` are of particular
-   interest.
+1. READING and UNDERSTANDING the basic flow and the details of the CMA-ES
+   *algorithm*. The source code is meant to be read. For a quick glance, study
+   the first few code lines of `fmin` and the code of method `CMAES.tell`, where
+   all the real work is done in about 20 lines of code (search "def tell" in the
+   source). Otherwise, reading from the top is a feasible option, where the
+   codes of `fmin`, `CMAES.__init__`, `CMAES.ask`, `CMAES.tell` are of
+   particular interest.
 
-2. apply CMA-ES when the python module `numpy` is not available.
-   When `numpy` is available, `cma.fmin` or `cma.CMAEvolutionStrategy` are
-   preferred to run "serious" simulations. The latter code has many more
-   lines, but usually executes faster, offers a richer user interface,
-   better termination options, boundary and noise handling, injection,
-   automated restarts...
+2. applying CMA-ES when the `numpy` python module is not available. When `numpy`
+   is available, `cma.fmin2` or `cma.CMAEvolutionStrategy` are preferred to run
+   "serious" simulations. The latter code has many more lines, but usually
+   executes faster, offers a richer user interface, better termination options,
+   boundary and noise handling, injection, automated restarts...
 
 Dependencies: `math.exp`, `math.log` and `random.normalvariate` (modules
 `matplotlib.pylab` and `sys` are optional).
 
-Testing: call ``python purecma.py`` at the OS shell. Tested with
-Python 2.6, 2.7, 3.3, 3.5, 3.6.
+Testing: call ``python -m cma.test cma/more_algorithms/purecma.py`` at the OS
+shell assuming `cma` is installed (e.g. with ``pip install cma``) or ``python
+purecmaes.py`` in the ``cma/more_algorithms`` folder. Tested with Python 2.6,
+2.7, 3.3, 3.5-3.14.
 
 URL: http://github.com/CMA-ES/pycma
 
@@ -43,7 +43,6 @@ Last change: September, 2017, version 3.0.0
 
 This code is released into the public domain (that is, you may
 use and modify it however you like).
-
 """
 from __future__ import division  # such that 1/2 != 0
 from __future__ import print_function  # available since 2.6, not needed
