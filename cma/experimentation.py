@@ -192,7 +192,8 @@ class Results(object):
         with open(self.filename, 'rt') as f:
             try:
                 self.data = DataDict(literal_eval(f.read()))
-            except Exception:
+            except Exception as e:
+                print(e)
                 print("Please check whether inf or nan were used as simple value"
                       " rather than in a sequence as [inf] or [nan].")
                 raise
@@ -225,14 +226,14 @@ class Results(object):
             # except IOError: pass
         self._values_to_string()
         if self.data.get('meta_data', None) is None and self.meta_data is not None:
-            self.data['meta_data'] = repr(self.meta_data)
+            self.data['meta_data'] = self.meta_data  # we will write repr(self.data)
         try:
             os.makedirs(os.path.dirname(self.filename))  # bails when a folder exists
         except Exception:  # error or IOError or OSError or FileExistsError?
             pass
         with open(self.filename, 'wt') as f:
             f.write(repr(self.data))
-        self.data.pop('meta_data')  # otherwise they get too often in the way
+        self.data.pop('meta_data', None)  # otherwise they get too often in the way
         self._values_to_string(inverse=True)
         return self  # necessary/useful?
 
