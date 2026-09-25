@@ -2708,7 +2708,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # fit.bndpen = self.boundary_handler.update(function_values, self)([s.unrepaired for s in solutions])
         fit.fit_plus_pen = np.asarray(fit.bndpen) + function_values
         fit.idx = np.argsort(fit.fit_plus_pen)
-        fit.fit = sorted(function_values)  # was: array(function_values)[fit.idx] which can falsely trigger tolflatfitness
+        fit.fit = [function_values[i] for i in fit.idx] if isinstance(function_values, list) else (
+                    list(np.asarray(function_values)[fit.idx]))
+        fit.fvals = sorted(function_values)  # was: array(function_values)[fit.idx] which can falsely trigger tolflatfitness, sorted becomes slightly slowish when len(.) > 1000
 
         # update output data TODO: this is obsolete!? However: need communicate current best x-value?
         # old: out['recent_x'] = self.gp.pheno(pop[0])
@@ -2802,7 +2804,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     'Set attribute `es.f0` to make initial elitism\n' +
                     'available or use cma.fmin.',
                     'tell', 'CMAEvolutionStrategy', self.countiter)
-            elif fit.fit[0] > self.f0:
+            elif fit.fvals[0] > self.f0:  # TODO maybe should be fit.fit[0] ?
                 x_elit = self.mean0.copy()
                 # self.clip_or_fit_solutions([x_elit], [0]) # just calls repair_genotype
                 self.random_rescale_to_mahalanobis(x_elit)
@@ -4366,7 +4368,7 @@ class _CMAStopDict(dict):
 
         if 1 < 3 or len(self): # only if another termination criterion is satisfied
             if 1 < 3:
-                if es.fit.fit[0] < es.fit.fit[int(0.75 * len(es.fit.fit))]:
+                if es.fit.fvals[0] < es.fit.fvals[int(0.75 * len(es.fit.fvals))]:
                     es.fit.flatfit_iterations = 0
                 else:
                     # print(es.fit.fit)
@@ -4378,7 +4380,7 @@ class _CMAStopDict(dict):
                         self._addstop('tolflatfitness')
                         if 11 < 3 and max(es.fit.fit) == min(es.fit.fit) == es.best.last.f:  # keep warning for historical reasons for the time being
                             utils.print_warning(
-                                "flat fitness (f=%f, sigma=%.2e). "
+                                "flat fitness (f=%f, sigma=%.2e). "  # noqa: UP031
                                 "For small sigma, this could indicate numerical convergence. \n"
                                 "Otherwise, please (re)consider how to compute the fitness more elaborately." %
                                 (es.fit.fit[0], es.sigma), iteration=es.countiter)
