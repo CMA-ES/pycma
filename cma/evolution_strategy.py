@@ -273,6 +273,11 @@ _record_hsig = False
 _redistribute_sigma_above = 1e9
 '''when ``..._above > 1`` and `sigma` becomes too large, push variance from `sigma` to `sigma_vec`'''
 
+_alleviate_conditioning_condition = 1e12
+'''compute linear transformation and set C=I when cond(C) is above'''
+_alleviate_conditioning_in_coordinates_condition = 1e8
+'''set C to its correlation matrix and change sigma_vec accordingly when cond(C) is above'''
+
 TPA_dimension = 300
 '''use TPA instead of CSA when dimension>=TPA_dimension'''
 
@@ -3668,12 +3673,14 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         except (NotImplementedError):
             return (max(self.D) / min(self.D))**2
 
-    def alleviate_conditioning_in_coordinates(self, condition=1e8):
+    def alleviate_conditioning_in_coordinates(self, condition=None):
         """pass scaling from `C` to `sigma_vec`.
 
         As a result, `C` is a correlation matrix, i.e., all diagonal
         entries of `C` are `1`.
         """
+        if condition is None:
+            condition = _alleviate_conditioning_in_coordinates_condition
         if (not condition or not np.isfinite(condition)
                 or np.max(self.dC) / np.min(self.dC) < condition):
             return
@@ -3698,7 +3705,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     def _tfg(self, x):
         return np.dot(self.gp._tf_matrix_inv, x)
 
-    def alleviate_conditioning(self, condition=1e12):
+    def alleviate_conditioning(self, condition=None):
         """pass conditioning of `C` to linear transformation in `self.gp`.
 
         Argument `condition` defines the limit condition number above
@@ -3716,6 +3723,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         the covariance matrix `C` is set (back) to identity and a
         respective linear transformation is "added" to `self.gp`.
         """
+        if condition is None:
+            condition = _alleviate_conditioning_condition
         # new interface: if sm.condition_number > condition ...
         if not self.gp.isidentity or not condition or self.condition_number < condition:
             return
