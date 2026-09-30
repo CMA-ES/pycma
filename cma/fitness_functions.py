@@ -35,13 +35,32 @@ from . import bbobbenchmarks
 BBOB = bbobbenchmarks  # for backwards compatibility
 from .fitness_transformations import rotate  #, ComposedFunction, Function
 
+_logspaces = {1: np.asarray([1.])}  # the array value could be cond, but 1. is backwards compatible
+def logspace(dimension, condition_number):
+    try:
+        return _logspaces[dimension, condition_number]
+    except KeyError:
+        pass
+    if dimension == 1:
+        return _logspaces[1]
+    try:  # not really necessary, catches np.logspace not working
+        _logspaces[dimension, condition_number] = np.logspace(0, np.log10(condition_number), dimension)
+        assert np.isclose(_logspaces[dimension, condition_number],
+                        condition_number**(np.arange(dimension) / (dimension - 1))
+                        ), _logspaces[dimension, condition_number]
+    except Exception:  # when np.logspace doesn't work properly :-)
+        _logspaces[dimension, condition_number] = condition_number**(
+                                                    np.arange(dimension) / (dimension - 1))
+    return _logspaces[dimension, condition_number]
+
 def elli(x, cond=1e6):
     """unbound test function, needed to test multiprocessor, as long
     as the other test functions are defined within a class and
     only accessable via the class instance"""
-    return sum(cond**(np.arange(len(x)) / (len(x) - 1 + 1e-9)) * np.asarray(x)**2)
+    return np.dot(logspace(len(x), cond), np.asarray(x)**2)
 def sphere(x):
-    return sum(np.asarray(x)**2)
+    x = np.asarray(x)
+    return np.dot(x, x)
 
 def _iqr(x):
     x = sorted(x)
@@ -166,7 +185,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
             self._subspace_sphere_permutation = np.random.permutation(len(x))[:m]
             self._subspace_sphere_changed_count = self._subspace_sphere_count
         x = np.asarray(x)[self._subspace_sphere_permutation]
-        return float(sum(x**2))
+        return float(np.dot(x, x))
     def pnorm(self, x, p=0.5):
         return sum(np.abs(x)**p)**(1./p)
     def grad_sphere(self, x, *args):
@@ -179,14 +198,15 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         c = 0.0
         if x[0] < c:
             return np.nan
-        return -c**2 + sum((x + 0)**2)
+        x = np.asarray(x)
+        return -c**2 + np.dot(x, x)
     def spherewithoneconstraint(self, x):
-        return sum((x + 0)**2) if x[0] > 1 else np.nan
-    def elliwithoneconstraint(self, x, idx=[-1]):
+        return np.dot(x, x) if x[0] > 1 else np.nan
+    def elliwithoneconstraint(self, x, idx=(-1,)):
         return self.ellirot(x) if all(array(x)[idx] > 1) else np.nan
 
     def spherewithnconstraints(self, x):
-        return sum((x + 0)**2) if all(array(x) > 1) else np.nan
+        return np.dot(x, x) if all(array(x) > 1) else np.nan
     # zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
     def noisysphere(self, x, noise=2.10e-9, cond=1.0, noise_offset=0.10):
         """``noise/len(x)`` is the multiplicative, `noise_offset` is the additive factor.
@@ -203,7 +223,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         # s = sum(abs(x))
         # return sum((x/s+0)**2) - 1/len(x)
         # return sum((x/s)**2) - 1/len(x)
-        return -0.01 * x[0] + abs(x[0])**-2 * sum(x[1:]**2)
+        return -0.01 * x[0] + abs(x[0])**-2 * np.dot(x[1:], x[1:])
     def epslowsphere(self, x, eps=1e-7, Neff=lambda x: int(len(x)**0.5)):
         """TODO: define as wrapper"""
         return np.mean(x[:Neff(x)]**2) + eps * np.mean(x**2)
@@ -220,13 +240,14 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return f
     def sectorsphere(self, x):
         """asymmetric Sphere (squared norm) test objective function"""
-        return sum(x**2) + (1e6 - 1) * sum(x[x < 0]**2)
+        y = x[x < 0]
+        return np.dot(x, x) + (1e6 - 1) * np.dot(y, y)
     def cornersphere(self, x):
         """Sphere (squared norm) test objective function constraint to the corner"""
         nconstr = len(x) - 0
         if any(x[:nconstr] < 1):
             return np.nan
-        return sum(x**2) - nconstr
+        return np.dot(x, x) - nconstr
     def cornerelli(self, x):
         """ """
         if any(x < 1):
@@ -261,7 +282,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         if rot:
             x = rotate(x)
         x = [x] if isscalar(x[0]) else x  # scalar into list
-        f = [(x[0]**2 + cond * sum(x[1:]**2)) * np.exp(noise * np.random.randn(1)[0] / len(x)) for x in x]
+        f = [(x[0]**2 + cond * np.dot(x[1:], x[1:])) * np.exp(noise * np.random.randn(1)[0] / len(x)) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
     def grad_cigar(self, x, *args):
         grad = 2 * 1e6 * np.array(x)
@@ -270,16 +291,17 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def diagonal_cigar(self, x, cond=1e6):
         axis = np.ones(len(x)) / len(x)**0.5
         proj = dot(axis, x) * axis
-        s = sum(proj**2)
-        s += cond * sum((x - proj)**2)
+        s = np.dot(proj, proj)
+        y = x - proj
+        s += cond * np.dot(y, y)
         return s
     def tablet(self, x, cond=1e6, rot=0):
-        """Tablet test objective function"""
+        """Tablet test objective function, x may be a list of solutions"""
         x = np.asarray(x)
         if rot and rot is not ff.tablet:
             x = rotate(x)
         x = [x] if isscalar(x[0]) else x  # scalar into list
-        f = [cond * x[0]**2 + sum(x[1:]**2) for x in x]
+        f = [cond * x[0]**2 + np.dot(x[1:], x[1:]) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
     def grad_tablet(self, x, *args):
         grad = 2 * np.array(x)
@@ -288,7 +310,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def cigtab(self, y):
         """Cigtab test objective function"""
         X = [y] if isscalar(y[0]) else y
-        f = [1e-4 * x[0]**2 + 1e4 * x[1]**2 + sum(x[2:]**2) for x in X]
+        f = [1e-4 * x[0]**2 + 1e4 * x[1]**2 + np.dot(x[2:], x[2:]) for x in X]
         return f if len(f) > 1 else f[0]
     def cigtab2(self, x, condition=1e8, n_axes=None):
         """cigtab with 1 + 5% long and short axes.
@@ -328,7 +350,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         if actuator_noise:
             x = x + actuator_noise * np.random.randn(N)
 
-        ftrue = sum(cond**(np.arange(N) / (N - 1.)) * (x + xoffset)**2) \
+        ftrue = np.dot(logspace(N, cond), (x + xoffset)**2) \
                 if N > 1 else (x[0] + xoffset)**2
         # felli = ftrue + 1*np.random.randn() / (1e-30 +  # Cauchy noise
         #                                           np.abs(np.random.randn()))**0
@@ -381,7 +403,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
     def elliconstraint(self, x, cfac=1e8, tough=True, cond=1e6):
         """ellipsoid test objective function with "constraints" """
         N = len(x)
-        f = sum(cond**(np.arange(N)[-1::-1] / (N - 1)) * x**2)
+        f = np.dot(logspace(N, cond), x[-1::-1]**2)
         cvals = (x[0] + 1,
                  x[0] + 1 + 100 * x[1],
                  x[0] + 1 - 100 * x[1])
@@ -445,7 +467,7 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         return self.rosen(x[:Nhalf]) + self.elli(x[Nhalf:], cond=1)
     def ridge(self, x, expo=2, factor=100):
         x = [x] if isscalar(x[0]) else x  # scalar into list
-        f = [x[0] + factor * np.sum(x[1:]**2)**(expo / 2.) for x in x]
+        f = [x[0] + factor * np.dot(x[1:], x[1:])**(expo / 2.) for x in x]
         return f if len(f) > 1 else f[0]  # 1-element-list into scalar
     def ridgeopt(self, x, ridge_exponent=1, factor=100, exponent0=2):
         """ridge with optimum in zero, by default a sharp ridge, namely return
@@ -459,7 +481,12 @@ class FitnessFunctions(object):  # TODO: this class is not necessary anymore? Bu
         See also `ridgeoncircle`.
         """
         x = np.asarray(x)
-        return (x[0]**2)**(exponent0 / 2) + factor * np.sum(x[1:]**2)**(ridge_exponent / 2)
+        return (x[0]**2)**(exponent0 / 2) + factor * np.dot(x[1:], x[1:])**(ridge_exponent / 2)
+    def zakharov(self, x, lin2coeff=0.5**2, lin4coeff=0.5**4):
+        """sphere function with a mild overlay of a flat smooth ridge with steep flanks"""
+        x = np.asarray(x)
+        d = np.dot(np.arange(1, len(x) + 1), x)  # = sum i * xi
+        return np.dot(x, x) + lin2coeff * d**2 + lin4coeff * d**4
     def ridgecircle(self, x, expo=0.5):
         """deprecated, see `ridgeoncircle`"""
         if _deliver_warning(self, 'ridgecircle deprecated', max_warns=1):

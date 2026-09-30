@@ -576,7 +576,7 @@ class EvalParallel2(object):  # noqa: UP004
     >>> # class usage, don't forget to call terminate
     >>> ep = EvalParallel2(cma.fitness_functions.elli, 4)
     >>> [float(v) for v in ep([[1,2], [3,4], [4, 5]])]  # doctest:+ELLIPSIS
-    [4000000.944...
+    [4000001.0, 16000009.0, 25000016.0]
     >>> ep.terminate()
     ...
     >>> # use with `with` statement (context manager)
