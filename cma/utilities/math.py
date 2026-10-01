@@ -312,13 +312,26 @@ def testchisquare(nsucc1, n1, nsucc2, n2=None, **kwargs):
     Remark: under H0, p~U[0,1], hence E ln(p) = -1 and the geometric average p
     equals 1/e.
 """
+# s1, s2, n = 0, 5, 15  # tests comparing code:
+# (float(st.fisher_exact([[s1, s2], [n-s1, n-s2]]).pvalue), 
+#  cma.s.testchisquare(s1, n, s2),
+#  float(st.boschloo_exact([[s1, s2], [n-s1, n-s2]]).pvalue))
     try:
         import scipy.stats
     except ImportError:
         _warnings.warn("Please 'pip install scipy' to run the statistical test")
         return
+    if n1 <= 0:
+        raise ValueError("n1={0} must be >= 1".format(n1))  # noqa: UP030, UP032
     if n2 is None:
         n2 = n1
+    elif n2 <= 0:
+        raise ValueError("n2={0} must be >= 1".format(n2))  # noqa: UP030, UP032
+    if nsucc1 < 0 or nsucc2 < 0:
+        raise ValueError("nsucc1={0} and nsucc2={1} must both be >= 0"  # noqa: UP030, UP032
+                         .format(nsucc1, nsucc2))
+    if nsucc1 == nsucc2 == 0 or (nsucc1 == n1 and nsucc2 == n2):
+        return 1.0  # gives an error when calling chi2_contingency
     return float(scipy.stats.contingency.chi2_contingency(
                         [[nsucc1, n1 - nsucc1], [nsucc2, n2 - nsucc2]],
                         **kwargs).pvalue)
