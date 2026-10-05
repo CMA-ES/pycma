@@ -1664,7 +1664,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if not np.all(self.pc == 0):
                 warnings.warn("self.pc={0} != 0 may not be compatible with changed C"
                               .format(self.pc))
-        self.sm.update_now(-1)  # make B and D consistent with C
+        try:
+            self.sm.update_now(-1)  # make B and D consistent with C
+        except AttributeError:
+            pass  # sm probably doesn't need to be updated
         self._updateBDfromSM()
 
     # ____________________________________________________________
