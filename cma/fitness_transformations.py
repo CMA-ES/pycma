@@ -375,6 +375,15 @@ class ScaleCoordinates(ComposedFunction):
     >>> f = cma.ScaleCoordinates(f, [-2, 7], [2, 3, 4]) # last is recycled
     >>> bool(f([5, 6]) == sum(x**2 for x in [100 * -2 * (5 - 2), 7 * (6 - 3)]))
     True
+    >>> f = cma.ScaleCoordinates(cma.ff.sphere, upper=5)
+    >>> f.transform([0., 0.5, 1.]).tolist()
+    [0.0, 2.5, 5.0]
+    >>> f = cma.ScaleCoordinates(cma.ff.sphere, upper=[5, 6], lower=[0, 1, 2])
+    >>> f.transform([0., 0.5, 1.]).tolist()
+    [0.0, 3.5, 6.0]
+    >>> f = cma.ScaleCoordinates(cma.ff.sphere, upper=[5, 6, 7], lower=[0, 1])
+    >>> f.transform([0., 0.5, 1.]).tolist()
+    [0.0, 3.5, 7.0]
 
     See also these [Practical Hints](https://cma-es.github.io/cmaes_sourcecode_page.html#practical)
     for encoding variables.
@@ -450,7 +459,8 @@ class ScaleCoordinates(ComposedFunction):
                 self.lower = 0
             if upper is None:
                 self.upper = np.asarray(self.lower) + 1
-            idx = np.where(np.asarray(self.upper, dtype=float) - self.lower <= 0)[0]
+            self.lower, self.upper = align(self.lower, self.upper)
+            idx = np.flatnonzero(np.asarray(self.upper, dtype=float) - self.lower <= 0)
             if len(idx):
                 raise ValueError('`upper` value(s) must be stricly larger than'
                                     ' `lower` value(s); values were:'
@@ -458,13 +468,12 @@ class ScaleCoordinates(ComposedFunction):
                                  '\n lower={1}'
                                  '\n offending indices = {2}'
                                  .format(self.upper, self.lower, list(idx)))
-            self.lower, self.upper = align(self.lower, self.upper)
-
             dx = self.from_lower_upper[1] - self.from_lower_upper[0]
             self.multiplier = (np.asarray(self.upper, dtype=float) - self.lower) / dx
             self.zero = self.from_lower_upper[0] - self.multiplier**-1 * self.lower
             zero_from_upper = self.from_lower_upper[1] - self.multiplier**-1 * self.upper
-            if not _Mh.vequals_approximately(self.zero, zero_from_upper):
+            if not _Mh.vequals_approximately(np.atleast_1d(self.zero),
+                                             np.atleast_1d(zero_from_upper)):
                 warnings.warn('zero computed from upper and lower differ'
                               '\n from upper={0}'
                               '\n from lower={1}'
