@@ -739,6 +739,21 @@ class IntegerMixedFunction2(ComposedFunction):
     >>> f = cma.s.ft.IntegerMixedFunction2(cma.ff.elli, [0])
     >>> assert f([-0.2, 2]) == f(np.array([0.4, 2])) != f(np.array([0.8, 2]))
 
+    Custom operators act on individual coordinates for both lists and arrays:
+
+    >>> import math
+    >>> from cma.fitness_transformations import IntegerMixedFunction2
+    >>> for operator in (np.floor, np.ceil, math.trunc):
+    ...     f = IntegerMixedFunction2(lambda x: x, [0, 1], operator=operator)
+    ...     x = np.array([1.7, -1.2, 2.4])
+    ...     expected = [operator(x[0]), operator(x[1]), x[2]]
+    ...     assert np.array_equal(f(x), expected)
+    ...     assert np.array_equal(f(x.tolist()), expected)
+    ...     assert np.array_equal(x, [1.7, -1.2, 2.4])
+    >>> f = IntegerMixedFunction2(lambda x: x, [0], operator=math.floor, copy=False)
+    >>> x = np.array([1.7, 2.4])
+    >>> assert f(x) is x and np.array_equal(x, [1, 2.4])
+
     Related: Option ``'integer_variables'`` of `cma.CMAOptions` sets
     ``'minstd'`` of integer variables, see
     `cma.options_parameters.integer_std_lower_bound` and rounds the better
@@ -762,7 +777,7 @@ class IntegerMixedFunction2(ComposedFunction):
             x[self.integer_variable_indices] = new_values
         return x
     def _flatten(self, x):
-        if isinstance(x, np.ndarray):
+        if isinstance(x, np.ndarray) and self.operator is np.round:
             return self._flatten2(x)  # hopefully faster
         copied = False
         for i in sorted(self.integer_variable_indices):
