@@ -1060,6 +1060,18 @@ class NoiseHandler(object):
         fitness value.
         See `__call__`, where `reeval` is called.
 
+        A parallel evaluator still receives a batch when perturbation is off:
+
+        >>> import cma, numpy as np
+        >>> points = [np.arange(3.) + i for i in range(8)]
+        >>> handler = cma.NoiseHandler(3, maxevals=[2, 2, 2], reevals=2,
+        ...                            epsilon=0, parallel=True)
+        >>> with EvalParallel2(cma.ff.sphere, number_of_processes=0) as evaluate:
+        ...     values = evaluate(points)
+        ...     _ = handler(points, values, evaluate)
+        >>> assert np.array_equal(handler.fitre, values)
+        >>> assert handler.evaluations_just_done == 4
+
         """
         self.fit = list(fit)
         self.fitre = list(fit)
@@ -1076,6 +1088,8 @@ class NoiseHandler(object):
                 else:
                     self.fitre[i] = fagg([func(ask(1, X_i, self.epsilon)[0], *args)
                                             for _k in range(evals)])
+            elif self.parallel:
+                self.fitre[i] = fagg(func([X_i] * evals, *args))
             else:
                 self.fitre[i] = fagg([func(X_i, *args) for _k in range(evals)])
         self.evaluations_just_done = evals * len(self.idx)
