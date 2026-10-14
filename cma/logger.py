@@ -663,9 +663,9 @@ class CMADataLogger(interfaces.BaseDataLogger):
                                 c_min = c_medminus = 0
                         c_min, c_medminus, c_medplus, c_max = _mathutils.Mh.prctile(c, [0, 25, 75, 100])
                         if 11 < 3:  # log correlations instead of eigenvalues, messes up KL display
-                            _KL = 1e-3 - 0.5 * np.mean(np.log(self.last_correlation_spectrum[name]))  # doesn't work as expected
                             cs = np.asarray(sorted(c))
                             self.last_correlation_spectrum[name] = (1 + cs) / (1 - cs)
+                            # _KL = 1e-3 - 0.5 * np.mean(np.log(self.last_correlation_spectrum[name]))  # doesn't work as expected
                             # c_min, c_medminus, c_medplus, c_max = 4 * [(KL - 1) / (KL + 1)]  # something is wrong
                             # c_min = (KL - 1) / (KL + 1)
                         with open(fn, 'a') as f:

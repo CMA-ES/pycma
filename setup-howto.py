@@ -14,6 +14,7 @@ Check/edit version numbers into (new) commit vX.X.X::
 Run local tests
 
     ruff check cma
+    flake8 cma
     ./script-test-all-all-arm.sh
 
 2.
