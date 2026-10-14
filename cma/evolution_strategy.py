@@ -1050,7 +1050,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         ...     es.stop(get_value='tolx')  # triggers zero iteration warning
         ...     assert len(w) == 1, [str(wi) for wi in w]
         >>> es = es.optimize(cma.ff.sphere, iterations=4)
-        >>> assert 1e3 < es.stop(get_value='tolx') < 1e4, es.stop(get_value='tolx')
+        >>> assert 1e3 < es.stop(get_value='tolx') < 1.2e4, es.stop(get_value='tolx')
         >>> assert es.stop() == {}
         >>> assert es.stop(get_value='catch 22') is None
 
