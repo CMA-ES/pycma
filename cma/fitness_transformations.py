@@ -569,12 +569,35 @@ class NeutralVariables(ComposedFunction):
 
     An instance call returns ``f(self.transform(x))``.
 
+    The input and fixed values are promoted to a common NumPy dtype before
+    assignment, preserving fractional values even when the input is integral.
+    The input is not modified.
+
     Caveat: this has never been thoroughly tested.
 
+    >>> import cma, numpy as np
     >>> from cma import fitness_transformations as ft
     >>> fun = ft.NeutralVariables(cma.ff.sphere, [2, 3], 0)
     >>> 1**2 + 2**2 == fun([1,2,3,4])
     True
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [1], 0.5)
+    >>> for x in ([1, 2, 3], (1, 2, 3), np.array([1, 2, 3])):
+    ...     assert np.array_equal(fun.transform(x), [1, 0.5, 3])
+    ...     assert fun(x) == 10.25
+    ...     assert np.array_equal(x, [1, 2, 3])
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [0, 2], [-0.5, 1.25])
+    >>> x = np.array([1, 2, 3], dtype=np.int32)
+    >>> fun.transform(x).tolist()
+    [-0.5, 2.0, 1.25]
+    >>> assert np.array_equal(x, [1, 2, 3])
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [1], np.float32(0.5))
+    >>> x = np.array([1, 2, 3], dtype=np.float32)
+    >>> transformed = fun.transform(x)
+    >>> transformed.tolist()
+    [1.0, 0.5, 3.0]
+    >>> assert transformed.dtype == x.dtype
+    >>> assert not np.shares_memory(x, transformed)
+    >>> assert np.array_equal(x, [1, 2, 3])
 
     """
     def __init__(self, f, indices, values):
@@ -587,7 +610,9 @@ class NeutralVariables(ComposedFunction):
 
         This is the first transformation in this function composition.
         """
-        x = np.array(x, copy=True)
+        x = np.asarray(x)
+        dtype = np.result_type(x.dtype, np.asarray(self._values).dtype)
+        x = np.array(x, dtype=dtype, copy=True)
         x[self._indices] = self._values
         return x
 
