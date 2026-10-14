@@ -66,6 +66,16 @@ class Rotation(object):
     >>> x = np.array((1,2,3))
     >>> np.round(R(R(x), inverse=1), 9).tolist()
     [1.0, 2.0, 3.0]
+    >>> np.array_equal(cma.transformations.Rotation(seed=0)(x),
+    ...                cma.transformations.Rotation(seed=0)(x))
+    True
+    >>> R0 = cma.transformations.Rotation(seed=0)
+    >>> state = np.random.get_state()
+    >>> y = R0(x)
+    >>> all(np.array_equal(a, b) for a, b in zip(state, np.random.get_state()))
+    True
+    >>> np.allclose(R0(y, inverse=True), x)
+    True
 
     :See also: `Rotated`
 
@@ -84,7 +94,7 @@ class Rotation(object):
         N = x.shape[0]  # can be an array or matrix, TODO: accept also a list of arrays?
         if N not in self.dicMatrices:  # create new N-basis once and for all
             rstate = np.random.get_state()
-            np.random.seed(self.seed) if self.seed else np.random.seed()
+            np.random.seed(self.seed)
             self.state = np.random.get_state()  # only keep last state
             B = np.random.randn(N, N)
             np.random.set_state(rstate)  # keep untouched/good sequence from outside view
