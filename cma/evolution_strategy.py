@@ -5779,13 +5779,13 @@ def fmin_con(objective_function, x0, sigma0,
         _, es_post = fmin2(f_post, es.result.xfavorite, es.sigma,
                            **kwargs_post)
         if es_post.best.f == 0:
-            f = _ifloat(objective_function(es_post.best.x))
+            _f = _ifloat(objective_function(es_post.best.x))
             # we don't know the g-value of best.x, but we know it's feasible
             # and hence g must be negative (or zero)
-            es.best_feasible.update(f, [-1], None, x=es_post.best.x,
+            es.best_feasible.update(_f, [-1], None, x=es_post.best.x,
                         info={  # for historical reasons
                             'x': es_post.best.x,
-                            'f': f,
+                            'f': _f,
                             'g': None  # it's a feasible solution, so we don't really care
                         })
             return es.best_feasible.x, es
