@@ -66,10 +66,23 @@ class Rotation(object):
     >>> x = np.array((1,2,3))
     >>> np.round(R(R(x), inverse=1), 9).tolist()
     [1.0, 2.0, 3.0]
-    >>> np.array_equal(cma.transformations.Rotation(seed=0)(x),
-    ...                cma.transformations.Rotation(seed=0)(x))
+    >>> import warnings
+    >>> with warnings.catch_warnings(record=True) as caught:
+    ...     warnings.simplefilter("always")
+    ...     R0 = cma.transformations.Rotation(seed=0)
+    ...     R1 = cma.transformations.Rotation(seed=0)
+    >>> len(caught)
+    2
+    >>> "seed=None" in str(caught[0].message)
     True
-    >>> R0 = cma.transformations.Rotation(seed=0)
+    >>> np.array_equal(R0(x), R1(x))
+    True
+    >>> with warnings.catch_warnings(record=True) as caught:
+    ...     warnings.simplefilter("always")
+    ...     rotations = [cma.transformations.Rotation(seed=s)
+    ...                  for s in (None, 1, [0], np.array([0]))]
+    >>> len(caught)
+    0
     >>> state = np.random.get_state()
     >>> y = R0(x)
     >>> all(np.array_equal(a, b) for a, b in zip(state, np.random.get_state()))
@@ -82,8 +95,17 @@ class Rotation(object):
     """
     def __init__(self, seed=None):
         """same ``seed`` means same rotation, by default a random but
-        fixed once and for all rotation, different for each instance
+        fixed once and for all rotation, different for each instance.
+
+        A scalar zero seed now gives a fixed rotation instead of a random
+        one. Warn to make this change visible to existing callers.
         """
+        if seed is not None and np.ndim(seed) == 0 and seed == 0:
+            _warnings.warn(
+                "Rotation(seed=0) now produces a fixed rotation; "
+                "use seed=None for a random rotation.",
+                stacklevel=2,
+            )
         self.seed = seed
         self.dicMatrices = {}
     def __call__(self, x, inverse=False, **kwargs):
