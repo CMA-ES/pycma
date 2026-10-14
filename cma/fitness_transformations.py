@@ -551,8 +551,8 @@ class LowEffectiveDimension(ComposedFunction):
                 # this only works when the dimension is known, hence not in __init__
                 x = x[:max((1, int(effective_dimensions * len(x))))]
             elif effective_dimensions is not None and effective_dimensions != 1:
-                raise ValueError("effective_dimensions = {0} of type {1} is not a valid value."
-                                 " Use an int or a float <= 1."
+                raise ValueError("effective_dimensions = {0} of type {1} is"  # noqa: UP030, UP032
+                                 " not a valid value. Use an int or a float <= 1."
                                  .format(effective_dimensions, type(effective_dimensions)))
             return x
         self._select_effective = _select_effective  # for the record
