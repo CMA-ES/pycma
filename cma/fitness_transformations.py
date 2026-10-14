@@ -598,6 +598,13 @@ class NeutralVariables(ComposedFunction):
     >>> assert transformed.dtype == x.dtype
     >>> assert not np.shares_memory(x, transformed)
     >>> assert np.array_equal(x, [1, 2, 3])
+    >>> value = np.float64(1 + 2**-30)
+    >>> fun = ft.NeutralVariables(cma.ff.sphere, [1], value)
+    >>> transformed = fun.transform(x)
+    >>> assert transformed.dtype == np.dtype(np.float64)
+    >>> assert np.array_equal(transformed, [1, value, 3])
+    >>> assert not np.shares_memory(x, transformed)
+    >>> assert np.array_equal(x, [1, 2, 3])
 
     """
     def __init__(self, f, indices, values):
@@ -611,6 +618,7 @@ class NeutralVariables(ComposedFunction):
         This is the first transformation in this function composition.
         """
         x = np.asarray(x)
+        # Explicit dtypes avoid NumPy 1.x value-based promotion of scalars.
         dtype = np.result_type(x.dtype, np.asarray(self._values).dtype)
         x = np.array(x, dtype=dtype, copy=True)
         x[self._indices] = self._values
