@@ -324,6 +324,16 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
     The shortest usage example is:
 
     >>> list_of_evals_fval_succs = list(ot.EvaluationsIterator(data))
+    >>> for a1, a2 in zip(
+    ...   list_of_evals_fval_succs, [# == the lists are np-arrays
+    ...       ([1., 1., 1.], 44.2, [True,  True,  True]),
+    ...       ([2., 1., 1.], 33.3, [True,  True,  True]),
+    ...       ([2., 2., 1.], 32.0, [True,  True,  True]),
+    ...       ([3., 2., 1.], 22.2, [True,  True,  True]),
+    ...       ([3., 2., 3.], 22.1, [True,  True, False]),
+    ...       ([3., 3., 3.], 22.0, [True,  True, False]),
+    ...       ([3., 3., 3.], 11.0, [True, False, False])]):
+    ...     assert all(a1[0] == a2[0]) and a1[1] == a2[1] and all(a1[2] == a2[2]), (a1, a2)
 
     which creates a `list` of about ``n x m`` length where ``n =
     data.shape[0]`` and ``m = data.shape[1] - 1`` (usually n>>m). Each list
@@ -469,14 +479,16 @@ class EvaluationsIterator(_abc.Iterator):  # the parent class provides the __ite
         return self.data[self.row_indices, 0]  # _current_data changes in place
     @property
     def fval(self):
-        """current f-value, bails when no data are available anymore"""
+        """current f-value, return `nan` when no data are available anymore"""
         assert self._fval_count <= self.count, (self.count, self._fval_count)
         if self._fval_count != self.count:  # compute once per iteration
+            if not np.any(self.successes):
+                return np.nan
             self._fval = float(max(self.data[i, j+1]
                                    for j, i in enumerate(self.row_indices)
                                if i >= 0))  # (i >= 0) == self.successes[j]
             self._fval_count = self.count
-        return self._fval
+        return self._fval  # is the last finite _fval
 
     def __next__(self):  # in Python 2 we need def next(self)
         """increment ``i = self.row_indices[j]`` for which ``self.data[i, j] >= fval``
