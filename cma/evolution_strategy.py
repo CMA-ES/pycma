@@ -3853,7 +3853,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         # updateBD and secondary to get possibly the same
                         # random state
             self.tell(X[i * popsize:(i + 1) * popsize],
-                      function_values[i * popsize:(i + 1) * popsize])
+                      function_values[i * popsize:(i + 1) * popsize],
+                      check_points=False)  # historical samples must not be clipped
 
     # ____________________________________________________________
     # ____________________________________________________________

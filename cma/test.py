@@ -87,6 +87,34 @@ def _clean_up(folder, start_matches, protected):
                 and not any(file_.startswith(p) for p in protected):
             os.remove(os.path.join(folder, file_))
 
+def feed_for_resume_doctest():
+    """Saved samples must not be clipped as unknown external solutions.
+
+    >>> import cma
+    >>> import numpy as np
+    >>> rng = np.random.RandomState(5)
+    >>> es = cma.CMAEvolutionStrategy(3 * [1.], 1,
+    ...         {'randn': rng.randn, 'verbose': -9})
+    >>> history, values = [], []
+    >>> for _ in range(8):
+    ...     X = es.ask()
+    ...     F = [cma.ff.elli(x) for x in X]
+    ...     history.extend(np.array(X, copy=True))
+    ...     values.extend(F)
+    ...     es.tell(X, F)
+    >>> for chunk_size in [es.popsize, len(history)]:
+    ...     resumed = cma.CMAEvolutionStrategy(3 * [1.], 1,
+    ...                 {'seed': 1005, 'verbose': -9})
+    ...     for start in range(0, len(history), chunk_size):
+    ...         resumed.feed_for_resume(history[start:start + chunk_size],
+    ...                                 values[start:start + chunk_size])
+    ...     assert np.array_equal(resumed.mean, es.mean)
+    ...     assert np.array_equal(resumed.pc, es.pc)
+    ...     assert np.array_equal(resumed.sm.C, es.sm.C)
+    ...     assert resumed.sigma == es.sigma
+
+    """
+
 def various_doctests():
     """various doc tests.
 
