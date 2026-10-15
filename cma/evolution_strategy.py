@@ -3781,7 +3781,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
     # ____________________________________________________________
     # ____________________________________________________________
-    def feed_for_resume(self, X, function_values):
+    def feed_for_resume(self, X, function_values, constraints_values=None, check_points=False):
         """Resume a run using the solution history.
 
         CAVEAT: this hasn't been thoroughly tested or in intensive use.
@@ -3799,6 +3799,13 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
           of popsize.
         `function_values`:
           respective objective function values
+        `constraints_values`:
+          respective constraints values if available (never tested)
+        ``check_points=False``:
+           argument passed to `tell`, by default assume that the original
+           solutions were sampled from `ask` and hence never checked too. As of
+           now, it is not possible to flag only individual solutions when passing
+           `check_points` to `tell`.
 
         Details
         -------
@@ -3852,9 +3859,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             self.ask()  # a fake ask, mainly for a conditioned calling of
                         # updateBD and secondary to get possibly the same
                         # random state
-            self.tell(X[i * popsize:(i + 1) * popsize],
-                      function_values[i * popsize:(i + 1) * popsize],
-                      check_points=False)  # historical samples must not be clipped
+            j = i * popsize
+            jj = j + popsize
+            self.tell2(X[j:jj], function_values[j:jj],
+                       constraints_values=None if constraints_values is None
+                       else constraints_values[j:jj],
+                       check_points=check_points)
 
     # ____________________________________________________________
     # ____________________________________________________________
