@@ -679,7 +679,7 @@ class BestSolution(object):
         self.compared = 0
         "  number of overall compared values, posterior hack"
         self.last = _BlancClass()
-        self.last.x = copy(x)
+        self.last.x = self.x
         self.last.f = f
     def update(self, arx, xarchive=None, arf=None, evals=None):
         """checks for better solutions in list ``arx``.
