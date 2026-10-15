@@ -658,6 +658,12 @@ class BestSolution(object):
     >>> other.update(population, arf=[25., 8.])
     >>> population[1][:] = [9., 9.]
     >>> assert other.last.x == [2., 2.] and other.f == 1
+    >>> from cma.utilities.utils import SolutionDict
+    >>> archive, genotype = SolutionDict(), np.array([0., 1.])
+    >>> archive[(0., 1.)] = {'geno': genotype}
+    >>> other.update([[0., 1.]], xarchive=archive, arf=[0.5])
+    >>> genotype[:] = 9
+    >>> assert np.array_equal(other.x_geno, [0, 1])
 
     """
     def __init__(self, x=None, f=math.inf, evals=None):
