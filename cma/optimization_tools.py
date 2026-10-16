@@ -712,8 +712,9 @@ class BestSolution(object):
         minarf = arf[minidx] if isinstance(arf[minidx], int) else float(arf[minidx])
         # minarf = reduce(lambda x, y: y if y and y is not np.nan
         #                   and y < x else x, arf, math.inf)
+        self.last.x = copy(arx[minidx])
         if minarf < math.inf and (minarf < self.f or self.f is None):
-            self.x = copy(arx[minidx])
+            self.x = self.last.x
             self.f = minarf
             if xarchive is not None and xarchive.get(self.x) is not None:
                 self.x_geno = copy(xarchive[self.x].get('geno'))
@@ -723,7 +724,6 @@ class BestSolution(object):
             self.evalsall = evals
         elif evals:
             self.evalsall = evals
-        self.last.x = copy(arx[minidx])
         self.last.f = minarf
     def get(self):
         """return ``(x, f, evals)`` """
