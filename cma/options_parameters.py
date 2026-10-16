@@ -135,7 +135,7 @@ def cma_default_options_(  # to get keyword completion back
              '\n -1 is very quiet, <=-9 is maximally quiet, <=-10 ignores the signals_filename'),
     verb_append='0  # initial evaluation counter, if append, do not overwrite output files',
     verb_disp='100  #v verbosity: display console output every verb_disp iteration',
-    verb_disp_overwrite='4  #v max number of shown additional lines before overwriting, 0==inf',
+    verb_disp_overwrite='4  #v max number of shown additional lines before overwriting if verb_disp is neither integer 1 nor True, 0==inf==never',
     verb_filenameprefix=CMADataLogger.default_prefix + '  # output path (folder) and filenames prefix',
     verb_log='1  #v verbosity: write data to files every verb_log iteration, writing can be'\
                   ' time critical on fast to evaluate functions',
