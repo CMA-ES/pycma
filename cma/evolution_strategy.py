@@ -4257,8 +4257,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Print if ``iteration_counter % modulo == 0``. Let the line be
         overwritten when ``iteration > overwrite > 0`` unless ``modulo is True``
-        or ``self.stop()``, where `overwrite` defaults to
-        ``.opts['verb_disp_overwrite']``.
+        or ``self.stop()``. By default, `overwrite` equals to
+        ``.opts['verb_disp_overwrite']`` unless ``.opts['verb_disp']`` is
+        integer 1 or `True` which both prevents overwriting.
 
         :See also: `disp_annotation`.
         """
@@ -4266,7 +4267,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             modulo = self.opts['verb_disp']
 
         def do_overwrite():
-            if modulo is True or self.stop():
+            if modulo is True or self.stop() or overwrite is False or (
+                    overwrite is None and modulo == 1 and isinstance(modulo, int)):
                 return False
             overwrite_ = overwrite if overwrite is not None else (
                             self.opts.get('verb_disp_overwrite', 0) * modulo)
