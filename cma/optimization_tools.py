@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function  #, unicode_lit
 import sys
 import warnings
 import math
+from copy import copy
 import numpy as np
 from multiprocessing import Pool as ProcessingPool
 # from pathos.multiprocessing import ProcessingPool
@@ -635,14 +636,42 @@ class EvalParallel2(object):  # noqa: UP004
 class BestSolution(object):
     """container to keep track of the best solution seen.
 
-    Keeps also track of the genotype, if available.
+    Keeps also track of the genotype, if available. Stored solutions are
+    copied so that callers can reuse their evaluation buffers.
+
+    >>> from cma.optimization_tools import BestSolution
+    >>> x = np.array([1., 2.])
+    >>> best = BestSolution(x, 5.)
+    >>> x[:] = 9
+    >>> assert np.array_equal(best.x, [1, 2])
+    >>> assert np.array_equal(best.last.x, [1, 2])
+    >>> population = np.array([[3., 4.], [0., 1.]])
+    >>> best.update(population, arf=[25., 1.])
+    >>> population[:] = 9
+    >>> assert np.array_equal(best.x, [0, 1]) and best.f == 1
+    >>> assert np.array_equal(best.last.x, [0, 1])
+    >>> other = BestSolution()
+    >>> _ = other.update(best)
+    >>> best.x[:] = 9
+    >>> assert np.array_equal(other.x, [0, 1])
+    >>> population = [[3., 4.], [2., 2.]]
+    >>> other.update(population, arf=[25., 8.])
+    >>> population[1][:] = [9., 9.]
+    >>> assert other.last.x == [2., 2.] and other.f == 1
+    >>> from cma.utilities.utils import SolutionDict
+    >>> archive, genotype = SolutionDict(), np.array([0., 1.])
+    >>> archive[(0., 1.)] = {'geno': genotype}
+    >>> other.update([[0., 1.]], xarchive=archive, arf=[0.5])
+    >>> genotype[:] = 9
+    >>> assert np.array_equal(other.x_geno, [0, 1])
+
     """
     def __init__(self, x=None, f=math.inf, evals=None):
         """initialize the best solution with ``x``, ``f``, and ``evals``.
 
         Better solutions have smaller ``f``-values.
         """
-        self.x = x
+        self.x = copy(x)
         self.x_geno = None
         self.f = f if f is not None and f is not np.nan else math.inf
         self.evals = evals
@@ -650,7 +679,7 @@ class BestSolution(object):
         self.compared = 0
         "  number of overall compared values, posterior hack"
         self.last = _BlancClass()
-        self.last.x = x
+        self.last.x = self.x
         self.last.f = f
     def update(self, arx, xarchive=None, arf=None, evals=None):
         """checks for better solutions in list ``arx``.
@@ -683,18 +712,18 @@ class BestSolution(object):
         minarf = arf[minidx] if isinstance(arf[minidx], int) else float(arf[minidx])
         # minarf = reduce(lambda x, y: y if y and y is not np.nan
         #                   and y < x else x, arf, math.inf)
+        self.last.x = copy(arx[minidx])
         if minarf < math.inf and (minarf < self.f or self.f is None):
-            self.x = arx[minidx]
+            self.x = self.last.x
             self.f = minarf
             if xarchive is not None and xarchive.get(self.x) is not None:
-                self.x_geno = xarchive[self.x].get('geno')
+                self.x_geno = copy(xarchive[self.x].get('geno'))
             else:
                 self.x_geno = None
             self.evals = None if not evals else evals - len(arf) + int(minidx) + 1  # minidx was np.int
             self.evalsall = evals
         elif evals:
             self.evalsall = evals
-        self.last.x = arx[minidx]
         self.last.f = minarf
     def get(self):
         """return ``(x, f, evals)`` """
