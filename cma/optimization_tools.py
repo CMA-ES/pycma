@@ -193,21 +193,21 @@ def ei_copy_arrays(evals, fval, successes):
 
     internally the arrays change *in place* over the iterations.
 
-    ``return_filter=ei_copy_arrays`` is the default for `EvaluationIterator` to
+    ``return_filter=ei_copy_arrays`` is the default for `EvaluationsIterator` to
     avoid unexpected results in that::
 
-        ert1 = [ei_ert(d) for d in list(EvaluationIterator(data))]
-        ert2 = [ei_ert(d) for d in EvaluationIterator(data)]
+        ert1 = [ei_ert(d) for d in list(EvaluationsIterator(data))]
+        ert2 = [ei_ert(d) for d in EvaluationsIterator(data)]
 
     give the same result, as to be desired, whereas::
 
-        ert3 = [ei_ert(d) for d in list(EvaluationIterator(data, return_filter=None))]
+        ert3 = [ei_ert(d) for d in list(EvaluationsIterator(data, return_filter=None))]
 
     is wrong unless the `list` call is omitted.
 
     For efficiency, we should use ``return_filter=None`` with a for loop like::
 
-        for evals, fval, successes in ot.EvaluationIterator(data, return_filter=None)
+        for evals, fval, successes in ot.EvaluationsIterator(data, return_filter=None)
 
     when ``evals`` and ``successes`` are never used *after* the iterator advances
     (unless copied).
@@ -236,13 +236,25 @@ def ei_median(evals, fval, successes):
 
     Details: the median of only successful trials is not monotonuous in `fval`,
     hence seems semantically not always meaningful.
+
+    >>> import cma.optimization_tools as ot
+    >>> import numpy as np
+    >>> m = ot.ei_median(np.asarray([1, 2]), np.nan, [True, True])
+    >>> assert m == 1.5, m
+    >>> m = ot.ei_median(np.asarray([2, 0, 3]), np.nan, [True, True, False])
+    >>> assert m == 2, m
+    >>> m = ot.ei_median(np.asarray([3, 2, 1]), np.nan, [True, False, True])
+    >>> assert m == 3, m
+    >>> m = ot.ei_median(np.asarray([1, 2, 3]), np.nan, [True, True, True])
+    >>> assert m == 2, m
+
     """
-    n = len(successes)
+    n = len(evals)
     if 2 * sum(successes) <= n:
         return np.nan
     ev = sorted(evals[successes])
     n2 = int(n / 2)
-    if n2 == n // 2:
+    if n % 2 == 0:  # n is even
         return (ev[n2 - 1] + ev[n2]) / 2
     return ev[n2]
 def ei_xy_data(xvalues=(ei_ert,)):
