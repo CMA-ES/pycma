@@ -232,14 +232,38 @@ def clean(*args, **kwargs):
     """Deprecated, renamed to `ddir`"""
     _warnings.warn("Deprecated (renamed). Use `ddir` instead of `clean`", FutureWarning)
     return ddir(*args, **kwargs)
-def ddir(obj, exclude='_'):
-    """return "public" elements of a `list` or `dict` or of ``object.__dict__``.
+def ddir(obj, exclude='__', truncate_value=99):
+    """return "public" elements of an object.
 
-    Ignore entries starting with `exclude`. Return a 'list` when `obj`
+    Ignore entries starting with `exclude` which may be a `tuple`.
+
+    Return a 'list` when `obj`
     is a `list` or a `dict`, return a `dict` otherwise. This is versatile
     and could change in future.
 
-    Typical usage: ``clean(dir())`` or ``clean(obj)`` or ``clean(dir(), '__')``.
+    Typical usage: ``s.ddir(obj)`` or ``s.ddir(dir(), '_')``.
+    """
+    names = dir(obj)
+    res = {}
+    for i, name in enumerate(names):
+        if name.startswith(exclude):
+            continue
+        val = getattr(obj, name, None)  # catch not implemented error on staticmethod!
+        if len(str(val)) > truncate_value:
+            val = str(val)[:truncate_value]
+        res[name] = '<method>' if callable(val) else val
+    return res
+def vvars(obj, exclude='__'):
+    """return "public" elements of a `list` or `dict` or of ``object.__dict__``.
+
+    Ignore entries starting with `exclude`.
+
+    `vars` may do this job good enough most of the time.
+
+    Return a 'list` when `obj` is a `list` or a `dict`, return a `dict`
+    otherwise. This is versatile and could change in future.
+
+    Typical usage: ``cma.s.vvars(obj)``.
     """
     if isinstance(obj, (list, dict)):
         return [d for d in obj if not d.startswith(exclude)]
