@@ -377,6 +377,31 @@ def various_doctests():
     >>> assert np.all(es.result.xfavorite[0] < -0.1 + 1e-4), es.result.xfavorite
     >>> assert np.all(es.result.xfavorite[0] > -0.1 - 1e-4), es.result.xfavorite
 
+    Both constrained interfaces of fmin2 should return the final estimate,
+    not an earlier solution selected using changing penalty coefficients.
+    The sphere subject to x >= 1 has its optimum at [1, 1].
+
+    >>> def constraints(x): return [1 - x[0], 1 - x[1]]
+    >>> opts = dict(seed=42, verbose=-9)
+    >>> x, es = cma.fmin2(cma.ff.sphere, [2, 2], 1, opts,
+    ...                   constraints=constraints)
+    >>> assert np.linalg.norm(x - [1, 1]) < 1e-6, x
+    >>> fun = cma.ConstrainedFitnessAL(cma.ff.sphere, constraints, logging=False)
+    >>> x, es = cma.fmin2(fun, [2, 2], 1, opts, callback=fun.update)
+    >>> assert np.linalg.norm(x - [1, 1]) < 1e-6, x
+
+    Returning the final estimate does not promise feasibility. Even if the
+    problem is infeasible, return the estimate without further evaluations.
+
+    >>> x, es = cma.fmin2(cma.ff.sphere, [2, 2], 1,
+    ...                   dict(opts, maxiter=2), constraints=lambda x: [x[0], 1 - x[0]])
+    >>> assert np.array_equal(x, es.result.xfavorite)
+
+    Unconstrained fmin2 still returns the best evaluated solution.
+
+    >>> x, es = cma.fmin2(cma.ff.sphere, [2, 2], 1, dict(opts, maxiter=1))
+    >>> assert np.array_equal(x, es.result.xbest)
+
     """
 
 def doctest_files(file_list=files_for_doctest, **kwargs):

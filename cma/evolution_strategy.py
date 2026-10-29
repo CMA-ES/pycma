@@ -4559,6 +4559,14 @@ def fmin2(objective_function, x0, sigma0,
     `CMAEvolutionStrategy` instance, see in particular ``es.result`` and
     ``es.result_pretty()`` for detailed results.
 
+    When `constraints` is given or `objective_function` is a
+    `ConstrainedFitnessAL`, return ``es.result.xfavorite`` instead of
+    ``xbest``, as in `fmin_con2`. The penalty coefficients change during
+    optimization, so the best historical penalized value is not a useful
+    way to select the returned solution. The final estimate is not
+    guaranteed to be feasible; inspect the constraints or the recorded
+    best feasible solution when feasibility is required.
+
 
     Calling Sequences
     =================
@@ -4580,7 +4588,7 @@ def fmin2(objective_function, x0, sigma0,
     Less recommended calling patterns are::
 
         es = cma.fmin2(...)[1]  # `es` contains all available information
-        x = cma.fmin2(...)[0]   # keep only the best evaluated solution
+        x = cma.fmin2(...)[0]   # keep only the returned solution
 
     Arguments
     =========
@@ -4818,7 +4826,11 @@ def fmin2(objective_function, x0, sigma0,
          callback,
          init_callback,
          constraints=constraints)
-    return res[0], res[-2]
+    es = res[-2]
+    if constraints is not None or isinstance(objective_function,
+                                             _constraints_handler.ConstrainedFitnessAL):
+        return es.result.xfavorite, es
+    return res[0], es
 
 
 all_stoppings = []  # accessable via cma.evolution_strategy.all_stoppings, bound to change
@@ -4846,19 +4858,22 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
         - ``res[-2]`` (``es``) -- class `CMAEvolutionStrategy` instance
         - ``res[-1]`` (``logger``) -- class `CMADataLogger` instance == es.logger
 
-    The successor `fmin2` is an alias for::
+    For unconstrained optimization, the successor `fmin2` is an alias for::
 
         res = fmin(...)
         return res[0], res[-2]
+
+    With constraints, `fmin2` returns the final distribution mean instead
+    of the best historical penalized solution; see its return documentation.
 
     For descriptions of the input arguments see `fmin2`.
 
     For completness, recovering the output of `fmin` from `fmin2`::
 
-        es = fmin2(...)[1]  # fmin2(...)[0] is es.result.xbest
+        es = fmin2(...)[1]
         return es.result + (es.stop(), es, es.logger)
 
-    The best found solution is equally available under::
+    For unconstrained optimization, the best found solution is equally available under::
 
         fmin(...)[0]
         fmin2(...)[0]

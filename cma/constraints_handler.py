@@ -821,9 +821,10 @@ class ConstrainedFitnessAL(object):
     >>> es = es.optimize(cfun, callback=cfun.update)
     >>> x = es.result.xfavorite
 
-    The best `x` return value of `cma.fmin2` may not be useful, because
-    the underlying function changes over time. Therefore, we use
-    `es.result.xfavorite`, which is still not guarantied to be a feasible
+    The best historical penalized solution may not be useful, because
+    the underlying function changes over time. Therefore, `cma.fmin2`
+    returns `es.result.xfavorite` for this objective, as used above with
+    `optimize`. This estimate is still not guaranteed to be a feasible
     solution. Alternatively, `cfun.best_feas.x` contains the best evaluated
     feasible solution. However, this is not necessarily expected to be a
     good solution, see below.
