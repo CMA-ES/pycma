@@ -821,13 +821,12 @@ class ConstrainedFitnessAL(object):
     >>> es = es.optimize(cfun, callback=cfun.update)
     >>> x = es.result.xfavorite
 
-    The best historical penalized solution may not be useful, because
-    the underlying function changes over time. Therefore, `cma.fmin2`
-    returns `es.result.xfavorite` for this objective, as used above with
-    `optimize`. This estimate is still not guaranteed to be a feasible
-    solution. Alternatively, `cfun.best_feas.x` contains the best evaluated
-    feasible solution. However, this is not necessarily expected to be a
-    good solution, see below.
+    The best (penalized) solution `es.result.xbest` may not be useful
+    because the underlying function changes over time. Therefore, we use
+    `es.result.xfavorite` which is still not guaranteed to be feasible.
+    Alternatively, `cfun.best_feas.x` contains the best evaluated feasible
+    solution. However, this may not be a particularly good solution, see
+    `find_feasible` right below.
 
     >>> assert sum((x - [-1, 0, 0])**2) < 1e-9, x
     >>> assert es.countevals < 2200, es.countevals
@@ -992,7 +991,7 @@ class ConstrainedFitnessAL(object):
         return self.F_plus_sum_al_G[-1] - self.foffset
 
     def find_feasible(self, es, termination=('maxiter', 'maxfevals'), aggregator=None):  # es: OOOptimizer, find_feasible -> solution
-        """find feasible solution by calling ``es.optimize(self)``.
+        """find feasible solution close to the current incumbent.
 
         Return best ever feasible solution `self.best_feas.x`.
         See also `self.best_feas.info`.

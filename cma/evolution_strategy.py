@@ -4555,17 +4555,14 @@ def fmin2(objective_function, x0, sigma0,
     """functional interface to the stochastic optimizer CMA-ES
     for non-convex function minimization.
 
-    Return the `tuple` ``(xbest, es)`` where ``es`` is a
-    `CMAEvolutionStrategy` instance, see in particular ``es.result`` and
-    ``es.result_pretty()`` for detailed results.
+    Return the `tuple` ``(x, es)``, where ``es`` is a `CMAEvolutionStrategy`
+    instance and ``x == es.result.xbest`` for unconstrained or bound-constrained
+    optimization and ``x == es.result.xfavorite`` for constrained optimization
+    when either `constraints` were given or ``isinstance(objective_function,
+    ConstrainedFitnessAL)``. For the question of feasiblitity, see Section
+    `Feasible Solution`_ below.
 
-    When `constraints` is given or `objective_function` is a
-    `ConstrainedFitnessAL`, return ``es.result.xfavorite`` instead of
-    ``xbest``, as in `fmin_con2`. The penalty coefficients change during
-    optimization, so the best historical penalized value is not a useful
-    way to select the returned solution. The final estimate is not
-    guaranteed to be feasible; inspect the constraints or the recorded
-    best feasible solution when feasibility is required.
+    See also ``es.result`` and ``es.result_pretty()`` for detailed results.
 
 
     Calling Sequences
@@ -4719,6 +4716,19 @@ def fmin2(objective_function, x0, sigma0,
     ``cma.CMAOptions('tol')``, or ``cma.CMAOptions('bound')``,
     see also class `CMAOptions`.
 
+    Feasible Solution
+    =================
+    In the constrained optimization case, the constraints penalty coefficients
+    change during the optimization and neither the "best" (penalized) solution
+    nor the best feasible solution are reliable return candidates. The used
+    return value `es.result.xfavorite`, which is usually the current
+    distribution mean, is not guaranteed to be feasible too (while
+    `es.result.best_feasible.x` is feasible when it is not `None`).
+
+    When the `objective_function` was a `ConstrainedFitnessAL` instance, then
+    ``es.objective_function.find_feasible(es)`` returns a feasible solution
+    close to `es.result.xfavorite`.
+
     Details
     =======
     This function is an interface to the class `CMAEvolutionStrategy`. The
@@ -4858,22 +4868,19 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
         - ``res[-2]`` (``es``) -- class `CMAEvolutionStrategy` instance
         - ``res[-1]`` (``logger``) -- class `CMADataLogger` instance == es.logger
 
-    For unconstrained optimization, the successor `fmin2` is an alias for::
+    The successor `fmin2` is an alias for::
 
         res = fmin(...)
         return res[0], res[-2]
 
-    With constraints, `fmin2` returns the final distribution mean instead
-    of the best historical penalized solution; see its return documentation.
-
-    For descriptions of the input arguments see `fmin2`.
+    For descriptions of the input arguments and for constrained optimization, see `fmin2`.
 
     For completness, recovering the output of `fmin` from `fmin2`::
 
         es = fmin2(...)[1]
         return es.result + (es.stop(), es, es.logger)
 
-    For unconstrained optimization, the best found solution is equally available under::
+    The best found solution is equally available under::
 
         fmin(...)[0]
         fmin2(...)[0]
