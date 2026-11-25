@@ -118,6 +118,39 @@ def feed_for_resume_doctest():
 
     """
 
+def test_result_equality():
+    """Independently computed results compare by their current field values.
+
+    >>> import cma
+    >>> import numpy as np
+    >>> options = {'seed': 3, 'verb_log': 0, 'verbose': -9}
+    >>> first, second = [cma.CMA(3 * [1], 1, options).optimize(cma.ff.sphere).result
+    ...                  for _ in range(2)]
+    >>> assert first is not second and first == second and not first != second
+    >>> second.runs += 1
+    >>> assert first != second
+    >>> second.runs = first.runs
+    >>> second.xfavorite = second.xfavorite.reshape(1, -1)
+    >>> assert first != second
+    >>> second.xfavorite = first.xfavorite.tolist()
+    >>> for result in (first, second):
+    ...     result.best_feasible['g'] = np.array([np.nan, -1.])
+    ...     result.stop['callback'] = [{'values': [float('nan'), None]}]
+    >>> assert first == second
+    >>> second.best_feasible['g'][1] = -2
+    >>> assert first != second
+    >>> second.best_feasible['g'][1] = -1
+    >>> second.stop['callback'][0]['values'].pop()
+    >>> assert first != second
+    >>> assert first.__eq__(tuple(first)) is NotImplemented
+    >>> hash(first)  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    TypeError: unhashable type: ...
+
+    """
+
+
 def various_doctests():
     """various doc tests.
 

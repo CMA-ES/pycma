@@ -500,6 +500,10 @@ class CMAEvolutionStrategyResult2(object):
     its attributes after running an optimization. Additionally, the class
     provides a `names` and an `asdict` property.
 
+    Results compare by their current field values, including array shapes.
+    Floating-point NaNs compare equal at matching positions. Results are
+    mutable and unhashable.
+
     >>> import cma
     >>> es = cma.CMA(2 * [1], .1, {'verbose': -9}).optimize(cma.ff.sphere, 4, iterations=5)
     >>> isinstance(es.result, cma.evolution_strategy.CMAEvolutionStrategyResult2)
@@ -697,6 +701,52 @@ class CMAEvolutionStrategyResult2(object):
 
     def __len__(self):
         return len(self._params)
+
+    __hash__ = None
+
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return NotImplemented
+
+        def same_value(left, right):
+            if left is right:
+                return True
+            if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+                array_like = (np.ndarray, list, tuple)
+                if not isinstance(left, array_like) or not isinstance(right, array_like):
+                    return False
+                if not isinstance(left, np.ndarray):
+                    left = np.asarray(left, dtype=object)
+                if not isinstance(right, np.ndarray):
+                    right = np.asarray(right, dtype=object)
+                if left.shape != right.shape:
+                    return False
+                if left.dtype.kind == right.dtype.kind == 'f':
+                    return bool(np.all((left == right) | (np.isnan(left) & np.isnan(right))))
+                if left.dtype.hasobject or right.dtype.hasobject:
+                    return all(same_value(a, b) for a, b in zip(left.flat, right.flat))
+                return bool(np.array_equal(left, right))
+            if isinstance(left, dict) or isinstance(right, dict):
+                return (isinstance(left, dict) and isinstance(right, dict)
+                        and len(left) == len(right)
+                        and all(key in right and same_value(left[key], right[key]) for key in left))
+            sequences = (list, tuple)
+            if isinstance(left, sequences) or isinstance(right, sequences):
+                return (isinstance(left, sequences) and isinstance(right, sequences)
+                        and len(left) == len(right)
+                        and all(same_value(a, b) for a, b in zip(left, right)))
+            if isinstance(left, (float, np.floating)) and isinstance(right, (float, np.floating)):
+                if np.isnan(left) and np.isnan(right):
+                    return True
+            return bool(left == right)
+
+        names = self.names
+        return names == other.names and all(
+            same_value(getattr(self, name), getattr(other, name)) for name in names)
+
+    def __ne__(self, other):
+        equal = self.__eq__(other)
+        return NotImplemented if equal is NotImplemented else not equal
 
     def __iter__(self):
         """return iterator over names"""
