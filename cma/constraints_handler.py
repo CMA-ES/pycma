@@ -10,7 +10,7 @@ from numpy import logical_and as _and, logical_or as _or, logical_not as _not
 from .utilities import utils
 from .utilities.math import Mh as _Mh, moving_average
 from .logger import Logger as _Logger  # we can assign _Logger = cma.logger.LoggerDummy to turn off logging
-from .optimization_tools import BestSolution2, BestFeasibleSolution
+from .optimization_tools import BestSolution, BestSolution2, BestFeasibleSolution
 del absolute_import, division, print_function  #, unicode_literals
 
 _warnings.filterwarnings('once', message="``import moarchiving`` failed.*")
@@ -1010,21 +1010,47 @@ class ConstrainedFitnessAL(object):
     """
         # we could compare self.best_feas.count with self.count_call
         # but can't really know whether count_call was done in the last iteration
-        self.finding_feasible = True
-        self(es.result.xfavorite)  # register solution, check feasibility and update best
-        if self.finding_feasible:  # was set back to False when xfavorite was feasible
-            if aggregator:  # set objective
-                self.find_feasible_aggregator, aggregator_ = aggregator, self.find_feasible_aggregator
-            while self.finding_feasible and not any(any(d == m for m in termination)
-                                                    for d in es.stop()):
-                X = es.ask()
-                es.tell(X, [self(x) for x in X])
-                self.update(es)  # calls fun if finding_feasible finished and method is not 'best'
-                es.logger.add()  # relies on calling log_in_es during update
-                if self.finding_feasible:
-                    self._reset_arrays()
-            if aggregator:  # reset `find_feasible_aggregator` to original value
-                self.find_feasible_aggregator = aggregator_
+        best_saved = getattr(es, 'best', None)
+        best_feas_count = self.best_feas.count_saved
+        if best_saved is not None:
+            es.best = BestSolution(evals=getattr(es, 'countevals', None))
+        try:
+            self.finding_feasible = True
+            self(es.result.xfavorite)  # register solution, check feasibility and update best
+            if self.finding_feasible:  # was set back to False when xfavorite was feasible
+                if aggregator:  # set objective
+                    self.find_feasible_aggregator, aggregator_ = aggregator, self.find_feasible_aggregator
+                try:
+                    while self.finding_feasible and not any(any(d == m for m in termination)
+                                                            for d in es.stop()):
+                        X = es.ask()
+                        es.tell(X, [self(x) for x in X])
+                        self.update(es)  # calls fun if finding_feasible finished and method is not 'best'
+                        es.logger.add()  # relies on calling log_in_es during update
+                        if self.finding_feasible:
+                            self._reset_arrays()
+                finally:
+                    if aggregator:  # reset `find_feasible_aggregator` to original value
+                        self.find_feasible_aggregator = aggregator_
+        finally:
+            if best_saved is not None:
+                temp_best = es.best
+                es.best = best_saved
+                if hasattr(es, 'countevals'):
+                    es.best.evalsall = es.countevals
+                es.best.compared += temp_best.compared
+                if (not self.finding_feasible
+                        and self.best_feas.count_saved != best_feas_count
+                        and self.best_feas.info is not None):
+                    evals = getattr(es, 'countevals', None)
+                    es.best.update(
+                        [self.best_feas.x],
+                        getattr(es, 'sent_solutions', None),
+                        [self.best_feas.info['f_al'] - self.foffset],
+                        1 if evals == 0 else evals,
+                    )
+                    if hasattr(es, 'countevals'):
+                        es.best.evalsall = es.countevals
         # warn when no feasible solution was found
         if self.best_feas.x is None or self.finding_feasible:
             _warnings.warn("ConstrainedFitnessAL.find_feasible: "
