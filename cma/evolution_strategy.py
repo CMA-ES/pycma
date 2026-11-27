@@ -1279,9 +1279,19 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                             1. / (self.sp.c1 + self.sp.cmu + 1e-23) / dimension / 10
                             if self.opts['updatecovwait'] is None
                             else self.opts['updatecovwait'])
-            self.sp.weights.finalize_negative_weights(dimension,
-                                                      p.get('c1', self.sp.c1),
-                                                      p.get('cmu', self.sp.cmu))
+            c1, cmu = self._sampler_learning_rates(params=p)
+            self.sp.weights.finalize_negative_weights(dimension, c1, cmu)
+
+    def _sampler_learning_rates(self, sp=None, params=None, **params_kwargs):
+        """return `(c1, cmu)` scaled by `CMA_on`, `CMA_rankone`, `CMA_rankmu`."""
+        if sp is None:
+            sp = self.sp
+        p = self.sm.parameters(**params_kwargs) if params is None else params
+        c1 = (self.opts['CMA_on'] * self.opts['CMA_rankone'] * p['c1']
+              if 'c1' in p else sp.c1)
+        cmu = (self.opts['CMA_on'] * self.opts['CMA_rankmu'] * p['cmu']
+               if 'cmu' in p else sp.cmu)
+        return c1, cmu
 
     def stop(self, check=True, ignore_list=(), check_in_same_iteration=False,
              get_value=None):
@@ -1621,9 +1631,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     randn=self.opts['randn'],
                     eigenmethod=self.opts['CMA_eigenmethod'],
                     )
-                p = self.sm.parameters(mueff=self.sp.weights.mueff,
-                                       lam=self.sp.weights.lambda_)
-                self.sp.weights.finalize_negative_weights(N, p['c1'], p['cmu'])
+                c1, cmu = self._sampler_learning_rates(
+                    mueff=self.sp.weights.mueff, lam=self.sp.weights.lambda_)
+                self.sp.weights.finalize_negative_weights(N, c1, cmu)
             elif isinstance(self.opts['CMA_sampler'], type):
                 try:
                     self.sm = self.opts['CMA_sampler'](
@@ -3130,13 +3140,17 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         # get learning rate constants
         cc = sp.cc
-        c1 = self.opts['CMA_on'] * self.opts['CMA_rankone'] * self.sm.parameters(
-            mueff=sp.weights.mueff, lam=sp.weights.lambda_).get('c1', sp.c1)  # mueff and lambda_ should not be necessary here
-        cmu = self.opts['CMA_on'] * self.opts['CMA_rankmu'] * self.sm.parameters().get('cmu', sp.cmu)
+        c1, cmu = self._sampler_learning_rates(
+            sp, mueff=sp.weights.mueff, lam=sp.weights.lambda_)
         if flg_diagonal:
             cc, c1, cmu = sp.cc_sep, sp.c1_sep, sp.cmu_sep
 
-        _finalize_weights = self.countiter <= 1
+        _finalize_weights = (
+            self.countiter <= 1
+            or (sp.weights[-1] < 0 and (
+                getattr(sp.weights, '_c1', None) != c1
+                or getattr(sp.weights, '_cmu', None) != cmu))
+        )
         if self.c1_dynamic is not None:
             if not hasattr(self, '_c1_dynamic_last_value'):
                 self._c1_dynamic_last_value = c1

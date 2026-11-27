@@ -151,6 +151,39 @@ def test_result_equality():
     """
 
 
+def test_negative_weights_respect_cma_on():
+    """`finalize_negative_weights` respects `CMA_on`, `CMA_rankone`, `CMA_rankmu`.
+
+    >>> import warnings
+    >>> import cma
+    >>> es = cma.CMAEvolutionStrategy(5 * [1], 1,
+    ...         {'CMA_on': 0.1, 'popsize': 100, 'verbose': -9})
+    >>> init_neg = sum(w for w in es.sp.weights if w < 0)
+    >>> X = es.ask()
+    >>> es.tell(X, [cma.ff.sphere(x) for x in X])
+    >>> tell_neg = sum(w for w in es.sp.weights if w < 0)
+    >>> assert abs(init_neg - tell_neg) < 1e-12, (init_neg, tell_neg)
+    >>> es2 = cma.CMAEvolutionStrategy(5 * [1], 1,
+    ...         {'CMA_on': 1.0, 'popsize': 100, 'verbose': -9})
+    >>> for _ in range(2):
+    ...     X = es2.ask()
+    ...     es2.tell(X, [cma.ff.sphere(x) for x in X])
+    >>> es2.opts['CMA_on'] = 0.1
+    >>> X = es2.ask()
+    >>> es2.tell(X, [cma.ff.sphere(x) for x in X])
+    >>> dyn_neg = sum(w for w in es2.sp.weights if w < 0)
+    >>> assert abs(dyn_neg - tell_neg) < 1e-12, (dyn_neg, tell_neg)
+    >>> es3 = cma.CMAEvolutionStrategy(5 * [1], 1,
+    ...         {'CMA_on': 0.1, 'popsize': 80, 'verbose': -9})
+    >>> with warnings.catch_warnings():
+    ...     warnings.simplefilter('ignore')
+    ...     es3.set_popsize(100)
+    >>> reset_neg = sum(w for w in es3.sp.weights if w < 0)
+    >>> assert abs(reset_neg - tell_neg) < 1e-12, (reset_neg, tell_neg)
+
+    """
+
+
 def various_doctests():
     """various doc tests.
 
