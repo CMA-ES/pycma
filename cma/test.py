@@ -151,6 +151,35 @@ def test_result_equality():
     """
 
 
+def test_tolstagnation_default_with_constraints():
+    """Default `tolstagnation` is set to 0 for constrained interfaces.
+
+    >>> import cma
+    >>> def cons(x): return [1 - x[0]]
+    >>> _, es = cma.fmin2(cma.ff.sphere, [2, 2], 0.5,
+    ...                   {'maxiter': 1, 'verbose': -9}, constraints=cons)
+    >>> assert es.opts['tolstagnation'] == 0, es.opts['tolstagnation']
+    >>> _, es_keep = cma.fmin2(cma.ff.sphere, [2, 2], 0.5,
+    ...                        {'maxiter': 1, 'tolstagnation': 123, 'verbose': -9},
+    ...                        constraints=cons)
+    >>> assert es_keep.opts['tolstagnation'] == 123, es_keep.opts['tolstagnation']
+    >>> cfun = cma.ConstrainedFitnessAL(cma.ff.sphere, cons, logging=False)
+    >>> es_opt = cma.CMAEvolutionStrategy([2, 2], 0.5, {'maxiter': 1, 'verbose': -9})
+    >>> _ = es_opt.optimize(cfun, callback=cfun.update)
+    >>> assert es_opt.opts['tolstagnation'] == 0, es_opt.opts['tolstagnation']
+    >>> es_tell = cma.CMAEvolutionStrategy([2, 2], 0.5, {'verbose': -9})
+    >>> X = es_tell.ask()
+    >>> es_tell.tell2(X, [cma.ff.sphere(x) for x in X], [cons(x) for x in X])
+    >>> assert es_tell.opts['tolstagnation'] == 0, es_tell.opts['tolstagnation']
+    >>> es_tell_keep = cma.CMAEvolutionStrategy([2, 2], 0.5,
+    ...                                         {'tolstagnation': 77, 'verbose': -9})
+    >>> X = es_tell_keep.ask()
+    >>> es_tell_keep.tell2(X, [cma.ff.sphere(x) for x in X], [cons(x) for x in X])
+    >>> assert es_tell_keep.opts['tolstagnation'] == 77, es_tell_keep.opts['tolstagnation']
+
+    """
+
+
 def various_doctests():
     """various doc tests.
 
