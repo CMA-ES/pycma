@@ -1348,7 +1348,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if inopts is None:
             inopts = {}
         self.inopts = inopts
-        opts = CMAOptions(inopts).complement()  # CMAOptions() == fmin([],[]) == defaultOptions()
+        opts = CMAOptions(inopts)
+        tolstagnation_is_default = opts.get('tolstagnation', None) in (
+            None, cma_default_options['tolstagnation'])
+        opts = opts.complement()  # CMAOptions() == fmin([],[]) == defaultOptions()
         if opts.eval('verbose') is None:
             opts['verbose'] = CMAOptions()['verbose']
         utils.global_verbosity = global_verbosity = opts.eval('verbose')
@@ -1483,6 +1486,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         opts.amend_integer_options(N, inopts)
         self.sp = options_parameters.CMAParameters(N, opts, verbose=opts['verbose'] > 0)
+        self._tolstagnation_default = (
+            self.opts['tolstagnation'] if tolstagnation_is_default else None
+        )
         self.sp0 = self.sp  # not a copy, works given we reset sp like self.sp = options_parameters
                             #     .CMAParameters(self.N, self.opts, verbose=False)
 
@@ -3744,8 +3750,40 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             print('std deviations: %s ...]' % (str(self.stds[:8])[:-1]))
         return self.result
 
+    def _set_default_tolstagnation_zero(self):
+        """set `opts['tolstagnation']` to 0 unless explicitly configured."""
+        if (getattr(self, '_tolstagnation_default', None) is not None
+                and self.opts['tolstagnation'] == self._tolstagnation_default):
+            self.opts['tolstagnation'] = 0
+        self._tolstagnation_default = None
+
+    def optimize(self, objective_fct,
+                 maxfun=None,
+                 iterations=None,
+                 min_iterations=1,
+                 args=(),
+                 verb_disp=None,
+                 callback=None,
+                 n_jobs=0,
+                 **kwargs):
+        if isinstance(objective_fct, _constraints_handler.ConstrainedFitnessAL):
+            self._set_default_tolstagnation_zero()
+        return super(CMAEvolutionStrategy, self).optimize(
+            objective_fct,
+            maxfun=maxfun,
+            iterations=iterations,
+            min_iterations=min_iterations,
+            args=args,
+            verb_disp=verb_disp,
+            callback=callback,
+            n_jobs=n_jobs,
+            **kwargs
+        )
+    optimize.__doc__ = interfaces.OOOptimizer.optimize.__doc__
+
     def _tear_up_constraints_handling(self):
         """assign `augmented_lagrangian` and `best_feasible` attributes"""
+        self._set_default_tolstagnation_zero()
         if self.countiter > 1:
             warnings.warn(
                 "Late initialization of constraints handling at iteration {0}"
@@ -5375,6 +5413,16 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
         CMAOptions().check_attributes(options)  # might modify options
         # checked that no options.ftarget =
         opts = CMAOptions(options.copy()).complement()
+        constrained_tolstagnation_zero = False
+        if (kwargs.get('constraints', None) is not None or isinstance(
+                objective_function, _constraints_handler.ConstrainedFitnessAL)):
+            user_opts = (CMAOptions() if options is cma_default_options
+                         else CMAOptions(options))
+            if (options is cma_default_options
+                    or user_opts.get('tolstagnation', None) in (
+                        None, cma_default_options['tolstagnation'])):
+                opts['tolstagnation'] = 0
+                constrained_tolstagnation_zero = True
 
         callback = _callable_to_list(callback)
 
@@ -5452,6 +5500,8 @@ def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
                             'usecase. The passed options are likely to lead to an error \n'
                             'later. Passed options={0}'.format(options))
                     es.opts.set(options)
+                if constrained_tolstagnation_zero:
+                    es._set_default_tolstagnation_zero()
                 # ignore further input args and keep original options
             else:  # default case
                 if irun and (fmin_options['restart_from_best'] != 'False'
