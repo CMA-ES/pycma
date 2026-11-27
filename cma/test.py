@@ -151,6 +151,37 @@ def test_result_equality():
     """
 
 
+def test_find_feasible_preserves_es_best():
+    """`ConstrainedFitnessAL.find_feasible` restores and updates `es.best`.
+
+    >>> import warnings
+    >>> import cma
+    >>> def fun(x): return 10 + cma.ff.sphere(x)
+    >>> def cons(x): return [x[0] + 1, x[1]]
+    >>> x, es = cma.fmin_con2(fun, [2, 2], 0.5, constraints=cons,
+    ...                       find_feasible_final=True,
+    ...                       options={'seed': 1, 'verbose': -9})
+    >>> assert es.best.f >= 10, es.best.f
+    >>> assert es.best.evalsall == es.countevals, (es.best.evalsall, es.countevals)
+    >>> cfun = cma.ConstrainedFitnessAL(fun, lambda x: [1.0], logging=False)
+    >>> es2 = cma.CMAEvolutionStrategy([0, 0], 0.5, {'maxiter': 2, 'verbose': -9})
+    >>> es2 = es2.optimize(cfun, callback=cfun.update)
+    >>> best_x, best_f, best_evals = es2.best.get()
+    >>> es2.opts['maxiter'] = 4
+    >>> with warnings.catch_warnings():
+    ...     warnings.simplefilter('ignore', UserWarning)
+    ...     _ = cfun.find_feasible(es2)
+    >>> assert es2.best.f == best_f and es2.best.evals == best_evals, es2.best.get()
+    >>> assert (es2.best.x == best_x).all()
+    >>> assert es2.best.evalsall == es2.countevals
+    >>> cfun3 = cma.ConstrainedFitnessAL(fun, cons, logging=False)
+    >>> es3 = cma.CMAEvolutionStrategy([-1, 0], 0.5, {'verbose': -9})
+    >>> _ = cfun3.find_feasible(es3)
+    >>> assert es3.best.f == 11 and es3.best.evals == 1 and es3.best.evalsall == 0
+
+    """
+
+
 def various_doctests():
     """various doc tests.
 
